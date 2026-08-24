@@ -1,35 +1,53 @@
-import { useEffect, useRef } from 'react'
-import { MONK_AVATARS } from '../data/avatars.js'
-import { drawAvatarPreview } from '../lib/avatarDraw.js'
+import { MONK_AVATARS, getPortraitPath } from '../data/avatars.js'
 
 export function AvatarPicker({ value, onChange }) {
-  const refs = useRef({})
-
-  useEffect(() => {
-    MONK_AVATARS.forEach((a, i) => {
-      const c = refs.current[a.id]
-      if (!c) return
-      const ctx = c.getContext('2d')
-      ctx.clearRect(0, 0, 64, 64)
-      drawAvatarPreview(ctx, 32, 36, a.id, i)
-    })
-  }, [])
-
   return (
-    <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
-      {MONK_AVATARS.map((a) => (
-        <button
-          key={a.id}
-          type="button"
-          onClick={() => onChange(a.id)}
-          className={`flex flex-col items-center rounded-xl border p-2 transition ${
-            value === a.id ? 'border-sky bg-sky/10 ring-2 ring-sky' : 'border-white/10 bg-black/20 hover:border-white/25'
-          }`}
-        >
-          <canvas ref={(el) => { refs.current[a.id] = el }} width={64} height={64} className="h-14 w-14" />
-          <span className="mt-1 text-[9px] font-display uppercase tracking-wide text-muted">{a.label}</span>
-        </button>
-      ))}
+    <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {MONK_AVATARS.map((a) => {
+        const selected = value === a.id
+        return (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => onChange(a.id)}
+            className={`group flex flex-col overflow-hidden rounded-xl border transition ${
+              selected
+                ? 'border-sky bg-sky/10 ring-2 ring-sky'
+                : 'border-white/10 bg-black/30 hover:border-white/25'
+            }`}
+          >
+            <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-b from-[#1a2030] to-[#0a0e16]">
+              <img
+                src={a.portrait}
+                alt={`${a.label} scout portrait`}
+                className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
+                loading="lazy"
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent" />
+            </div>
+            <div className="px-2 py-2 text-center">
+              <span className="font-display text-xs font-bold uppercase tracking-wide text-fog">{a.label}</span>
+              <span className="mt-0.5 block text-[9px] text-muted">{a.heightCm} cm</span>
+            </div>
+          </button>
+        )
+      })}
     </div>
+  )
+}
+
+export function AvatarPortrait({ avatarId, size = 64, className = '' }) {
+  const src = getPortraitPath(avatarId)
+  const label = MONK_AVATARS.find((a) => a.id === avatarId)?.label || 'Scout'
+  return (
+    <img
+      src={src}
+      alt={`${label} portrait`}
+      width={size}
+      height={size}
+      className={`rounded-full object-cover object-top ring-2 ring-white/10 ${className}`}
+      style={{ width: size, height: size }}
+      loading="lazy"
+    />
   )
 }
