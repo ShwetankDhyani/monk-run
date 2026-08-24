@@ -1,8 +1,7 @@
 import Peer from 'peerjs'
 import { migrateVibeToAvatar } from '../data/avatars.js'
 import { randomBlackHolePos, pickRandomSpawn, clampToFloor } from './templeRoom.js'
-import { haversineKm, scoreFromDistanceKm } from './scoring.js'
-import { createGameSession, openRoundView, fetchRoundTruth } from './gameSession.js'
+import { createGameSession, openRoundView, revealRoundScores } from './gameSession.js'
 import { playerError } from './playerErrors.js'
 
 export const MAX_PLAYERS = 5
@@ -31,7 +30,7 @@ function clone(s) {
   return JSON.parse(JSON.stringify(s))
 }
 
-/** Host-authoritative PeerJS room: temple lobby → portal countdown → GeoGuessr. */
+/** Host-authoritative PeerJS room: temple lobby → portal countdown → world-guess. */
 export function createRoomController({ onState, onError, onEvent }) {
   let peer = null
   let hostConn = null
@@ -106,7 +105,8 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   function blankSecrets() {
     return {
-      gameSessionId: '',
+      gameSessionId: null,
+      hostToken: null,
       locationIds: [],
       currentLocationId: null,
       seed: 0,
@@ -187,7 +187,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       upsertPlayer({
         id: fromId,
         name: String(msg.name || 'Wanderer').slice(0, 18),
-        avatar: migrateVibeToAvatar(msg.avatar || msg.vibe || 'aot-eren'),
+        avatar: migrateVibeToAvatar(msg.avatar || msg.vibe || 'monk-rift'),
         vibe: msg.vibe || 'saffron',
         connected: true,
       })
@@ -413,7 +413,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   async function createRoom({ name, vibe, avatar, code }) {
     destroy()
-    const av = migrateVibeToAvatar(avatar || vibe || 'aot-eren')
+    const av = migrateVibeToAvatar(avatar || vibe || 'monk-rift')
     try {
       const opened = await openPeer(`monk-${code}`)
       peer = opened.peer
@@ -445,7 +445,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   async function joinRoom({ name, vibe, avatar, code }) {
     destroy()
-    const av = migrateVibeToAvatar(avatar || vibe || 'aot-eren')
+    const av = migrateVibeToAvatar(avatar || vibe || 'monk-rift')
     try {
       const opened = await openPeer()
       peer = opened.peer
@@ -548,6 +548,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       if (state.phase !== 'countdown') return
       secrets = {
         gameSessionId: session.sessionId,
+        hostToken: session.hostToken || '',
         locationIds: session.locationIds,
         currentLocationId: null,
         seed: 0,
@@ -674,48 +675,43 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   async function buildRevealAsync() {
-    const truthLoc = await fetchRoundTruth(secrets.gameSessionId, state.roundIndex)
-    if (!truthLoc) return null
-    const results = state.players.map((p) => {
+    const guesses = state.players.map((p) => {
       const g = state.guesses[p.id]
-      if (!g) {
-        return {
-          playerId: p.id,
-          name: p.name,
-          vibe: p.vibe,
-        avatar: p.avatar || p.vibe,
-          lat: null,
-          lng: null,
-          country: '',
-          km: null,
-          score: 0,
-          missed: true,
-        }
-      }
-      const km = haversineKm({ lat: g.lat, lng: g.lng }, { lat: truthLoc.lat, lng: truthLoc.lng })
       return {
         playerId: p.id,
         name: p.name,
-        vibe: p.vibe,
         avatar: p.avatar || p.vibe,
-        lat: g.lat,
-        lng: g.lng,
-        country: g.country,
-        km,
-        score: scoreFromDistanceKm(km),
-        missed: false,
+        lat: g?.lat ?? null,
+        lng: g?.lng ?? null,
+        country: g?.country || '',
       }
     })
+    const scored = await revealRoundScores(
+      secrets.gameSessionId,
+      secrets.hostToken,
+      state.roundIndex,
+      guesses,
+    )
+    if (!scored) return null
+    const results = scored.results.map((r) => ({
+      playerId: r.playerId,
+      name: r.name || state.players.find((p) => p.id === r.playerId)?.name || 'Monk',
+      vibe: state.players.find((p) => p.id === r.playerId)?.vibe,
+      avatar: r.avatar || state.players.find((p) => p.id === r.playerId)?.avatar,
+      lat: r.lat,
+      lng: r.lng,
+      country: r.country || '',
+      km: r.km,
+      score: r.score,
+      missed: !!r.missed,
+      commitToken: r.commitToken,
+      total: r.total,
+    }))
     results.sort((a, b) => b.score - a.score)
     return {
-      truth: {
-        id: truthLoc.id,
-        lat: truthLoc.lat,
-        lng: truthLoc.lng,
-        country: truthLoc.country,
-        city: truthLoc.city,
-      },
+      truth: scored.truth,
       results,
+      totals: scored.totals,
     }
   }
 

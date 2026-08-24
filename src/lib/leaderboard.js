@@ -1,4 +1,4 @@
-/** All-time top scores (server-backed). */
+/** All-time top scores — submissions must include a server commit token. */
 
 export async function fetchLeaderboard() {
   try {
@@ -11,12 +11,28 @@ export async function fetchLeaderboard() {
   }
 }
 
-export async function submitScore({ name, score, roomCode, avatarId }) {
+export async function submitScore({
+  name,
+  score,
+  roomCode,
+  avatarId,
+  sessionId,
+  playerId,
+  commitToken,
+}) {
   try {
     const res = await fetch('/api/leaderboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, score, roomCode, avatarId }),
+      body: JSON.stringify({
+        name,
+        score,
+        roomCode,
+        avatarId,
+        sessionId,
+        playerId,
+        commitToken,
+      }),
     })
     if (!res.ok) return null
     return res.json()

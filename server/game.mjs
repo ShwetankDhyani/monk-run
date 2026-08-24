@@ -1,14 +1,18 @@
-import { randomBytes } from 'node:crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { pickGlobalPlaces, enrichPlace } from './randomPlaces.mjs'
 
-/** @type {Map<string, { roomCode: string, locations: object[], roundTokens: (string|null)[], createdAt: number }>} */
+/** @type {Map<string, object>} */
 const sessions = new Map()
 
-/** @type {Map<string, { lat: number, lng: number, expiresAt: number, used: boolean }>} */
+/** @type {Map<string, { lat: number, lng: number, panoId: string, expiresAt: number }>} */
 const viewTokens = new Map()
 
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000
 const VIEW_TTL_MS = 100 * 60 * 1000
+const SCORE_SECRET = () =>
+  process.env.MONK_SCORE_SECRET ||
+  process.env.GOOGLE_MAPS_API_KEY ||
+  'monk-dev-score-secret-change-me'
 
 function purgeExpired() {
   const now = Date.now()
@@ -25,14 +29,48 @@ function mintViewToken(loc) {
   viewTokens.set(viewToken, {
     lat: loc.lat,
     lng: loc.lng,
+    panoId: loc.panoId || '',
     expiresAt: Date.now() + VIEW_TTL_MS,
-    used: false,
   })
   return viewToken
 }
 
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a))
+  const bb = Buffer.from(String(b))
+  if (ba.length !== bb.length) return false
+  return timingSafeEqual(ba, bb)
+}
+
+function haversineKm(a, b) {
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+function scoreFromDistanceKm(km) {
+  if (!Number.isFinite(km) || km < 0) return 0
+  if (km < 0.025) return 5000
+  return Math.max(0, Math.min(5000, Math.round(5000 * Math.exp(-km / 2000))))
+}
+
+export function signLeaderboardCommit(sessionId, playerId, score) {
+  return createHmac('sha256', SCORE_SECRET())
+    .update(`${sessionId}:${playerId}:${Math.round(score)}`)
+    .digest('hex')
+}
+
+export function verifyLeaderboardCommit(sessionId, playerId, score, token) {
+  const expected = signLeaderboardCommit(sessionId, playerId, score)
+  return safeEqual(expected, token)
+}
+
 /**
- * Create a session with globally random, non-repeating Street View places.
  * @param {string} roomCode
  * @param {number} rounds
  * @param {string} [mapsKey]
@@ -41,17 +79,22 @@ export async function createGameSession(roomCode, rounds = 5, mapsKey = '') {
   purgeExpired()
   const picks = await pickGlobalPlaces(rounds, mapsKey)
   const sessionId = randomBytes(16).toString('hex')
+  const hostToken = randomBytes(24).toString('hex')
   const locationIds = picks.map((l) => l.id)
   const roundTokens = picks.map((loc) => mintViewToken(loc))
   sessions.set(sessionId, {
     roomCode: String(roomCode || '').slice(0, 8),
+    hostToken,
     locations: picks,
     locationIds,
     roundTokens,
+    revealed: new Set(),
+    totals: /** @type {Record<string, number>} */ ({}),
     createdAt: Date.now(),
   })
   return {
     sessionId,
+    hostToken,
     totalRounds: picks.length,
     locationIds,
   }
@@ -80,22 +123,122 @@ export function getViewForToken(token) {
   return v
 }
 
-export function getLocationForSessionRound(sessionId, roundIndex) {
+function assertHost(sessionId, hostToken) {
   const session = sessions.get(sessionId)
-  if (!session) return null
-  return session.locations?.[roundIndex] || null
+  if (!session || !hostToken || !safeEqual(session.hostToken, hostToken)) return null
+  return session
 }
 
-export async function getEnrichedLocationForSessionRound(sessionId, roundIndex) {
-  const loc = getLocationForSessionRound(sessionId, roundIndex)
+/** Host-only truth (never expose without hostToken). */
+export async function getEnrichedLocationForHost(sessionId, roundIndex, hostToken) {
+  const session = assertHost(sessionId, hostToken)
+  if (!session) return null
+  const loc = session.locations?.[roundIndex]
   if (!loc) return null
   return enrichPlace(loc)
 }
 
-/** Locked-down Street View page — coordinates exist only server-side. */
-export function renderStreetViewHtml({ lat, lng }, apiKey = '') {
-  const latS = Number(lat).toFixed(6)
-  const lngS = Number(lng).toFixed(6)
+/**
+ * Server-authoritative reveal — host submits guesses, server returns scores + truth.
+ * @param {string} sessionId
+ * @param {string} hostToken
+ * @param {number} roundIndex
+ * @param {{ playerId: string, name?: string, avatar?: string, lat: number|null, lng: number|null, country?: string }[]} guesses
+ */
+export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
+  const session = assertHost(sessionId, hostToken)
+  if (!session) return null
+  const loc = session.locations?.[roundIndex]
+  if (!loc) return null
+
+  const truthLoc = await enrichPlace(loc)
+  const list = Array.isArray(guesses) ? guesses : []
+  const results = list.map((g) => {
+    const playerId = String(g.playerId || '').slice(0, 64)
+    const lat = Number(g.lat)
+    const lng = Number(g.lng)
+    const missed = !Number.isFinite(lat) || !Number.isFinite(lng)
+    const km = missed ? null : haversineKm({ lat, lng }, { lat: truthLoc.lat, lng: truthLoc.lng })
+    const score = missed ? 0 : scoreFromDistanceKm(km)
+    session.totals[playerId] = (session.totals[playerId] || 0) + score
+    return {
+      playerId,
+      name: String(g.name || '').slice(0, 24),
+      avatar: String(g.avatar || '').slice(0, 32),
+      lat: missed ? null : lat,
+      lng: missed ? null : lng,
+      country: String(g.country || '').slice(0, 64),
+      km,
+      score,
+      missed,
+      total: session.totals[playerId],
+      commitToken: signLeaderboardCommit(sessionId, playerId, session.totals[playerId]),
+    }
+  })
+  results.sort((a, b) => b.score - a.score)
+  session.revealed.add(roundIndex)
+
+  return {
+    truth: {
+      id: truthLoc.id,
+      lat: truthLoc.lat,
+      lng: truthLoc.lng,
+      country: truthLoc.country,
+      city: truthLoc.city,
+    },
+    results,
+    totals: { ...session.totals },
+  }
+}
+
+/**
+ * Street View HTML — prefer panorama id so raw lat/lng are not in the document.
+ * API key required for production-quality rendering.
+ */
+export function renderStreetViewHtml(view, apiKey = '') {
+  const panoId = String(view.panoId || '').replace(/[^A-Za-z0-9_-]/g, '')
+  const latS = Number(view.lat).toFixed(6)
+  const lngS = Number(view.lng).toFixed(6)
+  const heading = Math.floor(Math.random() * 360)
+
+  if (apiKey && panoId) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src 'none'; object-src 'none';" />
+  <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}</style>
+</head>
+<body oncontextmenu="return false">
+  <div id="pano"></div>
+  <script>
+    function init() {
+      var pano = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
+        pano: ${JSON.stringify(panoId)},
+        pov: { heading: ${heading}, pitch: 0 },
+        zoom: 1,
+        addressControl: false,
+        linksControl: true,
+        panControl: false,
+        zoomControl: true,
+        fullscreenControl: false,
+        motionTracking: false,
+        motionTrackingControl: false,
+        enableCloseButton: false,
+        showRoadLabels: false,
+        clickToGo: true,
+        scrollwheel: true,
+      });
+      document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 's' || e.key === 'p')) e.preventDefault();
+      });
+    }
+  </script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=init"></script>
+</body>
+</html>`
+  }
 
   if (apiKey) {
     return `<!DOCTYPE html>
@@ -112,7 +255,7 @@ export function renderStreetViewHtml({ lat, lng }, apiKey = '') {
     function init() {
       var pano = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
         position: { lat: ${latS}, lng: ${lngS} },
-        pov: { heading: Math.floor(Math.random()*360), pitch: 0 },
+        pov: { heading: ${heading}, pitch: 0 },
         zoom: 1,
         addressControl: false,
         linksControl: true,
@@ -120,22 +263,17 @@ export function renderStreetViewHtml({ lat, lng }, apiKey = '') {
         zoomControl: true,
         fullscreenControl: false,
         motionTracking: false,
-        motionTrackingControl: false,
         enableCloseButton: false,
         showRoadLabels: false,
         clickToGo: true,
         scrollwheel: true,
       });
       var svc = new google.maps.StreetViewService();
-      svc.getPanorama({ location: { lat: ${latS}, lng: ${lngS} }, radius: 5000, source: google.maps.StreetViewPreference.NEAREST }, function(data, status) {
+      svc.getPanorama({ location: { lat: ${latS}, lng: ${lngS} }, radius: 5000, preference: google.maps.StreetViewPreference.NEAREST }, function(data, status) {
         if (status === 'OK' && data && data.location && data.location.pano) {
           pano.setPano(data.location.pano);
-          if (data.location.latLng) pano.setPosition(data.location.latLng);
           pano.setVisible(true);
         }
-      });
-      document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 's' || e.key === 'p')) e.preventDefault();
       });
     }
   </script>
@@ -143,6 +281,11 @@ export function renderStreetViewHtml({ lat, lng }, apiKey = '') {
 </body>
 </html>`
   }
+
+  // Embed fallback — prefer panoid when present
+  const embedSrc = panoId
+    ? `https://www.google.com/maps?layer=c&panoid=${encodeURIComponent(panoId)}&cbp=12,${heading},0,0,0&hl=en&output=svembed`
+    : `https://www.google.com/maps?layer=c&cbll=${latS},${lngS}&cbp=12,${heading},0,0,0&hl=en&output=svembed`
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -153,23 +296,7 @@ export function renderStreetViewHtml({ lat, lng }, apiKey = '') {
   <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}iframe{border:0;width:100%;height:100%}</style>
 </head>
 <body oncontextmenu="return false">
-  <iframe
-    id="sv"
-    title="Round view"
-    referrerpolicy="no-referrer"
-    allow="accelerometer; gyroscope"
-    sandbox="allow-scripts allow-same-origin"
-  ></iframe>
-  <script>
-    (function() {
-      var lat = ${latS}, lng = ${lngS};
-      document.getElementById('sv').src =
-        'https://www.google.com/maps?layer=c&cbll=' + lat + ',' + lng + '&cbp=12,0,0,0,0&hl=en&output=svembed';
-      document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 's' || e.key === 'p')) e.preventDefault();
-      });
-    })();
-  </script>
+  <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope" sandbox="allow-scripts allow-same-origin" src="${embedSrc}"></iframe>
 </body>
 </html>`
 }
@@ -183,4 +310,11 @@ export function sendHtml(res, status, html) {
     'Referrer-Policy': 'no-referrer',
   })
   res.end(html)
+}
+
+export function mapsConfigured() {
+  return Boolean(
+    String(process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '').trim() ||
+      process.env.ALLOW_MAPS_KEY_SCRAPE === '1',
+  )
 }

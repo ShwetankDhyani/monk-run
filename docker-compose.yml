@@ -1,0 +1,16 @@
+services:
+  monk:
+    build: .
+    ports:
+      - "47448:47448"
+    environment:
+      NODE_ENV: production
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      MONK_SCORE_SECRET: ${MONK_SCORE_SECRET:-change-me}
+      LEADERBOARD_PORT: 47448
+    volumes:
+      - monk-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  monk-data:

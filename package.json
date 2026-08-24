@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "monk.run — multiplayer party GeoGuessr with temple lobby, black hole jump, and voice chat",
+  "description": "monk.run \u2014 temple lobby party geography with voice and worldwide Street View",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:vite": "vite --host 0.0.0.0 --port 47447",
@@ -11,7 +11,8 @@
     "server": "node server/leaderboard.mjs",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 47447",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "start": "NODE_ENV=production STATIC_DIR=dist node server/leaderboard.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

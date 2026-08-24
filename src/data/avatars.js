@@ -1,9 +1,12 @@
-/** AOT scouts in monk robes — sprite traits for canvas lobby + picker. */
+/**
+ * Original temple scouts — monk.run characters (not third-party IP).
+ * Visual traits are original; IDs are stable for saves/leaderboards.
+ */
 export const MONK_AVATARS = [
   {
-    id: 'aot-eren',
-    label: 'Eren',
-    feature: 'eren',
+    id: 'monk-rift',
+    label: 'Rift',
+    feature: 'rift',
     heightScale: 1.0,
     hair: '#14100c',
     eyes: '#00dcc8',
@@ -11,9 +14,9 @@ export const MONK_AVATARS = [
     brow: '#2a1810',
   },
   {
-    id: 'aot-mikasa',
-    label: 'Mikasa',
-    feature: 'mikasa',
+    id: 'monk-veil',
+    label: 'Veil',
+    feature: 'veil',
     heightScale: 1.02,
     hair: '#0a0808',
     eyes: '#2a2830',
@@ -24,9 +27,9 @@ export const MONK_AVATARS = [
     scarfLight: '#9a2428',
   },
   {
-    id: 'aot-armin',
-    label: 'Armin',
-    feature: 'armin',
+    id: 'monk-lotus',
+    label: 'Lotus',
+    feature: 'lotus',
     heightScale: 0.9,
     hair: '#d4b85a',
     eyes: '#3a6a9a',
@@ -34,9 +37,9 @@ export const MONK_AVATARS = [
     brow: '#a89040',
   },
   {
-    id: 'aot-levi',
-    label: 'Levi',
-    feature: 'levi',
+    id: 'monk-blade',
+    label: 'Blade',
+    feature: 'blade',
     heightScale: 0.8,
     hair: '#0e0c0a',
     eyes: '#5a7088',
@@ -45,9 +48,9 @@ export const MONK_AVATARS = [
     cravat: '#f0ece4',
   },
   {
-    id: 'aot-hange',
-    label: 'Hange',
-    feature: 'hange',
+    id: 'monk-lens',
+    label: 'Lens',
+    feature: 'lens',
     heightScale: 1.0,
     hair: '#6a5030',
     eyes: '#5a4030',
@@ -55,9 +58,9 @@ export const MONK_AVATARS = [
     brow: '#5a4030',
   },
   {
-    id: 'aot-jean',
-    label: 'Jean',
-    feature: 'jean',
+    id: 'monk-ridge',
+    label: 'Ridge',
+    feature: 'ridge',
     heightScale: 1.12,
     hair: '#7a5a30',
     eyes: '#5a5040',
@@ -65,9 +68,9 @@ export const MONK_AVATARS = [
     brow: '#6a5030',
   },
   {
-    id: 'aot-historia',
-    label: 'Historia',
-    feature: 'historia',
+    id: 'monk-crown',
+    label: 'Crown',
+    feature: 'crown',
     heightScale: 0.74,
     hair: '#f0e8a8',
     eyes: '#4a7ab0',
@@ -78,52 +81,63 @@ export const MONK_AVATARS = [
 ]
 
 export const ROBE_PALETTE = [
-  { robe: '#c87830', sash: '#8b1a1a', hood: '#a86028' },
-  { robe: '#b86828', sash: '#c9a227', hood: '#985020' },
-  { robe: '#a85820', sash: '#6a3020', hood: '#884818' },
-  { robe: '#d08838', sash: '#9b8ec4', hood: '#b07030' },
-  { robe: '#c07028', sash: '#d4af37', hood: '#a05820' },
-  { robe: '#b86024', sash: '#5ec4d4', hood: '#984818' },
-  { robe: '#c87830', sash: '#e8a0b0', hood: '#a86028' },
+  { id: 'saffron', robe: '#e8a020', hood: '#f0b040', sash: '#fff4d0' },
+  { id: 'cyan', robe: '#1aa8c8', hood: '#2ec4e0', sash: '#d0f4ff' },
+  { id: 'acid', robe: '#7ec820', hood: '#98e038', sash: '#f0ffd0' },
+  { id: 'ember', robe: '#d04030', hood: '#e85840', sash: '#ffe0d0' },
+  { id: 'violet', robe: '#8050c8', hood: '#9868e0', sash: '#f0e0ff' },
+  { id: 'ink', robe: '#2a3040', hood: '#3a4458', sash: '#c8d0e0' },
 ]
 
-export function hashStr(s) {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return h
+/** @deprecated legacy vibe → avatar migration */
+export function migrateVibeToAvatar(vibe) {
+  const map = {
+    saffron: 'monk-rift',
+    cyan: 'monk-lotus',
+    acid: 'monk-lens',
+    ember: 'monk-blade',
+    violet: 'monk-veil',
+    'monk-male': 'monk-rift',
+    'monk-female': 'monk-veil',
+    'monk-baby': 'monk-lotus',
+    'monk-bald': 'monk-blade',
+    'monk-mustache': 'monk-ridge',
+    'monk-mohawk': 'monk-lens',
+    'monk-glasses': 'monk-lens',
+    'monk-rift': 'monk-rift',
+    'monk-veil': 'monk-veil',
+    'monk-lotus': 'monk-lotus',
+    'monk-blade': 'monk-blade',
+    'monk-lens': 'monk-lens',
+    'monk-ridge': 'monk-ridge',
+    'monk-crown': 'monk-crown',
+    eren: 'monk-rift',
+    mikasa: 'monk-veil',
+    armin: 'monk-lotus',
+    levi: 'monk-blade',
+    hange: 'monk-lens',
+    jean: 'monk-ridge',
+    historia: 'monk-crown',
+  }
+  return map[vibe] || (MONK_AVATARS.some((a) => a.id === vibe) ? vibe : 'monk-rift')
+}
+
+export function getAvatar(id) {
+  const mid = migrateVibeToAvatar(id)
+  return MONK_AVATARS.find((a) => a.id === mid) || MONK_AVATARS[0]
 }
 
 export function resolvePlayerLook(avatarId, playerId, players = []) {
-  const id = migrateVibeToAvatar(avatarId)
-  const avatar = MONK_AVATARS.find((a) => a.id === id) || MONK_AVATARS[0]
-  const sameAvatar = players.filter((p) => migrateVibeToAvatar(p.avatar || p.vibe) === id)
-  const idxAmong = Math.max(0, sameAvatar.findIndex((p) => p.id === playerId))
-  const colorIdx = (hashStr(playerId) + idxAmong) % ROBE_PALETTE.length
-  const palette = ROBE_PALETTE[colorIdx]
+  const base = getAvatar(avatarId)
+  const same = players.filter((p) => migrateVibeToAvatar(p.avatar || p.vibe) === base.id)
+  const idx = Math.max(
+    0,
+    same.findIndex((p) => p.id === playerId),
+  )
+  const robe = ROBE_PALETTE[idx % ROBE_PALETTE.length]
   return {
-    ...avatar,
-    ...palette,
-    avatarId: avatar.id,
-    feature: avatar.feature,
-    heightScale: avatar.heightScale,
+    ...base,
+    ...robe,
+    heightScale: base.heightScale || 1,
   }
-}
-
-export function migrateVibeToAvatar(vibe) {
-  const map = {
-    saffron: 'aot-eren',
-    cyan: 'aot-armin',
-    acid: 'aot-hange',
-    ember: 'aot-levi',
-    violet: 'aot-mikasa',
-    'monk-male': 'aot-eren',
-    'monk-female': 'aot-mikasa',
-    'monk-baby': 'aot-armin',
-    'monk-bald': 'aot-levi',
-    'monk-mustache': 'aot-jean',
-    'monk-mohawk': 'aot-hange',
-    'monk-glasses': 'aot-hange',
-  }
-  if (MONK_AVATARS.some((a) => a.id === vibe)) return vibe
-  return map[vibe] || 'aot-eren'
 }

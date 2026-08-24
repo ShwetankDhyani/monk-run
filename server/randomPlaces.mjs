@@ -1,6 +1,6 @@
 /**
- * Fully random Street View — no place lists, no region lists, no hubs.
- * Each round: random point on Earth → Street View Metadata snap (or retry).
+ * Fully random Street View — no place lists.
+ * Requires a first-party Google Maps API key (no key scraping).
  */
 import { randomBytes } from 'node:crypto'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
@@ -14,10 +14,6 @@ const USED_FILE = join(__dirname, '..', 'data', 'used-places.json')
 /** @type {Set<string>} */
 const usedKeys = new Set()
 let usedLoaded = false
-
-/** Cached Maps key scraped from Google's public SV embed (metadata only). */
-let scrapedKey = ''
-let scrapedAt = 0
 
 function fingerprint(lat, lng) {
   return `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`
@@ -51,17 +47,25 @@ async function persistUsed() {
   }
 }
 
+let scrapedKey = ''
+let scrapedAt = 0
+
 /**
- * Prefer env key; otherwise use the public key Google ships in SV embeds
- * so coverage can be validated without local setup.
+ * Prefer first-party GOOGLE_MAPS_API_KEY.
+ * Scraping Google's public embed key is OFF unless ALLOW_MAPS_KEY_SCRAPE=1 (local/demo only).
  */
 export async function resolveMapsKey(preferred = '') {
-  const fromEnv = String(
+  const key = String(
     preferred || process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '',
   ).trim()
-  if (fromEnv) return fromEnv
-  if (scrapedKey && Date.now() - scrapedAt < 6 * 60 * 60 * 1000) return scrapedKey
+  if (key) return key
 
+  if (process.env.ALLOW_MAPS_KEY_SCRAPE !== '1') {
+    throw new Error(
+      'GOOGLE_MAPS_API_KEY is required. Set it in .env for launch; do not scrape third-party keys in production.',
+    )
+  }
+  if (scrapedKey && Date.now() - scrapedAt < 6 * 60 * 60 * 1000) return scrapedKey
   const res = await fetch(
     'https://www.google.com/maps?layer=c&cbll=40.7580,-73.9855&cbp=12,0,0,0,0&hl=en&output=svembed',
     {
@@ -78,10 +82,11 @@ export async function resolveMapsKey(preferred = '') {
   if (!m?.[1]) throw new Error('Could not resolve Street View metadata key')
   scrapedKey = m[1]
   scrapedAt = Date.now()
+  console.warn('[maps] Using scraped embed key — set GOOGLE_MAPS_API_KEY for production')
   return scrapedKey
 }
 
-/** Uniform random point on the globe (not from any list). */
+/** Uniform random point on the globe. */
 function randomGlobePoint() {
   const lng = Math.random() * 360 - 180
   const lat = (Math.acos(2 * Math.random() - 1) * 180) / Math.PI - 90
@@ -117,7 +122,7 @@ async function reverseGeocode(lat, lng) {
       headers: {
         Accept: 'application/json',
         'Accept-Language': 'en',
-        'User-Agent': 'monk.run/1.0 (party geoguessr)',
+        'User-Agent': 'monk.run/1.0 (https://monk.run; party geography game)',
       },
     })
     if (!res.ok) return { country: 'Unknown', city: '' }
@@ -148,7 +153,6 @@ function markUsed(panoId, lat, lng, sessionKeys) {
   }
 }
 
-/** One fully random outdoor panorama (unique vs recent history). */
 async function pickOneRandom(apiKey, sessionKeys) {
   const radii = [10000, 25000, 50000, 100000]
   const maxAttempts = 200
@@ -182,11 +186,6 @@ async function pickOneRandom(apiKey, sessionKeys) {
   return null
 }
 
-/**
- * Pick `count` unique worldwide Street View places — fully random each time.
- * @param {number} count
- * @param {string} [mapsKey]
- */
 export async function pickGlobalPlaces(count, mapsKey = '') {
   await loadUsed()
   const apiKey = await resolveMapsKey(mapsKey)
@@ -212,7 +211,6 @@ export async function pickGlobalPlaces(count, mapsKey = '') {
   return picks.slice(0, n)
 }
 
-/** Refine country/city at reveal time (keeps PLAY instant). */
 export async function enrichPlace(loc) {
   if (!loc) return loc
   if (!loc.needsGeocode && loc.country && loc.country !== 'Unknown') return loc

@@ -16,6 +16,10 @@ import { CinematicOverlay } from './components/CinematicOverlay.jsx'
 import { AllTimeLeaderboardButton } from './components/AllTimeLeaderboard.jsx'
 import { submitScore } from './lib/leaderboard.js'
 import { playerError } from './lib/playerErrors.js'
+import { HowToPlayModal } from './components/HowToPlayModal.jsx'
+import { SettingsModal } from './components/SettingsModal.jsx'
+import { LegalPage } from './components/LegalPage.jsx'
+import { sfx } from './lib/sfx.js'
 
 function useCountdown(endsAt, active) {
   const [left, setLeft] = useState(0)
@@ -77,7 +81,7 @@ function ShareCard({ players, scores, roomCode }) {
     })
     ctx.fillStyle = 'rgba(56,189,248,0.85)'
     ctx.font = '500 24px IBM Plex Mono, monospace'
-    ctx.fillText('party geoguessr · voice lobby · smack responsibly', 80, 1260)
+    ctx.fillText('party world-guess · voice lobby · smack responsibly', 80, 1260)
   }, [ranked, roomCode])
 
   return (
@@ -103,11 +107,15 @@ export default function App() {
   const [screen, setScreen] = useState('landing')
   const [name, setName] = useState(() => localStorage.getItem('monk-name') || '')
   const [vibe, setVibe] = useState(() => localStorage.getItem('monk-vibe') || 'saffron')
-  const [avatar, setAvatar] = useState(() => migrateVibeToAvatar(localStorage.getItem('monk-avatar') || localStorage.getItem('monk-vibe') || 'aot-eren'))
+  const [avatar, setAvatar] = useState(() => migrateVibeToAvatar(localStorage.getItem('monk-avatar') || localStorage.getItem('monk-vibe') || 'monk-rift'))
   const [cinPhase, setCinPhase] = useState(null)
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [showHowTo, setShowHowTo] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [legal, setLegal] = useState(null)
+  const commitRef = useRef({ sessionId: '', tokens: {} })
   const [room, setRoom] = useState(null)
   const [guess, setGuess] = useState(null)
   const [country, setCountry] = useState('')
@@ -143,6 +151,19 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (!room?.reveal?.results) return
+    const tokens = { ...commitRef.current.tokens }
+    for (const r of room.reveal.results) {
+      if (r.playerId && r.commitToken) tokens[r.playerId] = r.commitToken
+    }
+    commitRef.current = {
+      sessionId: room.gameSessionId || commitRef.current.sessionId,
+      tokens,
+    }
+    sfx.reveal()
+  }, [room?.reveal])
+
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [room?.chat?.length])
 
@@ -156,6 +177,7 @@ export default function App() {
 
     if (room.phase === 'lobby' || room.phase === 'countdown') {
       setScreen('cabin')
+      setError('')
     }
 
     if (room.phase === 'playing' && prev !== 'playing') {
@@ -231,7 +253,15 @@ export default function App() {
     const score = room.scores?.[room.selfId] || 0
     if (!me || score <= 0) return
     scoreSubmittedRef.current = true
-    submitScore({ name: me.name, score, roomCode: room.roomCode, avatarId: me.avatar || me.vibe }).then(() => {
+    submitScore({
+      name: me.name,
+      score,
+      roomCode: room.roomCode,
+      avatarId: me.avatar || me.vibe,
+      sessionId: commitRef.current.sessionId || room.gameSessionId || '',
+      playerId: room.selfId,
+      commitToken: commitRef.current.tokens[room.selfId] || '',
+    }).then(() => {
       setLeaderboardKey((k) => k + 1)
     })
   }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode])
@@ -358,18 +388,22 @@ export default function App() {
     room &&
     (room.phase === 'lobby' || room.phase === 'countdown' || portalHold)
 
+  if (legal) {
+    return <LegalPage kind={legal} onBack={() => setLegal(null)} />
+  }
+
   if (screen === 'landing' && !busy && (!room || room.phase === 'boot')) {
     const pinReady = normalizeRoomPin(joinCode).length === 6
     return (
       <div className="flex min-h-full flex-col items-center justify-center overflow-auto bg-ink p-4 pb-6">
         <div className="panel w-full max-w-lg p-6 md:p-8">
           <p className="text-center font-display text-sm font-bold uppercase tracking-[0.3em] text-sky">
-            party geoguessr
+            party world-guess
           </p>
           <h1 className="mt-2 text-center font-display text-5xl font-extrabold tracking-tight text-fog md:text-6xl">
             monk.run
           </h1>
-          <p className="mt-3 text-center text-sm text-muted">Voice chat + party GeoGuessr.</p>
+          <p className="mt-3 text-center text-sm text-muted">Voice chat + party world-guess.</p>
 
           <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Your monk name</label>
           <input
@@ -422,6 +456,12 @@ export default function App() {
           >
             Join room
           </button>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-[11px] text-muted">
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowHowTo(true)}>How to play</button>
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowSettings(true)}>Settings</button>
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('privacy')}>Privacy</button>
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('terms')}>Terms</button>
+          </div>
           {error && (
             <div
               className="mt-4 rounded-xl border border-amber/30 bg-amber/10 px-3 py-2 text-center text-xs text-amber"
@@ -439,6 +479,9 @@ export default function App() {
           )}
         </div>
         <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
+      
+      <HowToPlayModal open={showHowTo} onClose={() => setShowHowTo(false)} />
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       </div>
     )
   }
@@ -618,7 +661,13 @@ export default function App() {
               {(error || (room.message && /couldn|try again|didn.t load|hiccup|reach the game/i.test(room.message))) && (
                 <div className="rounded-lg border border-amber/25 bg-amber/10 px-2 py-1.5 text-amber" role="status">
                   <p>{playerError(error || room.message)}</p>
-                  {error && (
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-[11px] text-muted">
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowHowTo(true)}>How to play</button>
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowSettings(true)}>Settings</button>
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('privacy')}>Privacy</button>
+            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('terms')}>Terms</button>
+          </div>
+          {error && (
                     <button
                       type="button"
                       className="mt-0.5 text-[9px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
