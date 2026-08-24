@@ -27,10 +27,10 @@ Open **http://127.0.0.1:47447**
 
 ```bash
 cp .env.example .env
-# set VITE_GOOGLE_MAPS_API_KEY
+# set VITE_GOOGLE_MAPS_API_KEY / GOOGLE_MAPS_API_KEY
 ```
 
-Without a key, monk.run uses a Google Maps Street View embed (and a satellite backup if the embed is blocked).
+Without a key, rounds use a large pool of **verified Street View coordinates** (Google Maps embed). With a key, the server jitters near world cities and **snaps each pick to a real panorama** via the Street View Metadata API so empty “No Street View available” rounds don’t appear.
 
 ## How to play
 
