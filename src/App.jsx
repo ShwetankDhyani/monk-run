@@ -226,20 +226,27 @@ export default function App() {
   const create = async () => {
     setError('')
     setBusy(true)
+    setScreen('cabin')
     localStorage.setItem('monk-name', name.trim() || 'Wanderer')
     localStorage.setItem('monk-vibe', vibe)
-    await ctrlRef.current.createRoom({
-      name: name.trim() || 'Wanderer',
-      vibe,
-      code: makeRoomCode(),
-    })
-    setBusy(false)
-    setScreen('cabin')
+    try {
+      await ctrlRef.current.createRoom({
+        name: name.trim() || 'Wanderer',
+        vibe,
+        code: makeRoomCode(),
+      })
+    } catch (err) {
+      setScreen('landing')
+      setError(err?.message || 'Could not create room')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const join = async () => {
     setError('')
     setBusy(true)
+    setScreen('cabin')
     localStorage.setItem('monk-name', name.trim() || 'Wanderer')
     localStorage.setItem('monk-vibe', vibe)
     try {
@@ -248,8 +255,8 @@ export default function App() {
         vibe,
         code: normalizeRoomPin(joinCode),
       })
-      setScreen('cabin')
     } catch (err) {
+      setScreen('landing')
       setError(err?.message || 'Join failed')
     } finally {
       setBusy(false)
@@ -292,7 +299,11 @@ export default function App() {
     ctrlRef.current?.emote(emoteName)
   }, [])
 
-  if (screen === 'landing') {
+  const inLobby =
+    room &&
+    (room.phase === 'lobby' || room.phase === 'countdown' || portalHold)
+
+  if (screen === 'landing' && !busy && (!room || room.phase === 'boot')) {
     const pinReady = normalizeRoomPin(joinCode).length === 6
     return (
       <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
@@ -375,7 +386,7 @@ export default function App() {
     )
   }
 
-  if (!room) {
+  if (!room || room.phase === 'boot') {
     return (
       <div className="grid min-h-full place-items-center bg-ink">
         <p className="animate-pulse text-xs tracking-widest text-sky">CONNECTING…</p>
@@ -383,7 +394,30 @@ export default function App() {
     )
   }
 
-  if (screen === 'cabin' && (room.phase === 'lobby' || room.phase === 'countdown' || portalHold)) {
+  if (room.phase === 'error') {
+    return (
+      <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
+        <div className="panel w-full max-w-md p-6 text-center">
+          <p className="font-display text-2xl font-bold text-coral">Could not connect</p>
+          <p className="mt-3 text-sm text-muted">{room.message || error || 'Something went wrong.'}</p>
+          <button
+            type="button"
+            className="btn btn-primary mt-6 w-full"
+            onClick={() => {
+              ctrlRef.current.destroy()
+              setRoom(null)
+              setScreen('landing')
+              window.location.hash = ''
+            }}
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (inLobby) {
     const self = room.players.find((p) => p.id === room.selfId)
     const inPortal = room.phase === 'countdown' || portalHold
     return (
