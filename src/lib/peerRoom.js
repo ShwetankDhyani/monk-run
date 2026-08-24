@@ -1,3 +1,4 @@
+import Peer from 'peerjs'
 import { migrateVibeToAvatar } from '../data/avatars.js'
 import { getLocation, pickRoundLocations } from '../data/locations.js'
 import { randomBlackHolePos } from './templeRoom.js'
