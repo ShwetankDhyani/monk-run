@@ -293,13 +293,13 @@ export function createGame(audio) {
       player.angle = Math.atan2(input.thrustY, input.thrustX)
       spawnParticles(player.x, player.y, 1, 0.5, 0.2)
     }
-    // Soft gravity wells from hazards (non-Euclidean pull)
+    // Soft gravity wells from hazards (non-Euclidean pull) — gentle on early realms
     for (const h of hazards) {
       const d = dist(player.x, player.y, h.x, h.y) || 1
-      const pull = (900 + realm * 80) / (d * d)
-      if (d < 220) {
-        player.vx += ((h.x - player.x) / d) * pull * dt * 18
-        player.vy += ((h.y - player.y) / d) * pull * dt * 18
+      const pull = (500 + realm * 120) / (d * d)
+      if (d < 180 + realm * 15) {
+        player.vx += ((h.x - player.x) / d) * pull * dt * (12 + realm * 2)
+        player.vy += ((h.y - player.y) / d) * pull * dt * (12 + realm * 2)
       }
     }
 
