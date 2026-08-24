@@ -93,108 +93,168 @@ function drawEyes(ctx, look, headY, headR, dir, wide = false) {
   ctx.fill()
 }
 
-/** Messy hair standing up from the crown — no face-covering forelocks. */
-function drawErenMessyTopHair(ctx, look, headY, headR) {
+/** Attack Titan hair — middle part, long framing strands, glossy sheen. */
+function drawErenTitanHair(ctx, look, headY, headR) {
   ctx.fillStyle = look.hair
   ctx.beginPath()
-  ctx.arc(0, headY - 1, headR * 0.82, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(0, headY - 3, headR * 0.75, Math.PI, Math.PI * 2)
+  ctx.arc(0, headY - headR * 0.28, headR * 0.9, Math.PI, Math.PI * 2)
   ctx.fill()
 
-  const spikes = [
-    [-8, -11], [-4, -14], [0, -16], [4, -14], [8, -11],
-    [-10, -8], [10, -8], [-6, -13], [6, -13],
+  const strands = [
+    [-0.62, 0.62], [-0.38, 0.78], [-0.18, 0.55], [0.18, 0.55], [0.38, 0.78], [0.62, 0.62],
+    [-0.72, 0.48], [0.72, 0.48],
   ]
-  for (const [sx, sy] of spikes) {
+  for (const [sx, len] of strands) {
+    const x0 = sx * headR
     ctx.beginPath()
-    ctx.moveTo(sx * 0.38, headY - headR + 4)
-    ctx.lineTo(sx * 0.48, headY - headR + sy * 0.55)
-    ctx.lineTo(sx * 0.38 + 2, headY - headR + 5)
+    ctx.moveTo(x0, headY - headR * 0.48)
+    ctx.quadraticCurveTo(x0 * 1.15, headY + headR * 0.08, x0 * 0.88, headY + headR * len)
+    ctx.quadraticCurveTo(x0 * 0.95, headY + headR * (len * 0.55), x0, headY - headR * 0.48)
+    ctx.fill()
+  }
+
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'
+  ctx.lineWidth = 0.8
+  ctx.beginPath()
+  ctx.moveTo(0, headY - headR * 0.92)
+  ctx.lineTo(0, headY - headR * 0.18)
+  ctx.stroke()
+
+  ctx.fillStyle = 'rgba(255,255,255,0.1)'
+  ctx.beginPath()
+  ctx.ellipse(-headR * 0.22, headY - headR * 0.58, headR * 0.28, headR * 0.1, -0.35, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+function drawErenTitanEars(ctx, look, headY, headR) {
+  ctx.fillStyle = look.skin
+  ctx.strokeStyle = '#1a1008'
+  ctx.lineWidth = 1
+  for (const side of [-1, 1]) {
+    ctx.beginPath()
+    ctx.moveTo(side * headR * 0.86, headY - headR * 0.12)
+    ctx.lineTo(side * headR * 1.1, headY - headR * 0.38)
+    ctx.lineTo(side * headR * 0.9, headY + headR * 0.06)
     ctx.closePath()
     ctx.fill()
+    ctx.stroke()
   }
 }
 
-function drawErenAngryFace(ctx, look, headY, headR, dir = 'down') {
-  if (dir === 'down') {
-    ctx.strokeStyle = look.brow
-    ctx.lineWidth = 2.4
-    ctx.beginPath()
-    ctx.moveTo(-headR * 0.62, headY - headR * 0.08)
-    ctx.lineTo(-headR * 0.18, headY - headR * 0.28)
-    ctx.moveTo(headR * 0.62, headY - headR * 0.08)
-    ctx.lineTo(headR * 0.18, headY - headR * 0.28)
-    ctx.stroke()
+function drawErenTitanHeadShape(ctx, look, headY, headR) {
+  ctx.fillStyle = look.skin
+  ctx.beginPath()
+  ctx.moveTo(0, headY - headR)
+  ctx.bezierCurveTo(headR * 0.98, headY - headR * 0.82, headR * 1.05, headY + headR * 0.1, headR * 0.74, headY + headR * 0.78)
+  ctx.lineTo(-headR * 0.74, headY + headR * 0.78)
+  ctx.bezierCurveTo(-headR * 1.05, headY + headR * 0.1, -headR * 0.98, headY - headR * 0.82, 0, headY - headR)
+  ctx.closePath()
+  ctx.fill()
+  ctx.strokeStyle = '#1a1008'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
 
-    const eyeY = headY + 2
-    const gap = headR * 0.3
-    const eyeW = 1.9
-    ctx.fillStyle = '#fff'
+  ctx.fillStyle = 'rgba(70,45,30,0.22)'
+  ctx.beginPath()
+  ctx.ellipse(-headR * 0.52, headY + headR * 0.08, headR * 0.18, headR * 0.1, -0.4, 0, Math.PI * 2)
+  ctx.ellipse(headR * 0.52, headY + headR * 0.08, headR * 0.18, headR * 0.1, 0.4, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+function drawErenTitanFace(ctx, look, headY, headR, dir = 'down') {
+  if (dir === 'down') {
+    drawErenTitanEars(ctx, look, headY, headR)
+
+    ctx.fillStyle = 'rgba(0,0,0,0.42)'
+    const eyeY = headY + 1
+    const gap = headR * 0.32
+    const eyeW = 2.2
     ctx.beginPath()
-    ctx.ellipse(-gap, eyeY, eyeW + 0.5, eyeW + 0.7, 0, 0, Math.PI * 2)
-    ctx.ellipse(gap, eyeY, eyeW + 0.5, eyeW + 0.7, 0, 0, Math.PI * 2)
+    ctx.ellipse(-gap, eyeY, eyeW + 1.2, eyeW + 0.9, 0, 0, Math.PI * 2)
+    ctx.ellipse(gap, eyeY, eyeW + 1.2, eyeW + 0.9, 0, 0, Math.PI * 2)
     ctx.fill()
+
+    ctx.save()
+    ctx.shadowColor = look.eyes
+    ctx.shadowBlur = 8
     ctx.fillStyle = look.eyes
     ctx.beginPath()
-    ctx.arc(-gap, eyeY, eyeW * 0.62, 0, Math.PI * 2)
-    ctx.arc(gap, eyeY, eyeW * 0.62, 0, Math.PI * 2)
+    ctx.ellipse(-gap, eyeY, eyeW + 0.4, eyeW + 0.2, 0, 0, Math.PI * 2)
+    ctx.ellipse(gap, eyeY, eyeW + 0.4, eyeW + 0.2, 0, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = '#0a0808'
+    ctx.shadowBlur = 0
+    ctx.fillStyle = '#9affec'
     ctx.beginPath()
-    ctx.arc(-gap, eyeY, eyeW * 0.38, 0, Math.PI * 2)
-    ctx.arc(gap, eyeY, eyeW * 0.38, 0, Math.PI * 2)
+    ctx.ellipse(-gap, eyeY, eyeW * 0.55, eyeW * 0.35, 0, 0, Math.PI * 2)
+    ctx.ellipse(gap, eyeY, eyeW * 0.55, eyeW * 0.35, 0, 0, Math.PI * 2)
     ctx.fill()
-    ctx.strokeStyle = look.brow
-    ctx.lineWidth = 1.8
+    ctx.restore()
+
+    ctx.strokeStyle = 'rgba(50,35,25,0.55)'
+    ctx.lineWidth = 1.2
     ctx.beginPath()
-    ctx.moveTo(-gap - eyeW, eyeY - eyeW - 0.5)
-    ctx.lineTo(-gap + eyeW * 0.5, eyeY - eyeW - 1.5)
-    ctx.moveTo(gap + eyeW, eyeY - eyeW - 0.5)
-    ctx.lineTo(gap - eyeW * 0.5, eyeY - eyeW - 1.5)
+    ctx.moveTo(-headR * 0.12, headY + headR * 0.12)
+    ctx.lineTo(-headR * 0.08, headY + headR * 0.28)
+    ctx.moveTo(headR * 0.12, headY + headR * 0.12)
+    ctx.lineTo(headR * 0.08, headY + headR * 0.28)
     ctx.stroke()
 
-    ctx.strokeStyle = 'rgba(100,70,50,0.75)'
-    ctx.lineWidth = 1.1
+    const mouthY = headY + headR * 0.4
+    const mouthW = headR * 0.74
+    ctx.fillStyle = '#120808'
     ctx.beginPath()
-    ctx.moveTo(-headR * 0.48, headY + headR * 0.02)
-    ctx.lineTo(-headR * 0.32, headY + headR * 0.14)
-    ctx.stroke()
-
-    ctx.fillStyle = '#3a1818'
-    ctx.beginPath()
-    ctx.ellipse(0, headY + headR * 0.38, headR * 0.2, headR * 0.1, 0, 0, Math.PI * 2)
+    ctx.moveTo(-mouthW, mouthY - 2)
+    ctx.quadraticCurveTo(0, mouthY + headR * 0.24, mouthW, mouthY - 2)
+    ctx.lineTo(mouthW * 0.92, mouthY + 1)
+    ctx.quadraticCurveTo(0, mouthY + headR * 0.38, -mouthW * 0.92, mouthY + 1)
+    ctx.closePath()
     ctx.fill()
-    ctx.fillStyle = '#f0e8e0'
-    ctx.fillRect(-headR * 0.12, headY + headR * 0.34, headR * 0.24, headR * 0.06)
+
+    ctx.fillStyle = '#f2f0ea'
+    for (let i = -3; i <= 3; i++) {
+      const tx = i * 3.1
+      ctx.fillRect(tx - 1.3, mouthY - 1.2, 2.6, 3.4)
+      ctx.fillRect(tx - 1.3, mouthY + 2.2, 2.6, 3)
+    }
+
+    ctx.strokeStyle = 'rgba(80,30,30,0.5)'
+    ctx.lineWidth = 0.8
+    ctx.beginPath()
+    ctx.moveTo(-mouthW * 0.95, mouthY - 1.5)
+    ctx.quadraticCurveTo(0, mouthY + headR * 0.08, mouthW * 0.95, mouthY - 1.5)
+    ctx.stroke()
   } else {
     const flip = dir === 'left' ? -1 : 1
     ctx.save()
     ctx.scale(flip, 1)
-    ctx.strokeStyle = look.brow
-    ctx.lineWidth = 2
+    const eyeY = headY + 1
+    ctx.fillStyle = 'rgba(0,0,0,0.42)'
     ctx.beginPath()
-    ctx.moveTo(2, headY - headR * 0.2)
-    ctx.lineTo(8, headY - headR * 0.35)
-    ctx.stroke()
+    ctx.ellipse(8, eyeY, 3.2, 2.6, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.save()
+    ctx.shadowColor = look.eyes
+    ctx.shadowBlur = 6
     ctx.fillStyle = look.eyes
     ctx.beginPath()
-    ctx.arc(8, headY, 2, 0, Math.PI * 2)
+    ctx.ellipse(8, eyeY, 2.4, 1.8, 0, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = '#0a0808'
+    ctx.restore()
+    ctx.fillStyle = '#120808'
     ctx.beginPath()
-    ctx.arc(8.5, headY, 1, 0, Math.PI * 2)
+    ctx.moveTo(4, headY + headR * 0.32)
+    ctx.quadraticCurveTo(9, headY + headR * 0.52, 14, headY + headR * 0.3)
+    ctx.lineTo(13, headY + headR * 0.38)
+    ctx.quadraticCurveTo(9, headY + headR * 0.58, 5, headY + headR * 0.38)
+    ctx.closePath()
     ctx.fill()
-    ctx.fillStyle = '#3a1818'
-    ctx.beginPath()
-    ctx.ellipse(6, headY + headR * 0.28, 3, 2, 0, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.fillStyle = '#f2f0ea'
+    for (let i = 0; i < 4; i++) ctx.fillRect(6 + i * 2.2, headY + headR * 0.34, 1.8, 2.2)
     ctx.restore()
   }
 }
 
-/** Angry floating head + head-shaped shadow — no body. */
+/** Attack Titan floating head + head-shaped shadow — no body. */
 function drawErenFloatingHead(ctx, look, dir, walk, scale) {
   const float = Math.sin(walk * 12) * 1.8
   const headR = 17 * scale
@@ -215,7 +275,7 @@ function drawErenFloatingHead(ctx, look, dir, walk, scale) {
     ctx.beginPath()
     ctx.arc(0, headY, headR * 0.9, 0, Math.PI * 2)
     ctx.fill()
-    drawErenMessyTopHair(ctx, look, headY, headR)
+    drawErenTitanHair(ctx, look, headY, headR)
     return
   }
 
@@ -225,29 +285,24 @@ function drawErenFloatingHead(ctx, look, dir, walk, scale) {
     ctx.scale(flip, 1)
     ctx.fillStyle = look.skin
     ctx.beginPath()
-    ctx.ellipse(4, headY, headR * 0.78, headR * 0.98, 0, 0, Math.PI * 2)
+    ctx.ellipse(4, headY, headR * 0.82, headR * 1.02, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.strokeStyle = '#1a1008'
     ctx.lineWidth = 1.4
     ctx.stroke()
     ctx.fillStyle = look.hair
     ctx.beginPath()
-    ctx.arc(1, headY - headR * 0.45, headR * 0.72, Math.PI, Math.PI * 2)
+    ctx.arc(1, headY - headR * 0.42, headR * 0.75, Math.PI, Math.PI * 2)
     ctx.fill()
-    drawErenAngryFace(ctx, look, headY, headR, dir)
+    drawErenTitanHair(ctx, look, headY, headR)
+    drawErenTitanFace(ctx, look, headY, headR, dir)
     ctx.restore()
     return
   }
 
-  ctx.fillStyle = look.skin
-  ctx.strokeStyle = '#1a1008'
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  ctx.arc(0, headY, headR, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.stroke()
-  drawErenMessyTopHair(ctx, look, headY, headR)
-  drawErenAngryFace(ctx, look, headY, headR, 'down')
+  drawErenTitanHeadShape(ctx, look, headY, headR)
+  drawErenTitanHair(ctx, look, headY, headR)
+  drawErenTitanFace(ctx, look, headY, headR, 'down')
 }
 
 function drawMikasaScarfAtNeck(ctx, look, scale) {
@@ -307,7 +362,7 @@ function drawHair(ctx, look, headY, headR, feature, dir) {
     ctx.fillRect(-headR - 1, headY - headR * 0.05, 4, headR * 0.75)
     ctx.fillRect(headR - 3, headY - headR * 0.05, 4, headR * 0.75)
   } else if (feature === 'eren') {
-    drawErenMessyTopHair(ctx, look, headY, headR)
+    drawErenTitanHair(ctx, look, headY, headR)
   } else if (feature === 'armin') {
     ctx.beginPath()
     ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
