@@ -561,67 +561,126 @@ function drawMikasaScarf(ctx, look, dir, scale) {
   const main = look.scarf
   const dark = look.scarfDark || '#4a080c'
   const light = look.scarfLight || '#9a2428'
+  const s = scale
+
+  const clothEnd = (x0, y0, lean, len) => {
+    ctx.fillStyle = main
+    ctx.beginPath()
+    ctx.moveTo(x0 - 2.4 * s, y0)
+    ctx.quadraticCurveTo(x0 + lean * 2.2 * s, y0 + len * 0.45, x0 + lean * 3 * s, y0 + len)
+    ctx.quadraticCurveTo(x0 + lean * 0.8 * s, y0 + len + 1.2 * s, x0 - lean * 1.4 * s, y0 + len - 0.4 * s)
+    ctx.quadraticCurveTo(x0 - lean * 2.4 * s, y0 + len * 0.5, x0 + 2.4 * s, y0)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = dark
+    ctx.beginPath()
+    ctx.moveTo(x0 - 0.5 * s, y0 + 1.2 * s)
+    ctx.quadraticCurveTo(x0 + lean * 1.1 * s, y0 + len * 0.55, x0 + lean * 1.6 * s, y0 + len - 0.8 * s)
+    ctx.quadraticCurveTo(x0 + lean * 0.4 * s, y0 + len - 0.4 * s, x0 - lean * 0.5 * s, y0 + len - 1.2 * s)
+    ctx.quadraticCurveTo(x0 - lean * 1.1 * s, y0 + len * 0.55, x0 + 0.5 * s, y0 + 1.2 * s)
+    ctx.closePath()
+    ctx.fill()
+    ctx.strokeStyle = light
+    ctx.lineWidth = 0.9 * s
+    ctx.lineCap = 'round'
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath()
+      ctx.moveTo(x0 + lean * 0.6 * s + i * 1.2 * s, y0 + len - 0.6 * s)
+      ctx.lineTo(x0 + lean * 1.4 * s + i * 1.4 * s, y0 + len + 1.6 * s)
+      ctx.stroke()
+    }
+  }
 
   if (dir === 'down') {
-    for (let layer = 0; layer < 4; layer++) {
-      ctx.fillStyle = layer % 2 === 0 ? main : dark
-      const y = (-0.5 + layer * 2.4) * scale
+    // Loose fabric loops around the neck (scarf, not shirt collar)
+    const loops = [
+      { y: 0.2, r: 7.8, w: 3.4, col: dark, a0: 0.05, a1: 0.95 },
+      { y: -0.6, r: 7.2, w: 2.8, col: main, a0: 1.05, a1: 1.95 },
+      { y: 0.8, r: 6.6, w: 2.2, col: light, a0: 0.15, a1: 0.85 },
+    ]
+    for (const L of loops) {
+      ctx.strokeStyle = L.col
+      ctx.lineWidth = L.w * s
+      ctx.lineCap = 'round'
       ctx.beginPath()
-      ctx.ellipse(0, y + 3.2 * scale, 11.5 * scale, (3.8 - layer * 0.25) * scale, 0, 0, Math.PI * 2)
-      ctx.fill()
+      ctx.arc(0, L.y * s, L.r * s, Math.PI * L.a0, Math.PI * L.a1)
+      ctx.stroke()
     }
+
+    // Thin donut of fabric — robe shows through the center
     ctx.fillStyle = main
-    ctx.fillRect(-13 * scale, 1.5 * scale, 5.5 * scale, 11 * scale)
-    ctx.fillRect(7.5 * scale, 1.5 * scale, 5.5 * scale, 12 * scale)
-    ctx.fillStyle = dark
-    ctx.fillRect(-12 * scale, 2.5 * scale, 2.5 * scale, 9 * scale)
-    ctx.fillRect(8.5 * scale, 2.5 * scale, 2.5 * scale, 10 * scale)
-    ctx.fillStyle = light
-    ctx.fillRect(-9 * scale, -0.5 * scale, 18 * scale, 2.5 * scale)
     ctx.beginPath()
-    ctx.ellipse(0, 1 * scale, 9 * scale, 1.8 * scale, 0, 0, Math.PI * 2)
+    ctx.ellipse(0, 1.6 * s, 9.2 * s, 3.6 * s, 0, 0, Math.PI * 2)
+    ctx.ellipse(0, 1.4 * s, 5.2 * s, 1.6 * s, 0, 0, Math.PI * 2)
+    ctx.fill('evenodd')
+
+    ctx.fillStyle = dark
+    ctx.beginPath()
+    ctx.ellipse(0, 2.4 * s, 8.4 * s, 2.8 * s, 0, Math.PI * 0.05, Math.PI * 0.95)
     ctx.fill()
+
+    // Knot where ends cross
+    ctx.fillStyle = light
+    ctx.beginPath()
+    ctx.moveTo(-3.5 * s, 3 * s)
+    ctx.quadraticCurveTo(0, 5.5 * s, 3.5 * s, 3 * s)
+    ctx.quadraticCurveTo(2 * s, 6.5 * s, 0, 7 * s)
+    ctx.quadraticCurveTo(-2 * s, 6.5 * s, -3.5 * s, 3 * s)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = main
+    ctx.beginPath()
+    ctx.ellipse(0, 4.8 * s, 2.6 * s, 1.8 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+
+    clothEnd(-7.5 * s, 4.5 * s, -1.15, 12 * s)
+    clothEnd(7.5 * s, 4.5 * s, 1.15, 12.5 * s)
     return
   }
 
   if (dir === 'up') {
-    ctx.fillStyle = dark
+    ctx.strokeStyle = dark
+    ctx.lineWidth = 4 * s
+    ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.ellipse(0, 4.5 * scale, 13 * scale, 8.5 * scale, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = main
+    ctx.arc(0, 2.2 * s, 8.5 * s, Math.PI * 0.12, Math.PI * 0.88)
+    ctx.stroke()
+    ctx.strokeStyle = main
+    ctx.lineWidth = 3.2 * s
     ctx.beginPath()
-    ctx.ellipse(0, 3.5 * scale, 11 * scale, 6.5 * scale, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = light
+    ctx.arc(0, 1.4 * s, 7.6 * s, Math.PI * 0.18, Math.PI * 0.82)
+    ctx.stroke()
+    ctx.strokeStyle = light
+    ctx.lineWidth = 2 * s
     ctx.beginPath()
-    ctx.ellipse(0, 1.5 * scale, 9 * scale, 3.2 * scale, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = main
-    ctx.fillRect(-10 * scale, 6 * scale, 6 * scale, 8 * scale)
-    ctx.fillRect(4 * scale, 6 * scale, 6 * scale, 8 * scale)
+    ctx.arc(0, 0.8 * s, 6.8 * s, Math.PI * 0.22, Math.PI * 0.78)
+    ctx.stroke()
+
+    clothEnd(-5.5 * s, 6 * s, -0.9, 10 * s)
+    clothEnd(5.5 * s, 6 * s, 0.9, 10 * s)
     return
   }
 
   const flip = dir === 'left' ? -1 : 1
   ctx.save()
   ctx.scale(flip, 1)
-  ctx.fillStyle = dark
+  ctx.strokeStyle = dark
+  ctx.lineWidth = 3.6 * s
+  ctx.lineCap = 'round'
   ctx.beginPath()
-  ctx.ellipse(4 * scale, 4.5 * scale, 8.5 * scale, 7.5 * scale, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = main
-  for (let i = 0; i < 3; i++) {
-    ctx.beginPath()
-    ctx.ellipse(3.5 * scale, (0.5 + i * 2.6) * scale, 7.5 * scale, 3 * scale, 0.15, 0, Math.PI * 2)
-    ctx.fill()
-  }
-  ctx.fillStyle = main
-  ctx.fillRect(7 * scale, 4 * scale, 4.5 * scale, 10 * scale)
-  ctx.fillStyle = dark
-  ctx.fillRect(8 * scale, 5 * scale, 2 * scale, 8 * scale)
-  ctx.fillStyle = light
-  ctx.fillRect(2 * scale, 0, 6 * scale, 2 * scale)
+  ctx.arc(3 * s, 2.2 * s, 5.5 * s, Math.PI * 0.1, Math.PI * 1.1)
+  ctx.stroke()
+  ctx.strokeStyle = main
+  ctx.lineWidth = 2.8 * s
+  ctx.beginPath()
+  ctx.arc(3 * s, 1.4 * s, 4.8 * s, Math.PI * 0.15, Math.PI * 1.05)
+  ctx.stroke()
+  ctx.strokeStyle = light
+  ctx.lineWidth = 1.8 * s
+  ctx.beginPath()
+  ctx.arc(3 * s, 0.8 * s, 4.2 * s, Math.PI * 0.2, Math.PI * 0.95)
+  ctx.stroke()
+  clothEnd(7 * s, 4 * s, 1.3, 12 * s)
   ctx.restore()
 }
 
@@ -758,12 +817,6 @@ function drawMikasaFace(ctx, look, dir, headY, headR) {
   ctx.stroke()
   drawMikasaHair(ctx, look, headY, headR, dir)
   drawMikasaEyes(ctx, look, headY, headR, dir)
-  ctx.strokeStyle = 'rgba(80,60,50,0.45)'
-  ctx.lineWidth = 0.9
-  ctx.beginPath()
-  ctx.moveTo(-headR * 0.08, headY + headR * 0.32)
-  ctx.lineTo(headR * 0.08, headY + headR * 0.32)
-  ctx.stroke()
 }
 
 function drawHair(ctx, look, headY, headR, feature, dir) {
@@ -1045,20 +1098,19 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
     drawLegs(ctx, look, facing, walk, scale)
     drawMonkRobe(ctx, look, facing, walk, scale)
     if (isLevi) drawLeviBlades(ctx, facing, walk, scale)
-    if (isMikasa) drawMikasaScarf(ctx, look, facing, scale)
     drawCharacterFace(ctx, look, facing, headY, headR)
+    if (isMikasa) drawMikasaScarf(ctx, look, facing, scale)
   } else {
     drawMonkRobe(ctx, look, facing, walk, scale)
     if (isLevi) {
       drawLeviBlades(ctx, facing, walk, scale)
       drawLeviCravat(ctx, look, facing, scale)
-    } else if (isMikasa) {
-      drawMikasaScarf(ctx, look, facing, scale)
-    } else {
+    } else if (!isMikasa) {
       drawPrayerBeads(ctx, look, facing)
     }
     drawLegs(ctx, look, facing, walk, scale)
     drawCharacterFace(ctx, look, facing, headY, headR)
+    if (isMikasa) drawMikasaScarf(ctx, look, facing, scale)
   }
 
   ctx.restore()
