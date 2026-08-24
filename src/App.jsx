@@ -6,7 +6,6 @@ import {
   createRoomController,
   DEFAULT_ROUNDS,
   DEFAULT_ROUND_MS,
-  LOBBY_COUNTDOWN_MS,
   MAX_PLAYERS,
 } from './lib/peerRoom.js'
 import { getMapsApiKey } from './lib/maps.js'
@@ -69,8 +68,8 @@ function ShareCard({ players, scores, roomCode }) {
     ctx.fillText(`ROOM ${roomCode} · FINAL PODIUM`, 80, 200)
     ranked.slice(0, 5).forEach((p, i) => {
       const y = 320 + i * 140
-      const vibe = MONK_VIBES.find((v) => v.id === p.vibe) || MONK_VIBES[0]
-      ctx.fillStyle = vibe.color
+      const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
+      ctx.fillStyle = look.robe
       ctx.beginPath()
       ctx.arc(110, y, 28, 0, Math.PI * 2)
       ctx.fill()
