@@ -15,6 +15,7 @@ function bodyScale(look) {
 
 function headRadius(look) {
   if (look.feature === 'historia') return 15
+  if (look.feature === 'mikasa') return 15
   if (look.feature === 'jean') return 17
   if (look.feature === 'levi') return 14
   return 16
@@ -58,7 +59,7 @@ function drawMonkRobe(ctx, look, dir, walk, scale) {
     ctx.restore()
   }
 
-  ctx.fillStyle = look.scarf || look.sash
+  ctx.fillStyle = look.sash
   if (dir === 'down' || dir === 'up') {
     ctx.fillRect(-bodyW * 0.4, 3, bodyW * 0.8, 4)
   } else {
@@ -92,6 +93,61 @@ function drawEyes(ctx, look, headY, headR, dir, wide = false) {
   ctx.fill()
 }
 
+function drawErenForelocks(ctx, look, headY, headR) {
+  ctx.fillStyle = look.hair
+  const locks = [
+    [-5, -2, -3, 4], [0, -4, -1, 3], [4, -3, 2, 5], [-8, 0, -6, 5], [7, 1, 5, 6],
+  ]
+  for (const [x1, y1, x2, y2] of locks) {
+    ctx.beginPath()
+    ctx.moveTo(x1, headY + y1)
+    ctx.quadraticCurveTo(x1 + 1, headY + (y1 + y2) / 2, x2, headY + y2)
+    ctx.lineTo(x2 + 2, headY + y2 - 1)
+    ctx.quadraticCurveTo(x1 + 2, headY + y1, x1 + 2.5, headY + y1 - 1)
+    ctx.closePath()
+    ctx.fill()
+  }
+}
+
+function drawMikasaScarf(ctx, look, headY, headR) {
+  if (!look.scarf) return
+  ctx.fillStyle = look.scarf
+  ctx.fillRect(-headR * 0.58, headY + headR * 0.38, headR * 1.16, 5)
+  ctx.fillRect(-headR * 0.72, headY + headR * 0.48, 5, 9)
+  ctx.fillRect(headR * 0.52, headY + headR * 0.48, 5, 8)
+}
+
+function drawMikasaEyes(ctx, look, headY, headR) {
+  const eyeY = headY + 2
+  const gap = headR * 0.3
+  const eyeW = 2.0
+  ctx.fillStyle = '#fff'
+  ctx.beginPath()
+  ctx.ellipse(-gap, eyeY, eyeW + 0.5, eyeW + 1, 0, 0, Math.PI * 2)
+  ctx.ellipse(gap, eyeY, eyeW + 0.5, eyeW + 1, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = look.eyes
+  ctx.beginPath()
+  ctx.arc(-gap, eyeY, eyeW * 0.6, 0, Math.PI * 2)
+  ctx.arc(gap, eyeY, eyeW * 0.6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#1a1008'
+  ctx.beginPath()
+  ctx.arc(-gap, eyeY, eyeW * 0.32, 0, Math.PI * 2)
+  ctx.arc(gap, eyeY, eyeW * 0.32, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#1a1008'
+  ctx.lineWidth = 0.8
+  for (const sx of [-gap, gap]) {
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath()
+      ctx.moveTo(sx + i * 1.2 - 0.6, eyeY - eyeW - 0.5)
+      ctx.lineTo(sx + i * 1.2, eyeY - eyeW - 1.2)
+      ctx.stroke()
+    }
+  }
+}
+
 function drawHair(ctx, look, headY, headR, feature, dir) {
   ctx.fillStyle = look.hair
   if (dir === 'up') {
@@ -103,21 +159,31 @@ function drawHair(ctx, look, headY, headR, feature, dir) {
 
   if (feature === 'mikasa') {
     ctx.beginPath()
-    ctx.arc(0, headY - 1, headR + 0.5, Math.PI, Math.PI * 2)
+    ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
     ctx.fill()
-    ctx.fillRect(-headR, headY - 2, headR * 2, headR * 0.5)
-    ctx.fillRect(-headR * 0.85, headY - headR * 0.35, headR * 1.7, 3)
+    ctx.fillRect(-headR * 0.88, headY - headR * 0.05, headR * 1.76, headR * 0.38)
+    ctx.fillRect(-headR - 1, headY - headR * 0.05, 4, headR * 0.75)
+    ctx.fillRect(headR - 3, headY - headR * 0.05, 4, headR * 0.75)
   } else if (feature === 'eren') {
     ctx.beginPath()
-    ctx.arc(0, headY - 2, headR + 2, Math.PI * 0.85, Math.PI * 2.15)
+    ctx.arc(0, headY - 3, headR + 3, Math.PI * 0.7, Math.PI * 2.3)
     ctx.fill()
-    for (let i = -2; i <= 2; i++) {
+    const spikes = [
+      [-11, -10], [-7, -13], [-3, -14], [1, -15], [5, -13], [9, -11], [12, -7],
+      [-9, -6], [8, -8], [-5, -12], [3, -14], [-1, -13], [6, -11],
+    ]
+    for (const [sx, sy] of spikes) {
       ctx.beginPath()
-      ctx.moveTo(i * 3.5, headY - headR + 1)
-      ctx.lineTo(i * 3.5 + 2, headY - headR - 5)
-      ctx.lineTo(i * 3.5 + 4, headY - headR + 1)
+      ctx.moveTo(sx * 0.35, headY - headR + 3)
+      ctx.lineTo(sx * 0.45, headY - headR + sy * 0.55)
+      ctx.lineTo(sx * 0.35 + 2.5, headY - headR + 4)
+      ctx.closePath()
       ctx.fill()
     }
+    ctx.beginPath()
+    ctx.ellipse(-headR * 0.92, headY - 1, 4.5, 8, -0.25, 0, Math.PI * 2)
+    ctx.ellipse(headR * 0.92, headY, 4.5, 9, 0.25, 0, Math.PI * 2)
+    ctx.fill()
   } else if (feature === 'armin') {
     ctx.beginPath()
     ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
@@ -171,16 +237,22 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
     ctx.save()
     ctx.scale(flip, 1)
     ctx.fillStyle = look.skin
-    ctx.beginPath()
-    ctx.ellipse(5, headY - 2, headR * 0.75, headR * 0.95, 0, 0, Math.PI * 2)
-    ctx.fill()
+    if (feature === 'mikasa') {
+      ctx.beginPath()
+      ctx.ellipse(5, headY - 1, headR * 0.68, headR * 0.88, 0, 0, Math.PI * 2)
+      ctx.fill()
+    } else {
+      ctx.beginPath()
+      ctx.ellipse(5, headY - 2, headR * 0.75, headR * 0.95, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
     ctx.strokeStyle = '#1a1008'
     ctx.lineWidth = 1.4
     ctx.stroke()
     drawHair(ctx, look, headY, headR, feature, dir)
     if (feature === 'mikasa' && look.scarf) {
       ctx.fillStyle = look.scarf
-      ctx.fillRect(-1, headY + 2, headR, 3)
+      ctx.fillRect(2, headY + 3, 7, 3)
     }
     if (feature === 'hange') {
       ctx.strokeStyle = '#1a1008'
@@ -202,18 +274,19 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
   ctx.fillStyle = look.skin
   ctx.strokeStyle = '#1a1008'
   ctx.lineWidth = 1.4
-  ctx.beginPath()
-  ctx.arc(0, headY, headR, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.stroke()
+  if (feature === 'mikasa') {
+    ctx.beginPath()
+    ctx.ellipse(0, headY + 1, headR * 0.9, headR * 1.0, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  } else {
+    ctx.beginPath()
+    ctx.arc(0, headY, headR, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+  }
 
   drawHair(ctx, look, headY, headR, feature, dir)
-
-  if (feature === 'mikasa' && look.scarf) {
-    ctx.fillStyle = look.scarf
-    ctx.fillRect(-headR * 0.85, headY - headR * 0.5, headR * 1.7, 4)
-    ctx.fillRect(-headR * 0.2, headY + headR * 0.35, headR * 0.4, 5)
-  }
 
   if (feature === 'historia' && look.tiara) {
     ctx.fillStyle = look.tiara
@@ -235,15 +308,32 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
   }
 
   ctx.strokeStyle = look.brow
-  ctx.lineWidth = feature === 'eren' ? 2 : 1.5
-  ctx.beginPath()
-  ctx.moveTo(-headR * 0.55, headY - headR * 0.15)
-  ctx.lineTo(-headR * 0.12, headY - headR * 0.22)
-  ctx.moveTo(headR * 0.55, headY - headR * 0.15)
-  ctx.lineTo(headR * 0.12, headY - headR * 0.22)
-  ctx.stroke()
+  ctx.lineWidth = feature === 'eren' ? 2 : feature === 'mikasa' ? 1.1 : 1.5
+  if (feature === 'mikasa') {
+    ctx.beginPath()
+    ctx.moveTo(-headR * 0.48, headY - headR * 0.08)
+    ctx.quadraticCurveTo(-headR * 0.15, headY - headR * 0.18, headR * 0.02, headY - headR * 0.1)
+    ctx.moveTo(headR * 0.48, headY - headR * 0.08)
+    ctx.quadraticCurveTo(headR * 0.15, headY - headR * 0.18, -headR * 0.02, headY - headR * 0.1)
+    ctx.stroke()
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(-headR * 0.55, headY - headR * 0.15)
+    ctx.lineTo(-headR * 0.12, headY - headR * 0.22)
+    ctx.moveTo(headR * 0.55, headY - headR * 0.15)
+    ctx.lineTo(headR * 0.12, headY - headR * 0.22)
+    ctx.stroke()
+  }
 
-  drawEyes(ctx, look, headY, headR, dir, feature === 'armin' || feature === 'hange')
+  if (feature === 'mikasa') {
+    drawMikasaEyes(ctx, look, headY, headR)
+  } else {
+    drawEyes(ctx, look, headY, headR, dir, feature === 'armin' || feature === 'hange')
+  }
+
+  if (feature === 'eren') {
+    drawErenForelocks(ctx, look, headY, headR)
+  }
 
   if (feature === 'hange') {
     ctx.strokeStyle = '#1a1008'
@@ -262,6 +352,12 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
     ctx.moveTo(-headR * 0.18, headY + headR * 0.38)
     ctx.quadraticCurveTo(0, headY + headR * 0.45, headR * 0.2, headY + headR * 0.35)
     ctx.stroke()
+  } else if (feature === 'mikasa') {
+    ctx.fillStyle = '#c08090'
+    ctx.beginPath()
+    ctx.arc(0, headY + headR * 0.34, headR * 0.07, 0, Math.PI * 2)
+    ctx.fill()
+    drawMikasaScarf(ctx, look, headY, headR)
   } else if (feature === 'hange') {
     ctx.strokeStyle = '#6a4030'
     ctx.lineWidth = 1.6

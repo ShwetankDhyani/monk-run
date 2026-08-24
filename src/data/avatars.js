@@ -103,7 +103,6 @@ export function resolvePlayerLook(avatarId, playerId, players = []) {
     avatarId: avatar.id,
     feature: avatar.feature,
     heightScale: avatar.heightScale,
-    sash: avatar.scarf || palette.sash,
   }
 }
 
