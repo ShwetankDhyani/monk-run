@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MONK_VIBES, getLocation } from './data/locations.js'
 import { formatKm, makeRoomCode } from './lib/scoring.js'
-import { createRoomController, DEFAULT_ROUNDS, DEFAULT_ROUND_MS, MAX_PLAYERS } from './lib/peerRoom.js'
+import {
+  createRoomController,
+  DEFAULT_ROUNDS,
+  DEFAULT_ROUND_MS,
+  MAX_PLAYERS,
+} from './lib/peerRoom.js'
 import { getMapsApiKey } from './lib/maps.js'
+import { createVoiceChat } from './lib/voiceChat.js'
 import StreetView from './components/StreetView.jsx'
-import ShaderOverlay from './components/ShaderOverlay.jsx'
 import GuessMap from './components/GuessMap.jsx'
-import VoidMonk from './components/VoidMonk.jsx'
+import CabinLobby from './components/CabinLobby.jsx'
 
 function parseRoomFromHash() {
   const h = window.location.hash.replace(/^#/, '')
@@ -23,7 +28,7 @@ function useCountdown(endsAt, active) {
     }
     const tick = () => setLeft(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)))
     tick()
-    const id = setInterval(tick, 250)
+    const id = setInterval(tick, 200)
     return () => clearInterval(id)
   }, [endsAt, active])
   return left
@@ -31,11 +36,13 @@ function useCountdown(endsAt, active) {
 
 function ShareCard({ players, scores, roomCode }) {
   const canvasRef = useRef(null)
-  const ranked = useMemo(() => {
-    return [...players]
-      .map((p) => ({ ...p, score: scores[p.id] || 0 }))
-      .sort((a, b) => b.score - a.score)
-  }, [players, scores])
+  const ranked = useMemo(
+    () =>
+      [...players]
+        .map((p) => ({ ...p, score: scores[p.id] || 0 }))
+        .sort((a, b) => b.score - a.score),
+    [players, scores],
+  )
 
   useEffect(() => {
     const c = canvasRef.current
@@ -46,17 +53,16 @@ function ShareCard({ players, scores, roomCode }) {
     c.width = w
     c.height = h
     const g = ctx.createLinearGradient(0, 0, w, h)
-    g.addColorStop(0, '#12081f')
-    g.addColorStop(0.5, '#07040f')
-    g.addColorStop(1, '#0a1a1c')
+    g.addColorStop(0, '#0b1220')
+    g.addColorStop(1, '#102a43')
     ctx.fillStyle = g
     ctx.fillRect(0, 0, w, h)
-    ctx.fillStyle = '#f4a261'
+    ctx.fillStyle = '#38bdf8'
     ctx.font = '800 72px Syne, sans-serif'
     ctx.fillText('monk.run', 80, 140)
-    ctx.fillStyle = 'rgba(245,240,255,0.7)'
+    ctx.fillStyle = 'rgba(232,238,247,0.7)'
     ctx.font = '500 28px IBM Plex Mono, monospace'
-    ctx.fillText(`ROOM ${roomCode} · KARMA BOARD`, 80, 200)
+    ctx.fillText(`ROOM ${roomCode} · FINAL PODIUM`, 80, 200)
     ranked.slice(0, 5).forEach((p, i) => {
       const y = 320 + i * 140
       const vibe = MONK_VIBES.find((v) => v.id === p.vibe) || MONK_VIBES[0]
@@ -64,37 +70,39 @@ function ShareCard({ players, scores, roomCode }) {
       ctx.beginPath()
       ctx.arc(110, y, 28, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = '#f5f0ff'
+      ctx.fillStyle = '#e8eef7'
       ctx.font = '700 42px Syne, sans-serif'
       ctx.fillText(`${i + 1}. ${p.name}`, 170, y + 12)
-      ctx.fillStyle = '#80ff72'
+      ctx.fillStyle = '#34d399'
       ctx.font = '600 36px IBM Plex Mono, monospace'
       ctx.fillText(String(p.score), 820, y + 12)
     })
-    ctx.fillStyle = 'rgba(0,229,255,0.8)'
+    ctx.fillStyle = 'rgba(56,189,248,0.85)'
     ctx.font = '500 24px IBM Plex Mono, monospace'
-    ctx.fillText('psychedelic geoguessr · awaken together', 80, 1260)
+    ctx.fillText('party geoguessr · voice lobby · smack responsibly', 80, 1260)
   }, [ranked, roomCode])
-
-  const download = () => {
-    const a = document.createElement('a')
-    a.download = `monk-run-${roomCode || 'karma'}.png`
-    a.href = canvasRef.current.toDataURL('image/png')
-    a.click()
-  }
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <canvas ref={canvasRef} className="max-h-64 w-full max-w-xs rounded-xl border border-saffron/30" />
-      <button type="button" className="btn-ghost" onClick={download}>
-        Download karma card
+      <canvas ref={canvasRef} className="max-h-64 w-full max-w-xs rounded-xl border border-white/10" />
+      <button
+        type="button"
+        className="btn btn-ghost"
+        onClick={() => {
+          const a = document.createElement('a')
+          a.download = `monk-run-${roomCode || 'podium'}.png`
+          a.href = canvasRef.current.toDataURL('image/png')
+          a.click()
+        }}
+      >
+        Download podium card
       </button>
     </div>
   )
 }
 
 export default function App() {
-  const [screen, setScreen] = useState('landing') // landing | lobby | game
+  const [screen, setScreen] = useState('landing')
   const [name, setName] = useState(() => localStorage.getItem('monk-name') || '')
   const [vibe, setVibe] = useState(() => localStorage.getItem('monk-vibe') || 'saffron')
   const [joinCode, setJoinCode] = useState(() => parseRoomFromHash())
@@ -105,19 +113,24 @@ export default function App() {
   const [country, setCountry] = useState('')
   const [mapOpen, setMapOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const controllerRef = useRef(null)
+  const [voice, setVoice] = useState({ muted: true, active: false, peers: [], error: null })
 
-  const secondsLeft = useCountdown(room?.roundEndsAt, room?.phase === 'playing')
+  const ctrlRef = useRef(null)
+  const voiceRef = useRef(null)
+
+  const roundLeft = useCountdown(room?.roundEndsAt, room?.phase === 'playing')
+  const lobbyLeft = useCountdown(room?.countdownEndsAt, room?.phase === 'countdown')
 
   useEffect(() => {
     const ctrl = createRoomController({
       onState: (s) => setRoom(s),
       onError: (msg) => setError(msg),
     })
-    controllerRef.current = ctrl
-    const id = setInterval(() => ctrl.tick(), 400)
+    ctrlRef.current = ctrl
+    const id = setInterval(() => ctrl.tick(), 200)
     return () => {
       clearInterval(id)
+      voiceRef.current?.destroy()
       ctrl.destroy()
     }
   }, [])
@@ -128,15 +141,19 @@ export default function App() {
   }, [room?.roomCode])
 
   useEffect(() => {
-    if (room?.phase === 'playing') {
+    if (!room) return
+    if (room.phase === 'lobby' || room.phase === 'countdown') setScreen('cabin')
+    if (room.phase === 'playing' || room.phase === 'reveal' || room.phase === 'podium') setScreen('game')
+    if (room.phase === 'playing') {
       setGuess(null)
       setCountry('')
       setMapOpen(false)
-      setScreen('game')
     }
-    if (room?.phase === 'lobby') setScreen('lobby')
-    if (room?.phase === 'reveal' || room?.phase === 'podium') setScreen('game')
   }, [room?.phase])
+
+  useEffect(() => {
+    voiceRef.current?.refresh?.()
+  }, [room?.players?.length])
 
   const location = useMemo(() => {
     if (!room?.currentLocationId) return null
@@ -144,21 +161,50 @@ export default function App() {
   }, [room?.currentLocationId])
 
   const selfGuessed = !!(room && room.guesses?.[room.selfId])
-  const selfResult = room?.reveal?.results?.find((r) => r.playerId === room.selfId)
+  const lockedCount = room ? Object.keys(room.guesses || {}).length : 0
+
+  const ranked = useMemo(() => {
+    if (!room) return []
+    return [...room.players]
+      .map((p) => ({ ...p, score: room.scores?.[p.id] || 0 }))
+      .sort((a, b) => b.score - a.score)
+  }, [room])
+
+  const ensureVoice = async () => {
+    if (!voiceRef.current) {
+      voiceRef.current = createVoiceChat({
+        getPeer: () => ctrlRef.current?.getPeer?.(),
+        getRemotePeerIds: () => ctrlRef.current?.getPeerIds?.() || [],
+        selfId: room?.selfId,
+        onStatus: (s) =>
+          setVoice({
+            muted: s.muted,
+            active: s.active,
+            peers: s.peers || [],
+            error: s.error || null,
+          }),
+      })
+    }
+    try {
+      await voiceRef.current.enableMic()
+      voiceRef.current.setMuted(false)
+    } catch (err) {
+      setVoice((v) => ({ ...v, error: err?.message || 'Mic permission denied' }))
+    }
+  }
 
   const create = async () => {
     setError('')
     setBusy(true)
     localStorage.setItem('monk-name', name.trim() || 'Wanderer')
     localStorage.setItem('monk-vibe', vibe)
-    const code = makeRoomCode()
-    await controllerRef.current.createRoom({
+    await ctrlRef.current.createRoom({
       name: name.trim() || 'Wanderer',
       vibe,
-      code,
+      code: makeRoomCode(),
     })
     setBusy(false)
-    setScreen('lobby')
+    setScreen('cabin')
   }
 
   const join = async () => {
@@ -167,12 +213,12 @@ export default function App() {
     localStorage.setItem('monk-name', name.trim() || 'Wanderer')
     localStorage.setItem('monk-vibe', vibe)
     try {
-      await controllerRef.current.joinRoom({
+      await ctrlRef.current.joinRoom({
         name: name.trim() || 'Wanderer',
         vibe,
         code: joinCode.trim().toLowerCase(),
       })
-      setScreen('lobby')
+      setScreen('cabin')
     } catch (err) {
       setError(err?.message || 'Join failed')
     } finally {
@@ -185,7 +231,7 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1600)
+      setTimeout(() => setCopied(false), 1500)
     } catch {
       setError('Could not copy link')
     }
@@ -193,58 +239,55 @@ export default function App() {
 
   const lockGuess = useCallback(() => {
     if (!guess || selfGuessed) return
-    controllerRef.current.submitGuess({
-      lat: guess.lat,
-      lng: guess.lng,
-      country,
-    })
+    ctrlRef.current.submitGuess({ lat: guess.lat, lng: guess.lng, country })
     setMapOpen(false)
   }, [guess, country, selfGuessed])
 
-  const ranked = useMemo(() => {
-    if (!room) return []
-    return [...room.players]
-      .map((p) => ({ ...p, score: room.scores?.[p.id] || 0 }))
-      .sort((a, b) => b.score - a.score)
-  }, [room])
+  const onPose = useCallback((pose) => {
+    ctrlRef.current?.sendLobbyPose(pose)
+  }, [])
 
-  /* ---------------- LANDING ---------------- */
+  const onSmack = useCallback((targetId) => {
+    ctrlRef.current?.smack(targetId)
+  }, [])
+
+  const onEmote = useCallback((emoteName) => {
+    ctrlRef.current?.emote(emoteName)
+  }, [])
+
   if (screen === 'landing') {
     return (
-      <div className="relative flex min-h-full items-center justify-center overflow-auto bg-void p-4">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(244,162,97,0.18),transparent_45%),radial-gradient(ellipse_at_70%_80%,rgba(0,229,255,0.12),transparent_40%)]" />
-        <div className="panel relative z-10 w-full max-w-lg p-6 md:p-8">
-          <p className="text-center text-3xl text-cyan">◎</p>
-          <h1 className="mt-2 text-center font-display text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-saffron via-fog to-cyan md:text-6xl">
+      <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
+        <div className="panel w-full max-w-lg p-6 md:p-8">
+          <p className="text-center font-display text-sm font-bold uppercase tracking-[0.3em] text-sky">
+            party geoguessr
+          </p>
+          <h1 className="mt-2 text-center font-display text-5xl font-extrabold tracking-tight text-fog md:text-6xl">
             monk.run
           </h1>
-          <p className="mt-2 text-center font-mono text-[11px] uppercase tracking-[0.28em] text-fog/55">
-            multiplayer psychedelic geoguessr
-          </p>
-          <p className="mt-4 text-center text-sm leading-relaxed text-fog/70">
-            Up to {MAX_PLAYERS} monks drop into the same Street View trip. Guess the place. The Void Monk judges your karma.
+          <p className="mt-3 text-center text-sm leading-relaxed text-muted">
+            Hop in the chopper lobby, smack your friends on voice chat, then dive into 5 synchronized Street View
+            rounds.
           </p>
 
-          <label className="mt-6 block font-mono text-[10px] uppercase tracking-widest text-fog/45">Monk name</label>
+          <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Name</label>
           <input
-            className="input-mystic mt-1 w-full"
+            className="input-clean mt-1"
             maxLength={18}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Wanderer"
+            placeholder="Pilot"
           />
 
-          <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-fog/45">Aura</p>
+          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Avatar color</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {MONK_VIBES.map((v) => (
               <button
                 key={v.id}
                 type="button"
                 onClick={() => setVibe(v.id)}
-                className={`rounded-full px-3 py-1.5 font-mono text-[11px] ${
-                  vibe === v.id ? 'ring-2 ring-cyan' : 'opacity-70'
-                }`}
-                style={{ background: `${v.color}33`, color: v.color, border: `1px solid ${v.color}66` }}
+                className={`rounded-full px-3 py-1.5 text-[11px] ${vibe === v.id ? 'ring-2 ring-sky' : 'opacity-70'}`}
+                style={{ background: `${v.color}22`, color: v.color, border: `1px solid ${v.color}55` }}
               >
                 {v.label}
               </button>
@@ -252,134 +295,164 @@ export default function App() {
           </div>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button type="button" className="btn-mystic flex-1" disabled={busy} onClick={create}>
+            <button type="button" className="btn btn-primary flex-1" disabled={busy} onClick={create}>
               Create room
             </button>
             <button
               type="button"
-              className="btn-ghost flex-1"
+              className="btn btn-ghost flex-1"
               disabled={busy || !joinCode.trim()}
               onClick={join}
             >
-              Join room
+              Join
             </button>
           </div>
           <input
-            className="input-mystic mt-3 w-full"
+            className="input-clean mt-3"
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toLowerCase())}
             placeholder="room code e.g. cosmic-77"
           />
-          {error && <p className="mt-3 text-center font-mono text-xs text-ember">{error}</p>}
-          <p className="mt-5 text-center font-mono text-[10px] text-fog/35">
+          {error && <p className="mt-3 text-center text-xs text-coral">{error}</p>}
+          <p className="mt-5 text-center text-[10px] text-muted">
             {getMapsApiKey()
-              ? 'Google Street View key detected'
-              : 'No Maps key — astral biome fallback active (fully playable)'}
+              ? 'Google Street View ready'
+              : 'No Maps key — playable astral panorama fallback'}
           </p>
         </div>
       </div>
     )
   }
 
-  /* ---------------- LOBBY ---------------- */
-  if (screen === 'lobby' && room) {
+  if (!room) {
+    return (
+      <div className="grid min-h-full place-items-center bg-ink">
+        <p className="animate-pulse text-xs tracking-widest text-sky">CONNECTING…</p>
+      </div>
+    )
+  }
+
+  if (screen === 'cabin' && (room.phase === 'lobby' || room.phase === 'countdown')) {
     const self = room.players.find((p) => p.id === room.selfId)
     return (
-      <div className="relative flex min-h-full items-center justify-center overflow-auto bg-void p-4">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(0,229,255,0.12),transparent_50%)]" />
-        <div className="panel relative z-10 grid w-full max-w-3xl gap-6 p-6 md:grid-cols-[1fr_0.9fr] md:p-8">
+      <div className="flex h-full min-h-full flex-col bg-ink">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-cyan">Room</p>
-            <h2 className="font-display text-4xl font-extrabold text-saffron">{room.roomCode}</h2>
-            <p className="mt-2 font-mono text-xs text-fog/55">
-              {room.localOnly ? 'Local solo mode' : `Share link · ${room.players.length}/${MAX_PLAYERS} monks`}
+            <p className="font-display text-xl font-bold text-fog">
+              monk.run <span className="text-sky">/{room.roomCode}</span>
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" className="btn-ghost" onClick={copyLink}>
-                {copied ? 'Copied' : 'Copy invite link'}
-              </button>
+            <p className="text-[10px] uppercase tracking-widest text-muted">
+              Chopper lobby · {room.players.length}/{MAX_PLAYERS}
+              {room.localOnly ? ' · local' : ''}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-ghost" onClick={copyLink}>
+              {copied ? 'Copied' : 'Invite link'}
+            </button>
+            <button
+              type="button"
+              className={`btn ${voice.active && !voice.muted ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => {
+                if (!voice.active) ensureVoice()
+                else voiceRef.current?.toggleMute()
+              }}
+            >
+              {!voice.active ? 'Join voice' : voice.muted ? 'Unmute' : 'Mute mic'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => ctrlRef.current.setReady(!self?.ready)}
+            >
+              {self?.ready ? 'Unready' : 'Ready'}
+            </button>
+            {room.isHost && room.phase === 'lobby' && (
               <button
                 type="button"
-                className="btn-ghost"
-                onClick={() => controllerRef.current.setReady(!(self?.ready))}
-              >
-                {self?.ready ? 'Unready' : 'Ready'}
-              </button>
-            </div>
-            <ul className="mt-5 space-y-2">
-              {room.players.map((p) => {
-                const v = MONK_VIBES.find((x) => x.id === p.vibe) || MONK_VIBES[0]
-                return (
-                  <li key={p.id} className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2">
-                    <span className="flex items-center gap-2">
-                      <span className="h-3 w-3 rounded-full" style={{ background: v.color }} />
-                      <span className="font-display text-sm">{p.name}</span>
-                      {p.isHost && <span className="font-mono text-[9px] text-saffron">HOST</span>}
-                    </span>
-                    <span className={`font-mono text-[10px] uppercase ${p.ready ? 'text-acid' : 'text-fog/40'}`}>
-                      {p.connected === false ? 'offline' : p.ready ? 'ready' : 'waiting'}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-            {room.isHost && (
-              <button
-                type="button"
-                className="btn-mystic mt-6 w-full"
+                className="btn btn-primary"
                 onClick={() =>
-                  controllerRef.current.startGame({
+                  ctrlRef.current.beginCountdown({
                     rounds: DEFAULT_ROUNDS,
                     roundTimeMs: DEFAULT_ROUND_MS,
                   })
                 }
               >
-                Begin ritual · {DEFAULT_ROUNDS} rounds
+                Launch ({DEFAULT_ROUNDS} rounds)
               </button>
             )}
-            {!room.isHost && (
-              <p className="mt-6 text-center font-mono text-xs text-fog/45">Waiting for host to begin…</p>
-            )}
-            {room.message && <p className="mt-3 font-mono text-[11px] text-cyan/70">{room.message}</p>}
-            {error && <p className="mt-2 font-mono text-xs text-ember">{error}</p>}
           </div>
-          <div className="flex flex-col items-center justify-center">
-            <VoidMonk vibe={vibe} mood="idle" seed={room.roomCode.length} />
-          </div>
-        </div>
-      </div>
-    )
-  }
+        </header>
 
-  /* ---------------- GAME / REVEAL / PODIUM ---------------- */
-  if (!room) {
-    return (
-      <div className="grid min-h-full place-items-center bg-void">
-        <p className="font-mono text-xs tracking-widest text-cyan animate-pulse">ALIGNING…</p>
+        <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[1fr_280px]">
+          <CabinLobby
+            selfId={room.selfId}
+            players={room.players}
+            lobby={room.lobby || {}}
+            onPose={onPose}
+            onSmack={onSmack}
+            onEmote={onEmote}
+            countdownSec={room.phase === 'countdown' ? lobbyLeft : null}
+            focused
+          />
+          <aside className="panel flex flex-col gap-3 p-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted">Crew</p>
+            <ul className="space-y-2">
+              {room.players.map((p) => {
+                const v = MONK_VIBES.find((x) => x.id === p.vibe) || MONK_VIBES[0]
+                return (
+                  <li key={p.id} className="flex items-center justify-between rounded-lg bg-black/20 px-2 py-2">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: v.color }} />
+                      <span className="font-display text-sm">{p.name}</span>
+                    </span>
+                    <span className={`text-[10px] uppercase ${p.ready ? 'text-mint' : 'text-muted'}`}>
+                      {p.connected === false ? 'away' : p.ready ? 'ready' : 'here'}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="mt-auto space-y-2 text-[11px] leading-relaxed text-muted">
+              <p>
+                Voice:{' '}
+                {voice.active
+                  ? voice.muted
+                    ? 'muted'
+                    : `live (${voice.peers.length} linked)`
+                  : 'off'}
+              </p>
+              {voice.error && <p className="text-coral">{voice.error}</p>}
+              <p>Emotes: 1 😄 2 😢 3 😠 4 😘</p>
+              {!room.isHost && room.phase === 'lobby' && <p>Waiting for host to launch…</p>}
+              {error && <p className="text-coral">{error}</p>}
+            </div>
+          </aside>
+        </div>
       </div>
     )
   }
 
   if (room.phase === 'podium') {
     return (
-      <div className="relative flex min-h-full items-center justify-center overflow-auto bg-void p-4">
-        <ShaderOverlay intensity={0.7} pulse={1} />
-        <div className="panel relative z-10 w-full max-w-2xl p-6 md:p-8">
-          <h2 className="text-center font-display text-4xl font-extrabold text-acid">KARMA COMPLETE</h2>
-          <p className="mt-2 text-center font-mono text-xs uppercase tracking-[0.25em] text-fog/50">
-            room {room.roomCode}
-          </p>
+      <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
+        <div className="panel w-full max-w-2xl p-6 md:p-8">
+          <h2 className="text-center font-display text-4xl font-extrabold text-mint">Final podium</h2>
+          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">room {room.roomCode}</p>
           <ol className="mt-6 space-y-3">
             {ranked.map((p, i) => {
               const v = MONK_VIBES.find((x) => x.id === p.vibe) || MONK_VIBES[0]
               return (
-                <li key={p.id} className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3"
+                >
                   <span className="flex items-center gap-3">
-                    <span className="font-display text-xl text-saffron">{i + 1}</span>
+                    <span className="font-display text-xl text-amber">{i + 1}</span>
                     <span className="h-3 w-3 rounded-full" style={{ background: v.color }} />
                     <span className="font-display">{p.name}</span>
                   </span>
-                  <span className="font-mono text-acid">{p.score}</span>
+                  <span className="font-mono text-mint">{p.score}</span>
                 </li>
               )
             })}
@@ -389,9 +462,11 @@ export default function App() {
           </div>
           <button
             type="button"
-            className="btn-mystic mt-6 w-full"
+            className="btn btn-primary mt-6 w-full"
             onClick={() => {
-              controllerRef.current.destroy()
+              voiceRef.current?.destroy()
+              voiceRef.current = null
+              ctrlRef.current.destroy()
               setRoom(null)
               setScreen('landing')
               window.location.hash = ''
@@ -399,10 +474,10 @@ export default function App() {
                 onState: (s) => setRoom(s),
                 onError: (msg) => setError(msg),
               })
-              controllerRef.current = ctrl
+              ctrlRef.current = ctrl
             }}
           >
-            New pilgrimage
+            New party
           </button>
         </div>
       </div>
@@ -410,16 +485,15 @@ export default function App() {
   }
 
   if (room.phase === 'reveal' && room.reveal) {
+    const selfResult = room.reveal.results.find((r) => r.playerId === room.selfId)
     return (
-      <div className="relative flex min-h-full flex-col bg-void">
-        <ShaderOverlay intensity={0.55} pulse={0.8} />
-        <div className="relative z-10 grid flex-1 gap-4 p-3 md:grid-cols-2 md:p-5">
+      <div className="flex min-h-full flex-col bg-ink">
+        <div className="grid flex-1 gap-3 p-3 md:grid-cols-2">
           <div className="panel flex min-h-[280px] flex-col p-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-acid">Reveal</p>
-            <h3 className="font-display text-2xl text-saffron">
+            <p className="text-[10px] uppercase tracking-widest text-mint">Reveal</p>
+            <h3 className="font-display text-2xl text-fog">
               {room.reveal.truth.city}, {room.reveal.truth.country}
             </h3>
-            <p className="mt-1 font-mono text-[11px] text-fog/55">{room.reveal.truth.hint}</p>
             <div className="mt-3 min-h-[240px] flex-1">
               <GuessMap
                 mode="reveal"
@@ -429,37 +503,41 @@ export default function App() {
               />
             </div>
           </div>
-          <div className="panel flex flex-col gap-4 p-4">
-            <VoidMonk
-              vibe={vibe}
-              mood="react"
-              score={selfResult?.score ?? 0}
-              seed={room.roundIndex + 3}
-            />
+          <div className="panel flex flex-col gap-3 p-4">
+            <p className="font-display text-lg">
+              You:{' '}
+              <span className="text-mint">{selfResult?.missed ? 'missed' : formatKm(selfResult?.km)}</span>
+              {' · '}
+              <span className="text-sky">+{selfResult?.score || 0}</span>
+            </p>
             <ul className="space-y-2">
               {room.reveal.results.map((r) => (
-                <li key={r.playerId} className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2">
-                  <span className="font-display text-sm">{r.name}</span>
-                  <span className="font-mono text-xs text-fog/70">
-                    {r.missed ? 'missed' : formatKm(r.km)} · <span className="text-acid">{r.score}</span>
+                <li key={r.playerId} className="flex justify-between rounded-lg bg-black/20 px-3 py-2 text-sm">
+                  <span className="font-display">{r.name}</span>
+                  <span className="text-muted">
+                    {r.missed ? 'missed' : formatKm(r.km)} · <span className="text-mint">{r.score}</span>
                   </span>
                 </li>
               ))}
             </ul>
             <div className="mt-auto">
-              <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-fog/40">Live totals</p>
+              <p className="mb-2 text-[10px] uppercase tracking-widest text-muted">Totals</p>
               {ranked.map((p) => (
-                <div key={p.id} className="flex justify-between font-mono text-xs text-fog/80">
+                <div key={p.id} className="flex justify-between text-xs text-fog/80">
                   <span>{p.name}</span>
-                  <span className="text-cyan">{p.score}</span>
+                  <span className="text-sky">{p.score}</span>
                 </div>
               ))}
               {room.isHost ? (
-                <button type="button" className="btn-mystic mt-4 w-full" onClick={() => controllerRef.current.nextRound()}>
-                  {room.roundIndex + 1 >= room.totalRounds ? 'Final podium' : 'Next round'}
+                <button
+                  type="button"
+                  className="btn btn-primary mt-4 w-full"
+                  onClick={() => ctrlRef.current.nextRound()}
+                >
+                  {room.roundIndex + 1 >= room.totalRounds ? 'Podium' : 'Next round'}
                 </button>
               ) : (
-                <p className="mt-4 text-center font-mono text-xs text-fog/45">Waiting for host…</p>
+                <p className="mt-4 text-center text-xs text-muted">Waiting for host…</p>
               )}
             </div>
           </div>
@@ -468,55 +546,52 @@ export default function App() {
     )
   }
 
-  /* playing */
   return (
-    <div className="relative h-full min-h-full overflow-hidden bg-void">
+    <div className="relative h-full min-h-full overflow-hidden bg-ink">
       {location && <StreetView location={location} interactive={!mapOpen} />}
-      <ShaderOverlay intensity={0.45} pulse={selfGuessed ? 0.6 : 0.25} />
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between p-3 md:p-4">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
         <div className="pointer-events-auto panel px-3 py-2">
-          <p className="font-display text-lg text-saffron">monk.run</p>
-          <p className="font-mono text-[10px] text-fog/50">
-            Round {room.roundIndex + 1}/{room.totalRounds}
+          <p className="font-display text-lg font-bold">monk.run</p>
+          <p className="text-[10px] text-muted">
+            Round {room.roundIndex + 1}/{room.totalRounds} · locked {lockedCount}/{room.players.length}
           </p>
         </div>
         <div className="pointer-events-auto panel px-4 py-2 text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-cyan">Pulse</p>
-          <p className={`font-display text-2xl ${secondsLeft <= 10 ? 'text-ember' : 'text-fog'}`}>{secondsLeft}s</p>
+          <p className="text-[10px] uppercase tracking-widest text-muted">Time</p>
+          <p className={`font-display text-2xl font-bold ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
+            {roundLeft}s
+          </p>
         </div>
-        <div className="pointer-events-auto panel max-w-[140px] px-3 py-2">
+        <div className="pointer-events-auto panel max-w-[150px] px-3 py-2">
           {ranked.slice(0, 3).map((p) => (
-            <div key={p.id} className="flex justify-between gap-2 font-mono text-[10px]">
-              <span className="truncate text-fog/70">{p.name}</span>
-              <span className="text-acid">{p.score}</span>
+            <div key={p.id} className="flex justify-between gap-2 text-[10px]">
+              <span className="truncate text-muted">{p.name}</span>
+              <span className="text-mint">{p.score}</span>
             </div>
           ))}
+          <button
+            type="button"
+            className="btn btn-ghost mt-2 w-full !px-2 !py-1"
+            onClick={() => {
+              if (!voice.active) ensureVoice()
+              else voiceRef.current?.toggleMute()
+            }}
+          >
+            {!voice.active ? 'Voice' : voice.muted ? 'Unmute' : 'Mute'}
+          </button>
         </div>
       </header>
 
-      <div className="absolute bottom-3 left-3 z-20 hidden md:block">
-        <div className="panel p-3">
-          <VoidMonk
-            vibe={vibe}
-            mood={selfGuessed ? 'locked' : mapOpen ? 'looking' : 'idle'}
-            seed={room.roundIndex}
-            compact
-          />
-        </div>
-      </div>
-
       <div className="absolute bottom-3 right-3 z-20 flex flex-col items-end gap-2">
         {!selfGuessed && (
-          <button type="button" className="btn-mystic" onClick={() => setMapOpen((v) => !v)}>
+          <button type="button" className="btn btn-primary" onClick={() => setMapOpen((v) => !v)}>
             {mapOpen ? 'Hide map' : 'Guess'}
           </button>
         )}
-        {selfGuessed && (
-          <div className="panel px-4 py-2 font-mono text-xs text-acid">Guess locked — waiting for reveal</div>
-        )}
+        {selfGuessed && <div className="panel px-4 py-2 text-xs text-mint">Guess locked — waiting</div>}
         {room.isHost && (
-          <button type="button" className="btn-ghost" onClick={() => controllerRef.current.revealRound()}>
+          <button type="button" className="btn btn-ghost" onClick={() => ctrlRef.current.revealRound()}>
             Force reveal
           </button>
         )}
@@ -533,7 +608,7 @@ export default function App() {
               onCountry={setCountry}
               locked={selfGuessed}
             />
-            <button type="button" className="btn-mystic mt-3 w-full" disabled={!guess} onClick={lockGuess}>
+            <button type="button" className="btn btn-primary mt-3 w-full" disabled={!guess} onClick={lockGuess}>
               Lock guess
             </button>
           </div>
