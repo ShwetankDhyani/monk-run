@@ -1,19 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { resolvePlayerLook } from '../data/avatars.js'
-import { drawMonkTopDown } from '../lib/avatarDraw.js'
+import { dirFromDelta, drawMonkTopDown } from '../lib/avatarDraw.js'
+import {
+  ROOM,
+  STATIC_COLLIDERS,
+  drawLivingRoom,
+  drawLivingProp,
+  makeLivingRoomProps,
+} from '../lib/templeRoom.js'
 
 const WORLD = { w: 1280, h: 720 }
-const ROOM = { x: 80, y: 100, w: 1120, h: 560 }
-const BH = { x: 640, y: 380 }
 const PLAYER_R = 17
 const SPEED = 185
 
 const SPAWN_SPOTS = [
-  { x: 220, y: 420, angle: 0 },
-  { x: 380, y: 500, angle: 0 },
-  { x: 540, y: 380, angle: 0 },
-  { x: 760, y: 480, angle: 0 },
-  { x: 980, y: 400, angle: 0 },
+  { x: 220, y: 420, dir: 'down' },
+  { x: 380, y: 500, dir: 'down' },
+  { x: 540, y: 380, dir: 'down' },
+  { x: 760, y: 480, dir: 'down' },
+  { x: 980, y: 400, dir: 'down' },
 ]
 
 const KEY = {
@@ -30,21 +35,6 @@ const KEY = {
   d: { x: 1, y: 0 },
   D: { x: 1, y: 0 },
 }
-
-const STATIC_COLLIDERS = [
-  { x: 80, y: 100, w: 1120, h: 28 },
-  { x: 80, y: 632, w: 1120, h: 28 },
-  { x: 80, y: 100, w: 28, h: 560 },
-  { x: 1172, y: 100, w: 28, h: 560 },
-  { x: 200, y: 180, w: 140, h: 50 },
-  { x: 520, y: 160, w: 240, h: 55 },
-  { x: 920, y: 180, w: 120, h: 90 },
-  { x: 160, y: 520, w: 100, h: 70 },
-  { x: 480, y: 540, w: 130, h: 45 },
-  { x: 780, y: 520, w: 90, h: 60 },
-  { x: 300, y: 280, w: 50, h: 50 },
-  { x: 900, y: 320, w: 55, h: 55 },
-]
 
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n))
@@ -91,108 +81,8 @@ function moveEntity(ent, dx, dy, colliders, radius = PLAYER_R) {
   ent.y = clamp(y, ROOM.y + radius + 8, ROOM.y + ROOM.h - radius - 8)
 }
 
-function makeProps() {
-  return [
-    { id: 'v1', kind: 'vase', x: 420, y: 440, mass: 1.5, r: 14, vx: 0, vy: 0, rot: 0 },
-    { id: 'v2', kind: 'vase', x: 880, y: 460, mass: 1.5, r: 14, vx: 0, vy: 0, rot: 0 },
-    { id: 'f1', kind: 'flowers', x: 640, y: 220, mass: 0.55, r: 18, vx: 0, vy: 0, rot: 0 },
-    { id: 'b1', kind: 'bowl', x: 260, y: 320, mass: 0.9, r: 12, vx: 0, vy: 0, rot: 0 },
-    { id: 'c1', kind: 'candle', x: 580, y: 200, mass: 0.35, r: 8, vx: 0, vy: 0, rot: 0 },
-    { id: 'c2', kind: 'candle', x: 700, y: 200, mass: 0.35, r: 8, vx: 0, vy: 0, rot: 0 },
-    { id: 'm1', kind: 'mat', x: 350, y: 560, mass: 0.7, r: 20, vx: 0, vy: 0, rot: 0.1 },
-    { id: 'p1', kind: 'petal', x: 500, y: 350, mass: 0.15, r: 6, vx: 0, vy: 0, rot: 0 },
-    { id: 'p2', kind: 'petal', x: 720, y: 380, mass: 0.15, r: 6, vx: 0, vy: 0, rot: 0 },
-    { id: 'p3', kind: 'petal', x: 600, y: 480, mass: 0.15, r: 6, vx: 0, vy: 0, rot: 0 },
-  ]
-}
-
 function propColliders(props) {
   return props.map((p) => ({ x: p.x - p.r, y: p.y - p.r, w: p.r * 2, h: p.r * 2 }))
-}
-
-function drawTempleRoom(ctx, t) {
-  const fg = ctx.createLinearGradient(ROOM.x, ROOM.y, ROOM.x, ROOM.y + ROOM.h)
-  fg.addColorStop(0, '#9a6b3a')
-  fg.addColorStop(1, '#6b4520')
-  ctx.fillStyle = '#3a2418'
-  ctx.fillRect(ROOM.x - 4, ROOM.y - 4, ROOM.w + 8, ROOM.h + 8)
-  ctx.fillStyle = fg
-  ctx.fillRect(ROOM.x + 20, ROOM.y + 20, ROOM.w - 40, ROOM.h - 40)
-  ctx.strokeStyle = 'rgba(30,18,8,0.2)'
-  for (let y = ROOM.y + 20; y < ROOM.y + ROOM.h - 20; y += 32) {
-    ctx.beginPath()
-    ctx.moveTo(ROOM.x + 20, y)
-    ctx.lineTo(ROOM.x + ROOM.w - 20, y)
-    ctx.stroke()
-  }
-  ctx.fillStyle = '#2a1810'
-  ctx.fillRect(520, 160, 240, 55)
-  ctx.fillStyle = '#c9a227'
-  ctx.fillRect(530, 150, 220, 12)
-  ctx.fillStyle = '#d4af37'
-  ctx.beginPath()
-  ctx.arc(640, 175, 22, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = '#4a3020'
-  ctx.fillRect(170, 180, 100, 80)
-  ctx.fillRect(970, 180, 100, 80)
-  ctx.fillStyle = '#3a2414'
-  ctx.fillRect(480, 540, 130, 45)
-  ;[300, 900].forEach((px) => {
-    ctx.fillStyle = '#2a1810'
-    ctx.fillRect(px - 25, 280, 50, 50)
-  })
-  ;[320, 640, 960].forEach((lx, i) => {
-    const g = ctx.createRadialGradient(lx, 200, 0, lx, 380, 180)
-    g.addColorStop(0, `rgba(255,220,160,${0.07 + Math.sin(t + i) * 0.02})`)
-    g.addColorStop(1, 'rgba(255,200,120,0)')
-    ctx.fillStyle = g
-    ctx.fillRect(ROOM.x, ROOM.y, ROOM.w, ROOM.h)
-  })
-}
-
-function drawProp(ctx, p, t) {
-  ctx.save()
-  ctx.translate(p.x, p.y)
-  ctx.rotate(p.rot)
-  if (p.kind === 'vase') {
-    ctx.fillStyle = '#8b4513'
-    ctx.beginPath()
-    ctx.ellipse(0, 4, 10, 14, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#e8a0b0'
-    ctx.beginPath()
-    ctx.arc(0, -16, 8, 0, Math.PI * 2)
-    ctx.fill()
-  } else if (p.kind === 'flowers') {
-    ctx.fillStyle = '#6b4520'
-    ctx.fillRect(-3, 0, 6, 16)
-    ctx.fillStyle = '#e8a0b0'
-    ctx.beginPath()
-    ctx.arc(0, -8, 10, 0, Math.PI * 2)
-    ctx.fill()
-  } else if (p.kind === 'bowl') {
-    ctx.fillStyle = '#b8860b'
-    ctx.beginPath()
-    ctx.ellipse(0, 0, 12, 7, 0, 0, Math.PI * 2)
-    ctx.fill()
-  } else if (p.kind === 'candle') {
-    ctx.fillStyle = '#f5f5dc'
-    ctx.fillRect(-3, -4, 6, 14)
-    ctx.fillStyle = `rgba(255,180,60,${0.7 + Math.sin(t * 8) * 0.3})`
-    ctx.beginPath()
-    ctx.arc(0, -8, 4, 0, Math.PI * 2)
-    ctx.fill()
-  } else if (p.kind === 'mat') {
-    ctx.fillStyle = '#7a1f1f'
-    ctx.fillRect(-20, -12, 40, 24)
-  } else {
-    ctx.fillStyle = '#e8a0b0'
-    ctx.beginPath()
-    ctx.ellipse(0, 0, 5, 3, 0, 0, Math.PI * 2)
-    ctx.fill()
-  }
-  ctx.restore()
 }
 
 function drawBlackHole(ctx, t, cx, cy, scale, suck) {
@@ -273,13 +163,15 @@ export function MonkLobby({
   countdownStartedAt = 0,
   countdownEndsAt = 0,
   portalHold = false,
+  blackHoleX = 640,
+  blackHoleY = 380,
   focused = true,
 }) {
   const canvasRef = useRef(null)
   const keysRef = useRef(new Set())
-  const selfRef = useRef({ x: SPAWN_SPOTS[0].x, y: SPAWN_SPOTS[0].y, angle: 0, walk: 0 })
+  const selfRef = useRef({ x: SPAWN_SPOTS[0].x, y: SPAWN_SPOTS[0].y, dir: 'down', walk: 0 })
   const peersRef = useRef(new Map())
-  const propsRef = useRef(makeProps())
+  const propsRef = useRef(makeLivingRoomProps(blackHoleX, blackHoleY))
   const lastSend = useRef(0)
   const lastTs = useRef(performance.now())
   const smackCd = useRef(0)
@@ -288,10 +180,12 @@ export function MonkLobby({
   const playersRef = useRef(players)
   const callbacksRef = useRef({ onPose, onSmack, onEmote })
   const countdownRef = useRef(countdownSec)
+  const bhRef = useRef({ x: blackHoleX, y: blackHoleY })
   const [actionMenu, setActionMenu] = useState(null)
   playersRef.current = players
   callbacksRef.current = { onPose, onSmack, onEmote }
   countdownRef.current = countdownSec
+  bhRef.current = { x: blackHoleX, y: blackHoleY }
 
   useEffect(() => {
     const map = peersRef.current
@@ -302,10 +196,10 @@ export function MonkLobby({
       const pose = lobby?.[p.id] || {}
       const idx = Math.max(0, players.findIndex((x) => x.id === p.id))
       const spot = SPAWN_SPOTS[idx % SPAWN_SPOTS.length]
-      const cur = map.get(p.id) || { x: pose.x ?? spot.x, y: pose.y ?? spot.y, angle: pose.angle ?? 0, walk: 0, stretchX: 1, stretchY: 1, spin: 0 }
+      const cur = map.get(p.id) || { x: pose.x ?? spot.x, y: pose.y ?? spot.y, dir: pose.dir ?? spot.dir, walk: 0, stretchX: 1, stretchY: 1, spin: 0 }
       if (pose.x != null) cur.tx = pose.x
       if (pose.y != null) cur.ty = pose.y
-      if (pose.angle != null) cur.tAngle = pose.angle
+      if (pose.dir != null) cur.tDir = pose.dir
       if (cur.tx == null) {
         cur.tx = spot.x
         cur.ty = spot.y
@@ -322,7 +216,7 @@ export function MonkLobby({
 
   useEffect(() => {
     const me = selfRef.current
-    callbacksRef.current.onPose?.({ x: me.x, y: me.y, angle: me.angle, facing: Math.cos(me.angle) >= 0 ? 1 : -1 })
+    callbacksRef.current.onPose?.({ x: me.x, y: me.y, dir: me.dir })
   }, [])
 
   useEffect(() => {
@@ -421,6 +315,7 @@ export function MonkLobby({
       lastTs.current = now
       smackCd.current = Math.max(0, smackCd.current - dt)
 
+      const BH = bhRef.current
       let bhScale = 0
       let suck = 0
       if (portalHold) {
@@ -451,7 +346,7 @@ export function MonkLobby({
         if (dx || dy) {
           const len = Math.hypot(dx, dy) || 1
           moveEntity(me, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt, colliders)
-          me.angle = Math.atan2(dy, dx)
+          me.dir = dirFromDelta(dx, dy, me.dir)
           me.walk += dt
         } else me.walk *= 0.85
         suckLocal.current = { stretchX: 1, stretchY: 1, spin: 0 }
@@ -460,14 +355,14 @@ export function MonkLobby({
         const pull = (420 + suck * 1800) * dt
         me.x += ((BH.x - me.x) / dist) * pull
         me.y += ((BH.y - me.y) / dist) * pull
-        me.angle = Math.atan2(BH.y - me.y, BH.x - me.x)
+        me.dir = dirFromDelta(BH.x - me.x, BH.y - me.y, me.dir)
         me.walk += dt * 5
         suckLocal.current = { stretchX: Math.max(0.08, 1 - suck * 0.88), stretchY: 1 + suck * 3.2, spin: suck * 10 }
       }
 
       if (now - lastSend.current > 45) {
         lastSend.current = now
-        callbacksRef.current.onPose?.({ x: me.x, y: me.y, angle: me.angle, facing: Math.cos(me.angle) >= 0 ? 1 : -1 })
+        callbacksRef.current.onPose?.({ x: me.x, y: me.y, dir: me.dir })
       }
 
       for (const peer of peersRef.current.values()) {
@@ -475,18 +370,14 @@ export function MonkLobby({
           peer.x += (peer.tx - peer.x) * Math.min(1, dt * 28)
           peer.y += (peer.ty - peer.y) * Math.min(1, dt * 28)
         }
-        if (peer.tAngle != null) {
-          let da = peer.tAngle - (peer.angle || 0)
-          while (da > Math.PI) da -= Math.PI * 2
-          while (da < -Math.PI) da += Math.PI * 2
-          peer.angle = (peer.angle || 0) + da * Math.min(1, dt * 18)
-        }
+        if (peer.tDir != null) peer.dir = peer.tDir
         peer.walk = (peer.walk || 0) + dt
         if (sucking) {
           const dist = Math.hypot(BH.x - peer.x, BH.y - peer.y) || 1
           const pull = (380 + suck * 1600) * dt
           peer.x += ((BH.x - peer.x) / dist) * pull
           peer.y += ((BH.y - peer.y) / dist) * pull
+          peer.dir = dirFromDelta(BH.x - peer.x, BH.y - peer.y, peer.dir || 'down')
           peer.stretchX = Math.max(0.08, 1 - suck * 0.85)
           peer.stretchY = 1 + suck * 2.8
           peer.spin = suck * 9
@@ -516,8 +407,8 @@ export function MonkLobby({
       const t = now / 1000
       ctx.fillStyle = '#1a100c'
       ctx.fillRect(0, 0, WORLD.w, WORLD.h)
-      drawTempleRoom(ctx, t)
-      for (const p of props) drawProp(ctx, p, t)
+      drawLivingRoom(ctx, t)
+      for (const p of props) drawLivingProp(ctx, p, t)
       if (bhScale > 0.005) drawBlackHole(ctx, t, BH.x, BH.y, bhScale, suck)
 
       const list = [...peersRef.current.entries()]
@@ -536,7 +427,7 @@ export function MonkLobby({
           ctx.rotate(pose.spin * 0.12)
           ctx.translate(-pose.x, -pose.y)
         }
-        drawMonkTopDown(ctx, pose.x, pose.y, look, pose.angle || 0, pose.walk || 0, sx, sy)
+        drawMonkTopDown(ctx, pose.x, pose.y, look, pose.dir || 'down', pose.walk || 0, sx, sy)
         if (!sucking || suck < 0.9) drawNameplate(ctx, pose.x, pose.y, pl?.name, isSelf)
         if (pose.emote && pose.emoteUntil > now) {
           ctx.font = '20px serif'
@@ -555,7 +446,7 @@ export function MonkLobby({
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [selfId, portalActive, countdownStartedAt, countdownEndsAt, portalHold])
+  }, [selfId, portalActive, countdownStartedAt, countdownEndsAt, portalHold, blackHoleX, blackHoleY])
 
   const runAction = (kind) => {
     if (!actionMenu) return

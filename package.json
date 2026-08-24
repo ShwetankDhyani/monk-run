@@ -6,6 +6,8 @@
   "description": "monk.run — multiplayer party GeoGuessr with temple lobby, black hole jump, and voice chat",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 47447",
+    "dev:all": "node server/leaderboard.mjs & vite --host 0.0.0.0 --port 47447",
+    "server": "node server/leaderboard.mjs",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 47447",
     "lint": "oxlint"

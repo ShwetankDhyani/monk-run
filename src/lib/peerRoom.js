@@ -1,5 +1,6 @@
 import { migrateVibeToAvatar } from '../data/avatars.js'
 import { getLocation, pickRoundLocations } from '../data/locations.js'
+import { randomBlackHolePos } from './templeRoom.js'
 import { haversineKm, scoreFromDistanceKm } from './scoring.js'
 
 export const MAX_PLAYERS = 5
@@ -10,18 +11,17 @@ export const LOBBY_COUNTDOWN_MS = 3_200
 /** Canvas lobby spawn points (must match MonkLobby floor coords). */
 function spawnSlot(index) {
   const spots = [
-    { x: 220, y: 420, angle: 0, facing: 1 },
-    { x: 380, y: 500, angle: 0, facing: 1 },
-    { x: 540, y: 380, angle: 0, facing: 1 },
-    { x: 760, y: 480, angle: 0, facing: 1 },
-    { x: 980, y: 400, angle: 0, facing: 1 },
+    { x: 220, y: 420, dir: 'down' },
+    { x: 380, y: 500, dir: 'down' },
+    { x: 540, y: 380, dir: 'down' },
+    { x: 760, y: 480, dir: 'down' },
+    { x: 980, y: 400, dir: 'down' },
   ]
   const s = spots[index % spots.length]
   return {
     x: s.x,
     y: s.y,
-    angle: s.angle,
-    facing: s.facing,
+    dir: s.dir,
     emote: null,
     emoteUntil: 0,
     hitFlash: 0,
@@ -65,6 +65,8 @@ export function createRoomController({ onState, onError, onEvent }) {
       chat: [],
       countdownEndsAt: 0,
       countdownStartedAt: 0,
+      blackHoleX: 640,
+      blackHoleY: 380,
       roundIndex: 0,
       totalRounds: DEFAULT_ROUNDS,
       roundEndsAt: 0,
@@ -138,6 +140,8 @@ export function createRoomController({ onState, onError, onEvent }) {
         chat: state.chat,
         countdownEndsAt: state.countdownEndsAt,
         countdownStartedAt: state.countdownStartedAt,
+        blackHoleX: state.blackHoleX,
+        blackHoleY: state.blackHoleY,
         roundIndex: state.roundIndex,
         totalRounds: state.totalRounds,
         roundEndsAt: state.roundEndsAt,
@@ -193,8 +197,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         ...(state.lobby[fromId] || spawnSlot(state.players.findIndex((p) => p.id === fromId))),
         x: msg.x,
         y: msg.y ?? state.lobby[fromId]?.y ?? 430,
-        angle: msg.angle ?? state.lobby[fromId]?.angle ?? 0,
-        facing: msg.facing ?? state.lobby[fromId]?.facing ?? 1,
+        dir: msg.dir ?? state.lobby[fromId]?.dir ?? 'down',
       }
       broadcast(
         {
@@ -202,8 +205,7 @@ export function createRoomController({ onState, onError, onEvent }) {
           id: fromId,
           x: msg.x,
           y: msg.y ?? state.lobby[fromId]?.y ?? 430,
-          angle: msg.angle ?? 0,
-          facing: msg.facing ?? 1,
+          dir: msg.dir ?? 'down',
         },
         fromId,
       )
@@ -249,8 +251,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         ...(state.lobby[msg.id] || spawnSlot(0)),
         x: msg.x,
         y: msg.y ?? state.lobby[msg.id]?.y ?? 430,
-        angle: msg.angle ?? state.lobby[msg.id]?.angle ?? 0,
-        facing: msg.facing ?? state.lobby[msg.id]?.facing ?? 1,
+        dir: msg.dir ?? state.lobby[msg.id]?.dir ?? 'down',
       }
       emit()
       return
@@ -520,6 +521,9 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.reveal = null
     state.guesses = {}
     state.phase = 'countdown'
+    const bh = randomBlackHolePos()
+    state.blackHoleX = bh.x
+    state.blackHoleY = bh.y
     state.countdownStartedAt = Date.now()
     state.countdownEndsAt = Date.now() + LOBBY_COUNTDOWN_MS
     state.message = 'Black hole forming…'

@@ -15,6 +15,8 @@ import GuessMap from './components/GuessMap.jsx'
 import { MonkLobby } from './components/MonkLobby.jsx'
 import { AvatarPicker } from './components/AvatarPicker.jsx'
 import { CinematicOverlay } from './components/CinematicOverlay.jsx'
+import { LeaderboardPanel } from './components/LeaderboardPanel.jsx'
+import { submitScore } from './lib/leaderboard.js'
 
 function parseRoomFromHash() {
   const h = window.location.hash.replace(/^#/, '')
@@ -122,6 +124,8 @@ export default function App() {
   const [voice, setVoice] = useState({ muted: true, active: false, peers: [], error: null })
   const [portalHold, setPortalHold] = useState(false)
   const prevPhaseRef = useRef(null)
+  const [leaderboardKey, setLeaderboardKey] = useState(0)
+  const scoreSubmittedRef = useRef(false)
 
   const ctrlRef = useRef(null)
   const voiceRef = useRef(null)
@@ -191,6 +195,7 @@ export default function App() {
 
     if (room.phase === 'podium' && prev !== 'podium') {
       setCinPhase('enter-podium')
+      scoreSubmittedRef.current = false
       const t = setTimeout(() => setCinPhase(null), 1600)
       return () => clearTimeout(t)
     }
@@ -209,6 +214,17 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [room?.chat?.length])
+
+  useEffect(() => {
+    if (room?.phase !== 'podium' || scoreSubmittedRef.current) return
+    const me = room.players.find((p) => p.id === room.selfId)
+    const score = room.scores?.[room.selfId] || 0
+    if (!me || score <= 0) return
+    scoreSubmittedRef.current = true
+    submitScore({ name: me.name, score, roomCode: room.roomCode }).then(() => {
+      setLeaderboardKey((k) => k + 1)
+    })
+  }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode])
 
   const location = useMemo(() => {
     if (!room?.currentLocationId) return null
@@ -402,6 +418,7 @@ export default function App() {
             Join room
           </button>
           {error && <p className="mt-3 text-center text-xs text-coral">{error}</p>}
+          <LeaderboardPanel compact refreshKey={leaderboardKey} />
           <p className="mt-5 text-center text-[10px] text-muted">
             {getMapsApiKey()
               ? 'Google Street View ready'
@@ -513,6 +530,8 @@ export default function App() {
             countdownStartedAt={room.countdownStartedAt}
             countdownEndsAt={room.countdownEndsAt}
             portalHold={portalHold}
+            blackHoleX={room.blackHoleX ?? 640}
+            blackHoleY={room.blackHoleY ?? 380}
             focused={!inPortal}
           />
           <aside className="panel flex min-h-0 flex-col gap-3 p-4">
@@ -613,6 +632,7 @@ export default function App() {
           <div className="mt-8">
             <ShareCard players={room.players} scores={room.scores} roomCode={room.roomCode} />
           </div>
+          <LeaderboardPanel refreshKey={leaderboardKey} />
           <button
             type="button"
             className="btn btn-primary mt-6 w-full"
