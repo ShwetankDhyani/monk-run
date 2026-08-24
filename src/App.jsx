@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
-import { MONK_VIBES, getLocation } from './data/locations.js'
+import { getLocation } from './data/locations.js'
 import { migrateVibeToAvatar, resolvePlayerLook } from './data/avatars.js'
 import { formatKm, makeRoomCode, normalizeRoomPin } from './lib/scoring.js'
 import {
