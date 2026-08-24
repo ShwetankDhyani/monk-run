@@ -528,7 +528,10 @@ export function createRoomController({ onState, onError, onEvent }) {
       }
       state.totalRounds = session.totalRounds
     } catch {
-      fail('Game server offline — run npm run dev:all so rounds stay cheat-proof.')
+      state.phase = 'lobby'
+      state.message = 'Game server offline — restart with npm run dev (starts API automatically).'
+      onError?.(state.message)
+      emit()
       return
     }
     state.roundTimeMs = roundTimeMs

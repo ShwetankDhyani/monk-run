@@ -430,7 +430,7 @@ export default function App() {
       <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
         <div className="panel w-full max-w-md p-6 text-center">
           <p className="font-display text-2xl font-bold text-coral">
-            {hostLeft ? 'Host disconnected' : 'Could not connect'}
+            {hostLeft ? 'Host disconnected' : room.message?.includes('Game server') ? 'Game server needed' : 'Could not connect'}
           </p>
           <p className="mt-3 text-sm text-muted">{room.message || error || 'Something went wrong.'}</p>
           <button
