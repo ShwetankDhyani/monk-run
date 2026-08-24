@@ -303,8 +303,15 @@ export function MonkLobby({
         const total = Math.max(1, countdownEndsAt - countdownStartedAt)
         const elapsed = Date.now() - countdownStartedAt
         const p = Math.min(1, elapsed / total)
-        bhScale = p < 0.6 ? (p / 0.6) ** 1.15 : 1
-        suck = p < 0.42 ? 0 : ((p - 0.42) / 0.58) ** 1.15
+        // Pop in instantly, then grow slowly; suck starts in the second half
+        if (p < 0.04) {
+          bhScale = 0.14 + (p / 0.04) * 0.1
+        } else if (p < 0.72) {
+          bhScale = 0.24 + ((p - 0.04) / 0.68) ** 0.85 * 0.76
+        } else {
+          bhScale = 1
+        }
+        suck = p < 0.58 ? 0 : ((p - 0.58) / 0.42) ** 1.05
       }
       const birth = portalActive && countdownStartedAt
         ? Math.min(1, (Date.now() - countdownStartedAt) / Math.max(1, countdownEndsAt - countdownStartedAt))

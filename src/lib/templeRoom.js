@@ -85,25 +85,24 @@ export function randomBlackHolePos() {
   return { x: 640, y: 380 }
 }
 
-/** Volatile wobbly black hole — deformed circle that grows and churns. */
+/** Volatile wobbly black hole — distorted circle that grows and churns. */
 export function drawBlackHole(ctx, t, cx, cy, scale, suck, birth = 0) {
   if (scale <= 0.002) return
 
-  const wild = 1.4 + (1 - suck) * 1.2 + birth * 0.6
-  const baseR = 2 + scale * 88
+  const pulse = 0.92 + Math.sin(t * 5) * 0.04 + birth * 0.06
+  const baseR = (6 + scale * 96) * pulse
+  const squishBase = 0.92 + Math.sin(t * 3.5) * 0.06
 
-  function wobbleR(a, r, phase, layers = 1) {
-    let out = r
-    out += Math.sin(a * 3 + t * 11 + phase) * (5 + scale * 10) * wild * layers
-    out += Math.sin(a * 5 - t * 15 + phase * 1.7) * (3 + scale * 7) * wild * layers
-    out += Math.sin(a * 8 + t * 19 - phase) * (2 + scale * 4) * wild
-    out += Math.sin(a * 13 + t * 23) * scale * 2.5 * wild
-    out *= 1 + Math.sin(t * 27 + phase * 2 + a * 2) * 0.045 * wild
-    return Math.max(1.5, out)
+  function wobbleR(a, r, phase) {
+    const w =
+      1 +
+      Math.sin(a * 2 + t * 4 + phase) * (0.05 + scale * 0.04) +
+      Math.sin(a * 3 - t * 7 + phase * 1.3) * (0.025 + scale * 0.02)
+    return Math.max(2, r * w)
   }
 
-  function traceBlob(radius, squish, phase, alpha, stroke) {
-    const n = 56
+  function traceBlob(radius, squish, phase, fill, stroke) {
+    const n = 64
     ctx.beginPath()
     for (let i = 0; i <= n; i++) {
       const a = (i / n) * Math.PI * 2
@@ -116,76 +115,71 @@ export function drawBlackHole(ctx, t, cx, cy, scale, suck, birth = 0) {
     ctx.closePath()
     if (stroke) {
       ctx.strokeStyle = stroke
-      ctx.lineWidth = 1.2 + scale * 2
+      ctx.lineWidth = 1.4 + scale * 2.2
       ctx.stroke()
     }
-    if (alpha != null) {
-      ctx.fillStyle = alpha
+    if (fill != null) {
+      ctx.fillStyle = fill
       ctx.fill()
     }
   }
 
   ctx.save()
 
-  // Outer heat shimmer
-  for (let ring = 5; ring >= 1; ring--) {
-    const rr = baseR * (1 + ring * 0.14 + Math.sin(t * 8 + ring) * 0.03)
+  // Outer heat shimmer — soft rings
+  for (let ring = 3; ring >= 1; ring--) {
+    const rr = baseR * (1 + ring * 0.11 + Math.sin(t * 6 + ring) * 0.02)
     traceBlob(
       rr,
-      0.82 + Math.sin(t * 4 + ring) * 0.12,
-      ring * 1.3,
-      `rgba(255,${120 + ring * 20},${40 + ring * 10},${(0.04 + suck * 0.08) / ring})`,
+      squishBase + Math.sin(t * 4 + ring) * 0.04,
+      ring * 0.8,
+      `rgba(255,${130 + ring * 18},${50 + ring * 8},${(0.05 + suck * 0.07) / ring})`,
     )
   }
 
-  // Spinning accretion arcs
-  for (let arc = 0; arc < 6; arc++) {
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.rotate(t * (2.2 + arc * 0.35) + arc * 1.1)
-    ctx.scale(1.25, 0.42 + Math.sin(t * 6 + arc) * 0.08)
-    ctx.beginPath()
-    ctx.arc(0, 0, baseR * (0.9 + arc * 0.08), 0, Math.PI * 1.35)
-    ctx.strokeStyle = `rgba(255,180,80,${0.08 + suck * 0.12})`
-    ctx.lineWidth = 2 + arc * 0.5
-    ctx.stroke()
-    ctx.restore()
-  }
-
-  // Photon ring — bright volatile outline
+  // Subtle lensing ring — single distorted outline (no petal arcs)
   traceBlob(
-    baseR * 0.72,
-    0.88 + Math.sin(t * 9) * 0.1,
-    t * 2,
+    baseR * 0.78,
+    squishBase + Math.sin(t * 8) * 0.05,
+    t * 1.5,
     null,
-    `rgba(255,220,140,${0.35 + Math.sin(t * 18) * 0.12 + suck * 0.2})`,
+    `rgba(255,210,130,${0.28 + Math.sin(t * 14) * 0.08 + suck * 0.22})`,
+  )
+
+  // Mid ring — darker orange edge
+  traceBlob(
+    baseR * 0.68,
+    squishBase,
+    t * 2.2,
+    null,
+    `rgba(255,140,40,${0.12 + suck * 0.15})`,
   )
 
   // Event horizon fill
-  traceBlob(baseR * 0.58, 0.86 + Math.sin(t * 7) * 0.08, t * 3, '#030008')
-  traceBlob(baseR * 0.42, 0.9 + Math.sin(t * 11) * 0.06, t * 4, '#000')
+  traceBlob(baseR * 0.58, squishBase, t * 2.8, '#030008')
+  traceBlob(baseR * 0.44, squishBase + 0.02, t * 3.5, '#000')
 
-  // Inner singularity flicker
-  const flicker = 0.7 + Math.sin(t * 31) * 0.15 + Math.sin(t * 47) * 0.1
-  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.35 * flicker)
+  // Inner singularity
+  const flicker = 0.75 + Math.sin(t * 24) * 0.12
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.38 * flicker)
   core.addColorStop(0, '#000')
-  core.addColorStop(0.6, '#050010')
-  core.addColorStop(1, 'rgba(80,20,120,0.15)')
+  core.addColorStop(0.55, '#050010')
+  core.addColorStop(1, 'rgba(60,15,90,0.12)')
   ctx.fillStyle = core
   ctx.beginPath()
-  ctx.arc(cx, cy, baseR * 0.35 * flicker, 0, Math.PI * 2)
+  ctx.arc(cx, cy, baseR * 0.38 * flicker, 0, Math.PI * 2)
   ctx.fill()
 
-  // Sparks / debris when growing
-  if (scale < 0.95 || suck < 0.5) {
-    for (let i = 0; i < 14; i++) {
-      const a = t * 3.5 + i * 0.9
-      const dist = baseR * (0.7 + (i % 5) * 0.08 + Math.sin(t * 12 + i) * 0.06)
-      const sx = cx + Math.cos(a) * dist
-      const sy = cy + Math.sin(a) * dist * 0.75
-      ctx.fillStyle = `rgba(255,200,120,${0.15 + Math.sin(t * 20 + i) * 0.1})`
+  // Debris sparks along the rim
+  if (scale < 0.98 || suck < 0.65) {
+    for (let i = 0; i < 10; i++) {
+      const a = t * 2.8 + i * (Math.PI * 2) / 10
+      const rim = wobbleR(a, baseR * 0.72, i)
+      const sx = cx + Math.cos(a) * rim
+      const sy = cy + Math.sin(a) * rim * squishBase
+      ctx.fillStyle = `rgba(255,190,110,${0.12 + Math.sin(t * 18 + i) * 0.08})`
       ctx.beginPath()
-      ctx.arc(sx, sy, 1 + (i % 3), 0, Math.PI * 2)
+      ctx.arc(sx, sy, 1 + (i % 2), 0, Math.PI * 2)
       ctx.fill()
     }
   }

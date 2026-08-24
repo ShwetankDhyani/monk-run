@@ -111,6 +111,46 @@ const server = createServer(async (req, res) => {
     return
   }
 
+  if (req.method === 'GET' && url === '/api/geocode') {
+    try {
+      const q = new URL(req.url, 'http://localhost').searchParams.get('q')?.trim()
+      if (!q || q.length < 2) {
+        sendJson(res, 400, { error: 'Query too short' })
+        return
+      }
+      const geoUrl = new URL('https://nominatim.openstreetmap.org/search')
+      geoUrl.searchParams.set('q', q)
+      geoUrl.searchParams.set('format', 'json')
+      geoUrl.searchParams.set('limit', '1')
+      geoUrl.searchParams.set('addressdetails', '1')
+      const geoRes = await fetch(geoUrl.toString(), {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'monk.run/1.0 (party geoguessr)',
+        },
+      })
+      if (!geoRes.ok) {
+        sendJson(res, 502, { error: 'Geocoder unavailable' })
+        return
+      }
+      const hits = await geoRes.json()
+      const hit = hits?.[0]
+      if (!hit) {
+        sendJson(res, 404, { error: 'Place not found' })
+        return
+      }
+      sendJson(res, 200, {
+        lat: parseFloat(hit.lat),
+        lng: parseFloat(hit.lon),
+        label: hit.display_name,
+        country: hit.address?.country || '',
+      })
+    } catch {
+      sendJson(res, 500, { error: 'Geocode failed' })
+    }
+    return
+  }
+
   // --- Game integrity: locations + Street View never sent to client as raw coords ---
   if (req.method === 'POST' && url === '/api/game/session') {
     try {

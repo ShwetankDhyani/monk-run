@@ -1,31 +1,44 @@
-/** OpenStreetMap Nominatim — free geocoding for city/country search. */
+/** Geocode city/place names via server proxy (Nominatim). */
+
+const COUNTRY_ALIASES = {
+  usa: 'United States',
+  'united states of america': 'United States',
+  uk: 'United Kingdom',
+  'united kingdom of great britain and northern ireland': 'United Kingdom',
+  'south korea': 'South Korea',
+  'republic of korea': 'South Korea',
+  'czech republic': 'Czechia',
+  uae: 'United Arab Emirates',
+  russia: 'Russia',
+}
+
+export function normalizeCountryName(name, countries = []) {
+  const raw = String(name || '').trim()
+  if (!raw) return ''
+  const lower = raw.toLowerCase()
+  const alias = COUNTRY_ALIASES[lower]
+  if (alias) return alias
+  const exact = countries.find((c) => c.toLowerCase() === lower)
+  if (exact) return exact
+  const partial = countries.find((c) => lower.includes(c.toLowerCase()) || c.toLowerCase().includes(lower))
+  return partial || raw
+}
+
 export async function searchPlace(query) {
   const q = String(query || '').trim()
   if (q.length < 2) return null
 
-  const url = new URL('https://nominatim.openstreetmap.org/search')
-  url.searchParams.set('q', q)
-  url.searchParams.set('format', 'json')
-  url.searchParams.set('limit', '1')
-
-  const res = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-  })
+  const url = `/api/geocode?q=${encodeURIComponent(q)}`
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
   if (!res.ok) throw new Error('Search failed')
   const data = await res.json()
-  if (!data?.[0]) return null
+  if (data?.error) throw new Error(data.error)
+  if (!data?.lat || !data?.lng) return null
 
-  const hit = data[0]
   return {
-    lat: parseFloat(hit.lat),
-    lng: parseFloat(hit.lon),
-    label: hit.display_name,
-    country: extractCountry(hit),
+    lat: data.lat,
+    lng: data.lng,
+    label: data.label || q,
+    country: data.country || '',
   }
-}
-
-function extractCountry(hit) {
-  if (hit.address?.country) return hit.address.country
-  const parts = String(hit.display_name || '').split(',').map((s) => s.trim())
-  return parts[parts.length - 1] || ''
 }

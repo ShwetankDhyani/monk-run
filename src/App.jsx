@@ -172,13 +172,13 @@ export default function App() {
     if (prev === 'countdown' && room.phase === 'playing') {
       setPortalHold(true)
       setScreen('cabin')
-      const t1 = setTimeout(() => setCinPhase('bh-flash'), 900)
+      const t1 = setTimeout(() => setCinPhase('bh-flash'), 1400)
       const t2 = setTimeout(() => {
         setCinPhase('enter-game')
         setPortalHold(false)
         setScreen('game')
-      }, 1050)
-      const t3 = setTimeout(() => setCinPhase(null), 2200)
+      }, 1650)
+      const t3 = setTimeout(() => setCinPhase(null), 4200)
       return () => {
         clearTimeout(t1)
         clearTimeout(t2)
@@ -188,14 +188,14 @@ export default function App() {
 
     if (room.phase === 'reveal' && prev === 'playing') {
       setCinPhase('enter-reveal')
-      const t = setTimeout(() => setCinPhase(null), 1400)
+      const t = setTimeout(() => setCinPhase(null), 2200)
       return () => clearTimeout(t)
     }
 
     if (room.phase === 'podium' && prev !== 'podium') {
       setCinPhase('enter-podium')
       scoreSubmittedRef.current = false
-      const t = setTimeout(() => setCinPhase(null), 1600)
+      const t = setTimeout(() => setCinPhase(null), 2400)
       return () => clearTimeout(t)
     }
 
@@ -208,6 +208,12 @@ export default function App() {
       prev !== 'countdown'
     ) {
       setPortalHold(false)
+      if (prev === 'intermission' && room.phase === 'playing') {
+        setCinPhase('enter-game')
+        const t = setTimeout(() => setCinPhase(null), 1800)
+        setScreen('game')
+        return () => clearTimeout(t)
+      }
       setScreen('game')
     }
 
@@ -817,7 +823,7 @@ export default function App() {
             <div className="mb-2">
               <p className="font-display text-base font-bold text-sky">World map</p>
               <p className="text-[11px] text-muted">
-                Study the locked panorama. Click the world map to guess — no search allowed.
+                Search a city to drop a pin, or click the world map directly.
               </p>
             </div>
             <div className="min-h-0 flex-1">

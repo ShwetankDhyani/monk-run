@@ -7,7 +7,7 @@ import { createGameSession, openRoundView, fetchRoundTruth } from './gameSession
 export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
-export const LOBBY_COUNTDOWN_MS = 3_200
+export const LOBBY_COUNTDOWN_MS = 6_200
 export const INTERMISSION_MS = 4_500
 
 /** Assign a random walkable spawn, spread from existing lobby positions. */
@@ -527,8 +527,23 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   async function beginCountdownAsync({ rounds = DEFAULT_ROUNDS, roundTimeMs = DEFAULT_ROUND_MS } = {}) {
+    const bh = randomBlackHolePos()
+    state.blackHoleX = bh.x
+    state.blackHoleY = bh.y
+    state.countdownStartedAt = Date.now()
+    state.countdownEndsAt = Date.now() + LOBBY_COUNTDOWN_MS
+    state.phase = 'countdown'
+    state.roundTimeMs = roundTimeMs
+    state.scores = Object.fromEntries(state.players.map((p) => [p.id, 0]))
+    state.reveal = null
+    state.guesses = {}
+    state.viewToken = ''
+    state.message = 'Black hole forming…'
+    pushSync()
+
     try {
       const session = await createGameSession(state.roomCode, rounds)
+      if (state.phase !== 'countdown') return
       secrets = {
         gameSessionId: session.sessionId,
         locationIds: session.locationIds,
@@ -536,26 +551,16 @@ export function createRoomController({ onState, onError, onEvent }) {
         seed: 0,
       }
       state.totalRounds = session.totalRounds
+      pushSync()
     } catch {
+      if (state.phase !== 'countdown') return
       state.phase = 'lobby'
+      state.countdownStartedAt = 0
+      state.countdownEndsAt = 0
       state.message = 'Game server offline — restart with npm run dev (starts API automatically).'
       onError?.(state.message)
       emit()
-      return
     }
-    state.roundTimeMs = roundTimeMs
-    state.scores = Object.fromEntries(state.players.map((p) => [p.id, 0]))
-    state.reveal = null
-    state.guesses = {}
-    state.viewToken = ''
-    state.phase = 'countdown'
-    const bh = randomBlackHolePos()
-    state.blackHoleX = bh.x
-    state.blackHoleY = bh.y
-    state.countdownStartedAt = Date.now()
-    state.countdownEndsAt = Date.now() + LOBBY_COUNTDOWN_MS
-    state.message = 'Black hole forming…'
-    pushSync()
   }
 
   function cancelPendingReveal() {

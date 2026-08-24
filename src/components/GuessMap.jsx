@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker, CircleMarker, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { COUNTRIES } from '../data/countries.js'
-import { migrateVibeToAvatar, resolvePlayerLook } from '../data/avatars.js'
+import { resolvePlayerLook } from '../data/avatars.js'
+import { normalizeCountryName, searchPlace } from '../lib/geocode.js'
 
 const pinIcon = (color) =>
   L.divIcon({
@@ -45,7 +46,7 @@ function FlyToGuess({ guess }) {
   const map = useMap()
   useEffect(() => {
     if (!guess) return
-    map.flyTo([guess.lat, guess.lng], Math.max(map.getZoom(), 4), { duration: 0.8 })
+    map.flyTo([guess.lat, guess.lng], Math.max(map.getZoom(), 5), { duration: 0.9 })
   }, [map, guess?.lat, guess?.lng])
   return null
 }
@@ -79,12 +80,38 @@ export default function GuessMap({
   onCountry,
   tall = false,
 }) {
-  const [filter, setFilter] = useState('')
-  const countries = useMemo(() => {
-    const q = filter.trim().toLowerCase()
+  const [countryFilter, setCountryFilter] = useState('')
+  const [placeQuery, setPlaceQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+
+  const filteredCountries = useMemo(() => {
+    const q = countryFilter.trim().toLowerCase()
     if (!q) return COUNTRIES
     return COUNTRIES.filter((c) => c.toLowerCase().includes(q))
-  }, [filter])
+  }, [countryFilter])
+
+  const runPlaceSearch = async (e) => {
+    e?.preventDefault?.()
+    const q = placeQuery.trim()
+    if (!q || locked) return
+    setSearchError('')
+    setSearching(true)
+    try {
+      const hit = await searchPlace(q)
+      if (!hit) {
+        setSearchError('No place found — try a city or country name.')
+        return
+      }
+      onGuess?.({ lat: hit.lat, lng: hit.lng })
+      const matched = normalizeCountryName(hit.country, COUNTRIES)
+      if (matched) onCountry?.(matched)
+    } catch (err) {
+      setSearchError(err?.message || 'Search failed')
+    } finally {
+      setSearching(false)
+    }
+  }
 
   const center = guess ? [guess.lat, guess.lng] : [20, 0]
   const mapH = tall ? 'min-h-[220px] flex-1' : 'h-[280px]'
@@ -93,13 +120,30 @@ export default function GuessMap({
     <div className={`flex flex-col gap-2 ${tall ? 'h-full min-h-0' : ''}`}>
       {mode === 'guess' && (
         <div className="flex shrink-0 flex-col gap-2">
-          <p className="text-[11px] text-muted">
-            Click the world map to drop your pin — no search, no shortcuts.
-          </p>
+          <form className="flex flex-wrap items-center gap-2" onSubmit={runPlaceSearch}>
+            <input
+              value={placeQuery}
+              onChange={(e) => {
+                setPlaceQuery(e.target.value)
+                setSearchError('')
+              }}
+              placeholder="City or place name…"
+              className="input-clean min-w-[120px] flex-[2]"
+              disabled={locked || searching}
+            />
+            <button
+              type="submit"
+              className="btn btn-ghost shrink-0 !px-3"
+              disabled={locked || searching || placeQuery.trim().length < 2}
+            >
+              {searching ? '…' : 'Pin'}
+            </button>
+          </form>
+          {searchError && <p className="text-[11px] text-coral">{searchError}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
               placeholder="Filter countries…"
               className="input-clean min-w-[100px] flex-1"
               disabled={locked}
@@ -111,13 +155,25 @@ export default function GuessMap({
               onChange={(e) => onCountry?.(e.target.value)}
             >
               <option value="">Country (optional)</option>
-              {countries.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {filteredCountries.length === 0 ? (
+                <option value="" disabled>
+                  No countries match
                 </option>
-              ))}
+              ) : (
+                filteredCountries.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))
+              )}
             </select>
           </div>
+          <p className="text-[11px] text-muted">
+            Search a city to drop a pin, or click the map directly.
+            {countryFilter.trim() && filteredCountries.length > 0 && (
+              <span className="text-sky"> · {filteredCountries.length} countries</span>
+            )}
+          </p>
         </div>
       )}
 
@@ -127,7 +183,7 @@ export default function GuessMap({
       >
         <MapContainer
           center={center}
-          zoom={guess ? 3 : 2}
+          zoom={guess ? 4 : 2}
           className="h-full w-full"
           style={{ height: '100%', width: '100%', background: '#0b1220' }}
           scrollWheelZoom
@@ -183,7 +239,7 @@ export default function GuessMap({
         {mode === 'guess' && !guess && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] text-center">
             <span className="rounded-full bg-sky px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-lg">
-              click the map to guess
+              search or click the map
             </span>
           </div>
         )}

@@ -159,19 +159,19 @@
 }
 
 .cinematic-overlay--bh-flash {
-  animation: bh-flash 120ms ease-out forwards;
+  animation: bh-flash 280ms ease-out forwards;
 }
 
 .cinematic-overlay--enter-game {
-  animation: enter-game 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: enter-game 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .cinematic-overlay--enter-reveal {
-  animation: enter-reveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: enter-reveal 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .cinematic-overlay--enter-podium {
-  animation: enter-podium 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: enter-podium 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .cinematic-overlay__label {
@@ -186,24 +186,28 @@
 
 @keyframes bh-flash {
   0% { opacity: 0; background: #000; }
-  15% { opacity: 1; background: #000; }
+  12% { opacity: 1; background: #000; }
+  35% { opacity: 1; background: #050508; }
   100% { opacity: 1; background: #000; }
 }
 
 @keyframes enter-game {
-  0% { opacity: 1; background: #000; transform: scale(1.08); }
-  40% { opacity: 1; background: #000; }
-  100% { opacity: 0; background: transparent; transform: scale(1); }
+  0% { opacity: 1; background: #000; transform: scale(1.12); filter: blur(8px); }
+  25% { opacity: 1; background: #000; transform: scale(1.06); filter: blur(4px); }
+  55% { opacity: 0.85; background: rgba(0, 0, 0, 0.92); transform: scale(1.02); filter: blur(2px); }
+  100% { opacity: 0; background: transparent; transform: scale(1); filter: blur(0); }
 }
 
 @keyframes enter-reveal {
-  0% { opacity: 0.95; background: radial-gradient(circle at 50% 40%, #1a3040 0%, #000 70%); }
-  100% { opacity: 0; background: transparent; }
+  0% { opacity: 1; background: radial-gradient(circle at 50% 40%, #1a3040 0%, #000 72%); transform: scale(1.04); }
+  40% { opacity: 0.9; background: radial-gradient(circle at 50% 40%, #1a3040 0%, rgba(0,0,0,0.85) 70%); }
+  100% { opacity: 0; background: transparent; transform: scale(1); }
 }
 
 @keyframes enter-podium {
-  0% { opacity: 1; background: radial-gradient(circle at 50% 30%, #2a4030 0%, #000 75%); }
-  100% { opacity: 0; background: transparent; }
+  0% { opacity: 1; background: radial-gradient(circle at 50% 30%, #2a4030 0%, #000 78%); transform: scale(1.05); }
+  45% { opacity: 0.88; background: radial-gradient(circle at 50% 30%, #2a4030 0%, rgba(0,0,0,0.8) 75%); }
+  100% { opacity: 0; background: transparent; transform: scale(1); }
 }
 
 @keyframes label-fade {
@@ -214,10 +218,15 @@
 }
 
 .screen-enter {
-  animation: screen-enter 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: screen-enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.screen-enter-slow {
+  animation: screen-enter 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes screen-enter {
-  from { opacity: 0; transform: scale(1.03); filter: blur(6px); }
-  to { opacity: 1; transform: scale(1); filter: blur(0); }
+  0% { opacity: 0; transform: scale(1.04) translateY(6px); filter: blur(8px); }
+  45% { opacity: 0.7; filter: blur(3px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
 }
