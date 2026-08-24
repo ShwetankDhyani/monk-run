@@ -556,44 +556,214 @@ function drawLeviFace(ctx, look, dir, headY, headR) {
   ctx.stroke()
 }
 
-function drawMikasaScarfAtNeck(ctx, look, scale) {
+function drawMikasaScarf(ctx, look, dir, scale) {
   if (!look.scarf) return
-  const y = 1 * scale
-  ctx.fillStyle = look.scarf
-  ctx.fillRect(-10 * scale, y, 20 * scale, 4 * scale)
-  ctx.fillRect(-12 * scale, y + 3, 4 * scale, 8 * scale)
-  ctx.fillRect(8 * scale, y + 3, 4 * scale, 7 * scale)
+  const main = look.scarf
+  const dark = look.scarfDark || '#4a080c'
+  const light = look.scarfLight || '#9a2428'
+
+  if (dir === 'down') {
+    for (let layer = 0; layer < 4; layer++) {
+      ctx.fillStyle = layer % 2 === 0 ? main : dark
+      const y = (-0.5 + layer * 2.4) * scale
+      ctx.beginPath()
+      ctx.ellipse(0, y + 3.2 * scale, 11.5 * scale, (3.8 - layer * 0.25) * scale, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.fillStyle = main
+    ctx.fillRect(-13 * scale, 1.5 * scale, 5.5 * scale, 11 * scale)
+    ctx.fillRect(7.5 * scale, 1.5 * scale, 5.5 * scale, 12 * scale)
+    ctx.fillStyle = dark
+    ctx.fillRect(-12 * scale, 2.5 * scale, 2.5 * scale, 9 * scale)
+    ctx.fillRect(8.5 * scale, 2.5 * scale, 2.5 * scale, 10 * scale)
+    ctx.fillStyle = light
+    ctx.fillRect(-9 * scale, -0.5 * scale, 18 * scale, 2.5 * scale)
+    ctx.beginPath()
+    ctx.ellipse(0, 1 * scale, 9 * scale, 1.8 * scale, 0, 0, Math.PI * 2)
+    ctx.fill()
+    return
+  }
+
+  if (dir === 'up') {
+    ctx.fillStyle = dark
+    ctx.beginPath()
+    ctx.ellipse(0, 4.5 * scale, 13 * scale, 8.5 * scale, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = main
+    ctx.beginPath()
+    ctx.ellipse(0, 3.5 * scale, 11 * scale, 6.5 * scale, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = light
+    ctx.beginPath()
+    ctx.ellipse(0, 1.5 * scale, 9 * scale, 3.2 * scale, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = main
+    ctx.fillRect(-10 * scale, 6 * scale, 6 * scale, 8 * scale)
+    ctx.fillRect(4 * scale, 6 * scale, 6 * scale, 8 * scale)
+    return
+  }
+
+  const flip = dir === 'left' ? -1 : 1
+  ctx.save()
+  ctx.scale(flip, 1)
+  ctx.fillStyle = dark
+  ctx.beginPath()
+  ctx.ellipse(4 * scale, 4.5 * scale, 8.5 * scale, 7.5 * scale, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = main
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath()
+    ctx.ellipse(3.5 * scale, (0.5 + i * 2.6) * scale, 7.5 * scale, 3 * scale, 0.15, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.fillStyle = main
+  ctx.fillRect(7 * scale, 4 * scale, 4.5 * scale, 10 * scale)
+  ctx.fillStyle = dark
+  ctx.fillRect(8 * scale, 5 * scale, 2 * scale, 8 * scale)
+  ctx.fillStyle = light
+  ctx.fillRect(2 * scale, 0, 6 * scale, 2 * scale)
+  ctx.restore()
 }
 
-function drawMikasaEyes(ctx, look, headY, headR) {
-  const eyeY = headY + 1
-  const gap = headR * 0.3
-  const eyeW = 2.0
-  ctx.fillStyle = '#fff'
+function drawMikasaHair(ctx, look, headY, headR, dir) {
+  ctx.fillStyle = look.hair
+  if (dir === 'up') {
+    ctx.beginPath()
+    ctx.arc(0, headY, headR * 0.9, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillRect(-headR * 0.88, headY + headR * 0.15, headR * 1.76, headR * 0.38)
+    return
+  }
+
+  if (dir === 'left' || dir === 'right') {
+    ctx.beginPath()
+    ctx.arc(3, headY - headR * 0.22, headR * 0.78, Math.PI * 0.65, Math.PI * 2.35)
+    ctx.fill()
+    ctx.fillRect(6, headY - headR * 0.02, 5, headR * 0.68)
+    ctx.beginPath()
+    ctx.moveTo(1, headY - headR * 0.42)
+    ctx.lineTo(5, headY + headR * 0.02)
+    ctx.lineTo(0, headY - headR * 0.12)
+    ctx.closePath()
+    ctx.fill()
+    return
+  }
+
   ctx.beginPath()
-  ctx.ellipse(-gap, eyeY, eyeW + 0.5, eyeW + 1, 0, 0, Math.PI * 2)
-  ctx.ellipse(gap, eyeY, eyeW + 0.5, eyeW + 1, 0, 0, Math.PI * 2)
+  ctx.arc(0, headY - headR * 0.2, headR * 0.88, Math.PI, Math.PI * 2)
+  ctx.fill()
+
+  for (const sx of [-0.4, -0.2, 0, 0.2, 0.4]) {
+    ctx.beginPath()
+    ctx.moveTo(sx * headR, headY - headR * 0.52)
+    ctx.lineTo((sx - 0.07) * headR, headY - headR * 0.06)
+    ctx.lineTo((sx + 0.07) * headR, headY - headR * 0.06)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  ctx.fillRect(-headR * 0.96, headY - headR * 0.02, headR * 0.3, headR * 0.74)
+  ctx.fillRect(headR * 0.66, headY - headR * 0.02, headR * 0.3, headR * 0.74)
+  ctx.beginPath()
+  ctx.ellipse(0, headY + headR * 0.44, headR * 0.84, headR * 0.24, 0, 0, Math.PI)
+  ctx.fill()
+}
+
+function drawMikasaEyes(ctx, look, headY, headR, dir = 'down') {
+  if (dir === 'left' || dir === 'right') {
+    const flip = dir === 'left' ? -1 : 1
+    ctx.save()
+    ctx.scale(flip, 1)
+    ctx.fillStyle = look.eyes
+    ctx.beginPath()
+    ctx.ellipse(8.5, headY, 1.7, 1.15, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#0a0808'
+    ctx.beginPath()
+    ctx.arc(8.5, headY + 0.2, 0.85, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = look.brow
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(5.5, headY - headR * 0.14)
+    ctx.quadraticCurveTo(8, headY - headR * 0.2, 10.5, headY - headR * 0.12)
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+
+  const eyeY = headY + 2
+  const gap = headR * 0.28
+  const eyeW = 1.75
+
+  ctx.fillStyle = 'rgba(0,0,0,0.14)'
+  ctx.fillRect(-gap - eyeW, eyeY - eyeW - 1.2, eyeW * 2, 1.6)
+  ctx.fillRect(gap - eyeW, eyeY - eyeW - 1.2, eyeW * 2, 1.6)
+
+  ctx.fillStyle = '#eae8e4'
+  ctx.beginPath()
+  ctx.ellipse(-gap, eyeY, eyeW + 0.3, eyeW * 0.72, 0, 0, Math.PI * 2)
+  ctx.ellipse(gap, eyeY, eyeW + 0.3, eyeW * 0.72, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.fillStyle = look.eyes
   ctx.beginPath()
-  ctx.arc(-gap, eyeY, eyeW * 0.6, 0, Math.PI * 2)
-  ctx.arc(gap, eyeY, eyeW * 0.6, 0, Math.PI * 2)
+  ctx.ellipse(-gap, eyeY + 0.35, eyeW * 0.68, eyeW * 0.52, 0, 0, Math.PI * 2)
+  ctx.ellipse(gap, eyeY + 0.35, eyeW * 0.68, eyeW * 0.52, 0, 0, Math.PI * 2)
   ctx.fill()
-  ctx.fillStyle = '#1a1008'
+  ctx.fillStyle = '#0a0808'
   ctx.beginPath()
-  ctx.arc(-gap, eyeY, eyeW * 0.32, 0, Math.PI * 2)
-  ctx.arc(gap, eyeY, eyeW * 0.32, 0, Math.PI * 2)
+  ctx.arc(-gap, eyeY + 0.4, eyeW * 0.36, 0, Math.PI * 2)
+  ctx.arc(gap, eyeY + 0.4, eyeW * 0.36, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.strokeStyle = look.brow
+  ctx.lineWidth = 1.1
+  ctx.beginPath()
+  ctx.moveTo(-headR * 0.45, headY - headR * 0.06)
+  ctx.quadraticCurveTo(-headR * 0.14, headY - headR * 0.16, headR * 0.04, headY - headR * 0.08)
+  ctx.moveTo(headR * 0.45, headY - headR * 0.06)
+  ctx.quadraticCurveTo(headR * 0.14, headY - headR * 0.16, -headR * 0.04, headY - headR * 0.08)
+  ctx.stroke()
+}
+
+function drawMikasaFace(ctx, look, dir, headY, headR) {
+  if (dir === 'left' || dir === 'right') {
+    const flip = dir === 'left' ? -1 : 1
+    ctx.save()
+    ctx.scale(flip, 1)
+    ctx.fillStyle = look.skin
+    ctx.beginPath()
+    ctx.ellipse(5, headY - 1, headR * 0.7, headR * 0.9, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#1a1008'
+    ctx.lineWidth = 1.3
+    ctx.stroke()
+    drawMikasaHair(ctx, look, headY, headR, dir)
+    drawMikasaEyes(ctx, look, headY, headR, dir)
+    ctx.restore()
+    return
+  }
+
+  if (dir === 'up') {
+    drawMikasaHair(ctx, look, headY, headR, dir)
+    return
+  }
+
+  ctx.fillStyle = look.skin
+  ctx.beginPath()
+  ctx.ellipse(0, headY, headR * 0.9, headR * 1.02, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.strokeStyle = '#1a1008'
-  ctx.lineWidth = 0.8
-  for (const sx of [-gap, gap]) {
-    for (let i = -1; i <= 1; i++) {
-      ctx.beginPath()
-      ctx.moveTo(sx + i * 1.2 - 0.6, eyeY - eyeW - 0.5)
-      ctx.lineTo(sx + i * 1.2, eyeY - eyeW - 1.2)
-      ctx.stroke()
-    }
-  }
+  ctx.lineWidth = 1.4
+  ctx.stroke()
+  drawMikasaHair(ctx, look, headY, headR, dir)
+  drawMikasaEyes(ctx, look, headY, headR, dir)
+  ctx.strokeStyle = 'rgba(80,60,50,0.45)'
+  ctx.lineWidth = 0.9
+  ctx.beginPath()
+  ctx.moveTo(-headR * 0.08, headY + headR * 0.32)
+  ctx.lineTo(headR * 0.08, headY + headR * 0.32)
+  ctx.stroke()
 }
 
 function drawHair(ctx, look, headY, headR, feature, dir) {
@@ -606,12 +776,7 @@ function drawHair(ctx, look, headY, headR, feature, dir) {
   }
 
   if (feature === 'mikasa') {
-    ctx.beginPath()
-    ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
-    ctx.fill()
-    ctx.fillRect(-headR * 0.88, headY - headR * 0.05, headR * 1.76, headR * 0.38)
-    ctx.fillRect(-headR - 1, headY - headR * 0.05, 4, headR * 0.75)
-    ctx.fillRect(headR - 3, headY - headR * 0.05, 4, headR * 0.75)
+    drawMikasaHair(ctx, look, headY, headR, dir)
   } else if (feature === 'eren') {
     drawErenTitanHair(ctx, look, headY, headR)
   } else if (feature === 'armin') {
@@ -655,6 +820,10 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
   if (feature === 'eren') return
   if (feature === 'levi') {
     drawLeviFace(ctx, look, dir, headY, headR)
+    return
+  }
+  if (feature === 'mikasa') {
+    drawMikasaFace(ctx, look, dir, headY, headR)
     return
   }
 
@@ -855,6 +1024,7 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
   const facing = DIRECTIONS.includes(dir) ? dir : 'down'
   const isEren = look.feature === 'eren'
   const isLevi = look.feature === 'levi'
+  const isMikasa = look.feature === 'mikasa'
 
   ctx.save()
   ctx.translate(x, y + bob)
@@ -875,19 +1045,20 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
     drawLegs(ctx, look, facing, walk, scale)
     drawMonkRobe(ctx, look, facing, walk, scale)
     if (isLevi) drawLeviBlades(ctx, facing, walk, scale)
+    if (isMikasa) drawMikasaScarf(ctx, look, facing, scale)
     drawCharacterFace(ctx, look, facing, headY, headR)
-    if (look.feature === 'mikasa') drawMikasaScarfAtNeck(ctx, look, scale)
   } else {
     drawMonkRobe(ctx, look, facing, walk, scale)
     if (isLevi) {
       drawLeviBlades(ctx, facing, walk, scale)
       drawLeviCravat(ctx, look, facing, scale)
+    } else if (isMikasa) {
+      drawMikasaScarf(ctx, look, facing, scale)
     } else {
       drawPrayerBeads(ctx, look, facing)
     }
     drawLegs(ctx, look, facing, walk, scale)
     drawCharacterFace(ctx, look, facing, headY, headR)
-    if (look.feature === 'mikasa') drawMikasaScarfAtNeck(ctx, look, scale)
   }
 
   ctx.restore()
