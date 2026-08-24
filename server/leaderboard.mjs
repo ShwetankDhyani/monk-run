@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { loadEnvFile } from './loadEnv.mjs'
 import {
   createGameSession,
   openRoundView,
@@ -15,6 +16,8 @@ import {
 } from './game.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+loadEnvFile(join(__dirname, '..', '.env'))
+
 const DATA_DIR = join(__dirname, '..', 'data')
 const DATA_FILE = join(DATA_DIR, 'leaderboard.json')
 const PORT = Number(process.env.LEADERBOARD_PORT || process.env.PORT || 47448)

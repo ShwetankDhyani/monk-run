@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { loadEnvFile } from '../server/loadEnv.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+loadEnvFile(join(root, '.env'))
 
 function run(label, cmd, args) {
   const child = spawn(cmd, args, {
