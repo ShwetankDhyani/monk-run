@@ -5,7 +5,7 @@ import { haversineKm, scoreFromDistanceKm } from './scoring.js'
 export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
-export const LOBBY_COUNTDOWN_MS = 5_000
+export const LOBBY_COUNTDOWN_MS = 7_000
 
 function clone(s) {
   return JSON.parse(JSON.stringify(s))
@@ -29,7 +29,7 @@ function spawnSlot(index) {
   return { x: s.x, y: 0, z: s.z, yaw: Math.PI, emote: null, emoteUntil: 0, hitFlash: 0 }
 }
 
-/** Host-authoritative PeerJS room: 3D lobby → countdown → GeoGuessr. */
+/** Host-authoritative PeerJS room: temple lobby → portal countdown → GeoGuessr. */
 export function createRoomController({ onState, onError, onEvent }) {
   let peer = null
   let hostConn = null
@@ -454,7 +454,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.guesses = {}
     state.phase = 'countdown'
     state.countdownEndsAt = Date.now() + LOBBY_COUNTDOWN_MS
-    state.message = 'Jump in…'
+    state.message = 'Portal opening…'
     pushSync()
   }
 

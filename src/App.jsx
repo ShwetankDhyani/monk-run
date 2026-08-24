@@ -11,7 +11,7 @@ import { getMapsApiKey } from './lib/maps.js'
 import { createVoiceChat } from './lib/voiceChat.js'
 import StreetView from './components/StreetView.jsx'
 import GuessMap from './components/GuessMap.jsx'
-import CabinLobby from './components/CabinLobby.jsx'
+import MonkLobby from './components/MonkLobby.jsx'
 
 function parseRoomFromHash() {
   const h = window.location.hash.replace(/^#/, '')
@@ -113,6 +113,8 @@ export default function App() {
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
   const [voice, setVoice] = useState({ muted: true, active: false, peers: [], error: null })
+  const [portalHold, setPortalHold] = useState(false)
+  const prevPhaseRef = useRef(null)
 
   const ctrlRef = useRef(null)
   const voiceRef = useRef(null)
@@ -141,13 +143,28 @@ export default function App() {
 
   useEffect(() => {
     if (!room) return
-    if (room.phase === 'lobby' || room.phase === 'countdown') setScreen('cabin')
-    if (room.phase === 'playing' || room.phase === 'reveal' || room.phase === 'podium') setScreen('game')
+    const prev = prevPhaseRef.current
+    prevPhaseRef.current = room.phase
+    if (room.phase === 'lobby' || room.phase === 'countdown' || portalHold) setScreen('cabin')
+    if ((room.phase === 'playing' || room.phase === 'reveal' || room.phase === 'podium') && !portalHold) {
+      setScreen('game')
+    }
     if (room.phase === 'playing') {
       setGuess(null)
       setCountry('')
     }
-  }, [room?.phase, room?.roundIndex])
+    // After countdown, hold temple + portal suck for a beat before Street View
+    if (prev === 'countdown' && room.phase === 'playing') {
+      setPortalHold(true)
+      setScreen('cabin')
+      const t = setTimeout(() => {
+        setPortalHold(false)
+        setScreen('game')
+      }, 2200)
+      return () => clearTimeout(t)
+    }
+    return undefined
+  }, [room?.phase, room?.roundIndex, portalHold])
 
   useEffect(() => {
     voiceRef.current?.refresh?.()
@@ -263,8 +280,8 @@ export default function App() {
             monk.run
           </h1>
           <p className="mt-3 text-center text-sm leading-relaxed text-muted">
-            Hop in the chopper lobby, smack your friends on voice chat, then dive into 5 synchronized Street View
-            rounds.
+            Meet in the temple lobby as monks, talk on voice, then get pulled through the portal into 5 synchronized
+            Street View rounds.
           </p>
 
           <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Name</label>
@@ -273,10 +290,10 @@ export default function App() {
             maxLength={18}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Pilot"
+            placeholder="Wanderer"
           />
 
-          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Avatar color</p>
+          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Robe color</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {MONK_VIBES.map((v) => (
               <button
@@ -329,8 +346,9 @@ export default function App() {
     )
   }
 
-  if (screen === 'cabin' && (room.phase === 'lobby' || room.phase === 'countdown')) {
+  if (screen === 'cabin' && (room.phase === 'lobby' || room.phase === 'countdown' || portalHold)) {
     const self = room.players.find((p) => p.id === room.selfId)
+    const inPortal = room.phase === 'countdown' || portalHold
     return (
       <div className="flex h-full min-h-full flex-col bg-ink">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
@@ -339,17 +357,18 @@ export default function App() {
               monk.run <span className="text-sky">/{room.roomCode}</span>
             </p>
             <p className="text-[10px] uppercase tracking-widest text-muted">
-              Chopper lobby · {room.players.length}/{MAX_PLAYERS}
+              Temple lobby · {room.players.length}/{MAX_PLAYERS}
               {room.localOnly ? ' · local' : ''}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn btn-ghost" onClick={copyLink}>
+            <button type="button" className="btn btn-ghost" onClick={copyLink} disabled={inPortal}>
               {copied ? 'Copied' : 'Invite link'}
             </button>
             <button
               type="button"
               className={`btn ${voice.active && !voice.muted ? 'btn-primary' : 'btn-ghost'}`}
+              disabled={inPortal}
               onClick={() => {
                 if (!voice.active) ensureVoice()
                 else voiceRef.current?.toggleMute()
@@ -360,6 +379,7 @@ export default function App() {
             <button
               type="button"
               className="btn btn-ghost"
+              disabled={inPortal}
               onClick={() => ctrlRef.current.setReady(!self?.ready)}
             >
               {self?.ready ? 'Unready' : 'Ready'}
@@ -375,25 +395,26 @@ export default function App() {
                   })
                 }
               >
-                Launch ({DEFAULT_ROUNDS} rounds)
+                Open portal ({DEFAULT_ROUNDS} rounds)
               </button>
             )}
           </div>
         </header>
 
         <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[1fr_280px]">
-          <CabinLobby
+          <MonkLobby
             selfId={room.selfId}
             players={room.players}
             lobby={room.lobby || {}}
             onPose={onPose}
             onSmack={onSmack}
             onEmote={onEmote}
-            countdownSec={room.phase === 'countdown' ? lobbyLeft : null}
-            focused
+            countdownSec={room.phase === 'countdown' ? lobbyLeft : portalHold ? 0 : null}
+            portalForce={portalHold}
+            focused={!inPortal}
           />
           <aside className="panel flex flex-col gap-3 p-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted">Crew</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted">Sangha</p>
             <ul className="space-y-2">
               {room.players.map((p) => {
                 const v = MONK_VIBES.find((x) => x.id === p.vibe) || MONK_VIBES[0]
@@ -420,8 +441,12 @@ export default function App() {
                   : 'off'}
               </p>
               {voice.error && <p className="text-coral">{voice.error}</p>}
-              <p>Emotes: 1 😄 2 😢 3 😠 4 😘</p>
-              {!room.isHost && room.phase === 'lobby' && <p>Waiting for host to launch…</p>}
+              <p>Emotes: 1 🙏 2 😢 3 😠 4 😊</p>
+              {inPortal ? (
+                <p className="text-amber">Portal is pulling everyone in…</p>
+              ) : (
+                !room.isHost && room.phase === 'lobby' && <p>Waiting for host to open the portal…</p>
+              )}
               {error && <p className="text-coral">{error}</p>}
             </div>
           </aside>

@@ -1,15 +1,15 @@
 # monk.run
 
-Multiplayer party GeoGuessr — hang out in a **2D chopper lounge**, talk on **live voice chat**, smack each other, then jump into **5 synchronized Street View rounds**.
+Multiplayer party GeoGuessr — hang out in a **temple lobby** as robed monks, talk on **live voice chat**, then get pulled through a **portal** into **5 synchronized Street View rounds**.
 
 ## Features
 
 - **Private rooms** (up to 5 players) via PeerJS
-- **2D chopper lounge lobby** (Among Us vibes) — WASD move, smack, emotes 1–4
-- **WebRTC voice chat** — Join voice / mute toggle (room-wide)
-- **Synced countdown** then simultaneous jump into Round 1
+- **Temple lobby** — walk as monks, nudge friends, emotes 1–4
+- **WebRTC voice chat** — Join voice / mute toggle
+- **Portal launch** — host opens the portal; physics suck-in into Round 1
 - **Random location seeding** — crypto seed so even the host doesn't know the rounds
-- **GeoGuessr loop** — Street View embed (or Maps API if keyed), pin guess, **auto-reveal when everyone locks**, podium + share card
+- **GeoGuessr loop** — Street View, pin guess, auto-reveal when everyone locks, podium + share card
 
 ## Run
 
@@ -32,14 +32,14 @@ Without a key, monk.run uses a Google Maps Street View embed (and a satellite ba
 ## How to play
 
 1. Create or join a room  
-2. **Join voice**, Ready up, wander the cabin  
-3. Host hits **Launch** → 5…4…3…2…1…JUMP  
-4. Explore → **Guess** → lock pin → reveal → next round  
+2. **Join voice**, Ready up, walk the temple hall  
+3. Host hits **Open portal** → portal forms → monks get pulled in  
+4. Explore Street View → pin the world map → lock → reveal → next round  
 5. Final podium + downloadable card  
 
 ## Stack
 
-Vite · React 19 · Tailwind CSS 4 · Canvas 2D lobby · PeerJS (data + voice) · Leaflet · Google Street View (API or embed)
+Vite · React 19 · Tailwind CSS 4 · Canvas 2D temple lobby · PeerJS (data + voice) · Leaflet · Google Street View (API or embed)
 
 ---
 
