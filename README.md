@@ -1,6 +1,6 @@
 # monk.run
 
-Multiplayer party GeoGuessr — hang out in a **3D chopper lobby**, talk on **live voice chat**, smack each other, then jump into **5 synchronized Street View rounds**.
+Multiplayer party GeoGuessr — hang out in a **2D chopper lounge**, talk on **live voice chat**, smack each other, then jump into **5 synchronized Street View rounds**.
 
 ## Features
 
