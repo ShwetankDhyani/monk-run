@@ -1,9 +1,8 @@
 /**
- * Fully random Street View places — every round is a unique snapped panorama.
- * No curated destination pool. Candidates are random; Street View Metadata API
- * snaps (or rejects) until a real outdoor pano is found.
+ * Fully random Street View — no place lists, no region lists, no hubs.
+ * Each round: random point on Earth → Street View Metadata snap (or retry).
  */
-import { randomBytes, randomInt } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -11,26 +10,6 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const USED_FILE = join(__dirname, '..', 'data', 'used-places.json')
-
-/**
- * Soft search regions only — never returned as destinations.
- * Random points inside these boxes raise hit-rate vs open ocean.
- */
-const LAND_BOXES = [
-  { minLat: 24, maxLat: 49, minLng: -125, maxLng: -66 }, // USA
-  { minLat: 41, maxLat: 60, minLng: -130, maxLng: -52 }, // Canada
-  { minLat: 14, maxLat: 32, minLng: -117, maxLng: -86 }, // Mexico / CA
-  { minLat: -56, maxLat: 12, minLng: -81, maxLng: -34 }, // South America
-  { minLat: 36, maxLat: 71, minLng: -10, maxLng: 40 }, // Europe
-  { minLat: 35, maxLat: 60, minLng: 40, maxLng: 180 }, // Russia / Central Asia
-  { minLat: -35, maxLat: 37, minLng: -18, maxLng: 52 }, // Africa
-  { minLat: 12, maxLat: 42, minLng: 26, maxLng: 60 }, // Middle East
-  { minLat: 5, maxLat: 55, minLng: 60, maxLng: 150 }, // South / East Asia
-  { minLat: -10, maxLat: 28, minLng: 95, maxLng: 145 }, // SE Asia
-  { minLat: -45, maxLat: -10, minLng: 112, maxLng: 155 }, // Australia
-  { minLat: -47, maxLat: -34, minLng: 166, maxLng: 179 }, // New Zealand
-  { minLat: 30, maxLat: 46, minLng: 130, maxLng: 146 }, // Japan / Korea
-]
 
 /** @type {Set<string>} */
 const usedKeys = new Set()
@@ -73,11 +52,13 @@ async function persistUsed() {
 }
 
 /**
- * Prefer env key; otherwise borrow the public key Google ships in SV embeds
- * (same key the browser embed uses) so we can validate coverage without setup.
+ * Prefer env key; otherwise use the public key Google ships in SV embeds
+ * so coverage can be validated without local setup.
  */
 export async function resolveMapsKey(preferred = '') {
-  const fromEnv = String(preferred || process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '').trim()
+  const fromEnv = String(
+    preferred || process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '',
+  ).trim()
   if (fromEnv) return fromEnv
   if (scrapedKey && Date.now() - scrapedAt < 6 * 60 * 60 * 1000) return scrapedKey
 
@@ -100,18 +81,14 @@ export async function resolveMapsKey(preferred = '') {
   return scrapedKey
 }
 
-/** Uniform random point inside a land box (search seed, not a destination). */
-function randomLandPoint() {
-  const box = LAND_BOXES[randomInt(0, LAND_BOXES.length)]
-  const lat = box.minLat + Math.random() * (box.maxLat - box.minLat)
-  const lng = box.minLng + Math.random() * (box.maxLng - box.minLng)
-  return {
-    lat: Math.max(-85, Math.min(85, lat)),
-    lng: ((lng + 540) % 360) - 180,
-  }
+/** Uniform random point on the globe (not from any list). */
+function randomGlobePoint() {
+  const lng = Math.random() * 360 - 180
+  const lat = (Math.acos(2 * Math.random() - 1) * 180) / Math.PI - 90
+  return { lat, lng }
 }
 
-async function streetViewMeta(lat, lng, apiKey, radius = 10000) {
+async function streetViewMeta(lat, lng, apiKey, radius) {
   const url = new URL('https://maps.googleapis.com/maps/api/streetview/metadata')
   url.searchParams.set('location', `${lat},${lng}`)
   url.searchParams.set('source', 'outdoor')
@@ -171,16 +148,14 @@ function markUsed(panoId, lat, lng, sessionKeys) {
   }
 }
 
-/**
- * One fully random outdoor panorama (unique vs recent history).
- */
+/** One fully random outdoor panorama (unique vs recent history). */
 async function pickOneRandom(apiKey, sessionKeys) {
-  const radii = [5000, 15000, 50000]
-  const maxAttempts = 80
+  const radii = [10000, 25000, 50000, 100000]
+  const maxAttempts = 200
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const seed = randomLandPoint()
-    const radius = radii[Math.min(radii.length - 1, Math.floor(attempt / 12))]
+    const seed = randomGlobePoint()
+    const radius = radii[Math.min(radii.length - 1, Math.floor(attempt / 40))]
     let meta
     try {
       meta = await streetViewMeta(seed.lat, seed.lng, apiKey, radius)
@@ -219,7 +194,6 @@ export async function pickGlobalPlaces(count, mapsKey = '') {
   const sessionKeys = new Set()
   const picks = []
 
-  // Fetch rounds in parallel batches for speed
   const batchSize = Math.min(n, 3)
   while (picks.length < n) {
     const need = Math.min(batchSize, n - picks.length)
