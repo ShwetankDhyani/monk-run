@@ -1,38 +1,65 @@
 # monk.run
 
-> collect the light. dodge the collapse. chant on the pulse. leave the ego at the portal.
+> multiplayer psychedelic GeoGuessr — drop into the same street, guess the world, awaken together
 
-**monk.run** is a browser arcade game wrapped in an acid-trip space ritual — not a screensaver. You pilot a consciousness mote through eight psychedelic realms with score, lives, combos, and a hard fail state.
+**monk.run** is a real-time multiplayer browser game for up to **5 players**. Create a room, share the link, and compete across 5 rounds of distance-based karma scoring while the Void Monk narrates your doom (or enlightenment).
 
-## How to play
-
-1. Hit **PLAY** (audio needs a gesture).
-2. **WASD / arrows** — thrust (momentum physics).
-3. **Click or Shift** — dash with a brief shield.
-4. **Collect** every saffron consciousness node.
-5. **Avoid** red collapsing dimensions (they pull you in; contact costs a life).
-6. When nodes are cleared, **press Space on the beat** (top pulse ring) to stabilize the portal, then fly through it.
-7. Clear all **8 realms** to awaken. Hit 0 lives or run out of time to dissolve.
-8. **R / Enter** reincarnates after game over or victory.
-
-Scoring: node value × combo, beat-accurate portal opens, realm clear bonuses, leftover time.
-
-## Run locally
+## Play
 
 ```bash
 npm install
 npm run dev
 ```
 
-Dev server defaults to port **47391**.
+Open the printed URL (default **http://127.0.0.1:47447**).
+
+1. Enter a monk name + aura  
+2. **Create room** (or join with a code / `#room/cosmic-77` link)  
+3. Host hits **Begin ritual**  
+4. Explore the panorama → **Guess** → drop a pin → **Lock guess**  
+5. Reveal phase shows everyone’s pins flying to the truth  
+6. After 5 rounds: podium + downloadable karma card  
+
+### Controls
+
+| Action | How |
+|--------|-----|
+| Look around (fallback mode) | Drag |
+| Open guess map | Guess button |
+| Drop pin | Click map |
+| Lock | Lock guess |
+| Force end round (host) | Force reveal |
+
+## Google Street View (optional)
+
+Without a key, the game uses a fully playable **astral biome fallback** (drag-look panorama + location metadata).
+
+With a key, real Street View loads:
 
 ```bash
+cp .env.example .env
+# set VITE_GOOGLE_MAPS_API_KEY=your_key
+npm run dev
+```
+
+Enable **Maps JavaScript API** + **Street View Static / panorama** for your key.
+
+## Multiplayer
+
+Rooms sync over **PeerJS** (WebRTC). The host is authoritative for round timing, location seed, and scoring. If the PeerJS broker is unreachable, the app falls back to **local solo mode** so you can still play.
+
+## Stack
+
+Vite · React 19 · Tailwind CSS 4 · PeerJS · Leaflet/CARTO dark map · Canvas shader overlay · optional Google Maps Street View
+
+## Scripts
+
+```bash
+npm run dev      # port 47447
 npm run build
 npm run preview
 ```
 
-## Stack
+---
 
-Vanilla JS · WebGL2 backdrop · Canvas gameplay · Web Audio beat clock · Vite
-
-Built for **[monk.run](https://monk.run)**.
+◎ built for [monk.run](https://monk.run)

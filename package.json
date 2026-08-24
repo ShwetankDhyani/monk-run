@@ -1,15 +1,29 @@
 {
   "name": "monk-run",
-  "version": "1.0.0",
   "private": true,
+  "version": "1.0.0",
   "type": "module",
-  "description": "monk.run — The Psychedelic Engine. A browser-playable waking dream.",
+  "description": "monk.run — multiplayer psychedelic GeoGuessr",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 47447",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0 --port 47447",
+    "lint": "oxlint"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "peerjs": "^1.5.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxlint": "^1.80.0",
+    "tailwindcss": "^4.3.3",
     "vite": "^8.2.2"
   }
 }
