@@ -158,9 +158,10 @@ const server = createServer(async (req, res) => {
       const body = JSON.parse(raw || '{}')
       const roomCode = String(body.roomCode || '')
       const rounds = Math.max(1, Math.min(10, Math.round(Number(body.rounds) || 5)))
-      const session = createGameSession(roomCode, rounds)
+      const session = await createGameSession(roomCode, rounds, MAPS_KEY)
       sendJson(res, 201, session)
-    } catch {
+    } catch (err) {
+      console.error('[game/session]', err)
       sendJson(res, 500, { error: 'Could not create game session' })
     }
     return

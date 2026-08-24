@@ -1,7 +1,7 @@
-import { randomBytes, randomInt } from 'node:crypto'
-import { LOCATIONS, pickRoundLocations } from '../src/data/locations.js'
+import { randomBytes } from 'node:crypto'
+import { pickGlobalPlaces } from './randomPlaces.mjs'
 
-/** @type {Map<string, { roomCode: string, locationIds: string[], createdAt: number }>} */
+/** @type {Map<string, { roomCode: string, locations: object[], roundTokens: (string|null)[], createdAt: number }>} */
 const sessions = new Map()
 
 /** @type {Map<string, { lat: number, lng: number, expiresAt: number, used: boolean }>} */
@@ -31,18 +31,21 @@ function mintViewToken(loc) {
   return viewToken
 }
 
-export function createGameSession(roomCode, rounds = 5) {
+/**
+ * Create a session with globally random, non-repeating Street View places.
+ * @param {string} roomCode
+ * @param {number} rounds
+ * @param {string} [mapsKey]
+ */
+export async function createGameSession(roomCode, rounds = 5, mapsKey = '') {
   purgeExpired()
-  const seed = randomInt(1, 2147483646)
-  const picks = pickRoundLocations(rounds, seed)
+  const picks = await pickGlobalPlaces(rounds, mapsKey)
   const sessionId = randomBytes(16).toString('hex')
   const locationIds = picks.map((l) => l.id)
-  const roundTokens = locationIds.map((locId) => {
-    const loc = LOCATIONS.find((l) => l.id === locId)
-    return loc ? mintViewToken(loc) : null
-  })
+  const roundTokens = picks.map((loc) => mintViewToken(loc))
   sessions.set(sessionId, {
     roomCode: String(roomCode || '').slice(0, 8),
+    locations: picks,
     locationIds,
     roundTokens,
     createdAt: Date.now(),
@@ -58,8 +61,7 @@ export function openRoundView(sessionId, roundIndex) {
   purgeExpired()
   const session = sessions.get(sessionId)
   if (!session) return null
-  const locId = session.locationIds[roundIndex]
-  const loc = LOCATIONS.find((l) => l.id === locId)
+  const loc = session.locations?.[roundIndex]
   if (!loc) return null
 
   let viewToken = session.roundTokens?.[roundIndex]
@@ -68,7 +70,7 @@ export function openRoundView(sessionId, roundIndex) {
     if (!session.roundTokens) session.roundTokens = []
     session.roundTokens[roundIndex] = viewToken
   }
-  return { viewToken, locationId: locId }
+  return { viewToken, locationId: loc.id }
 }
 
 export function getViewForToken(token) {
@@ -81,8 +83,7 @@ export function getViewForToken(token) {
 export function getLocationForSessionRound(sessionId, roundIndex) {
   const session = sessions.get(sessionId)
   if (!session) return null
-  const id = session.locationIds[roundIndex]
-  return LOCATIONS.find((l) => l.id === id) || null
+  return session.locations?.[roundIndex] || null
 }
 
 /** Locked-down Street View page — coordinates exist only server-side. */
@@ -105,24 +106,25 @@ export function renderStreetViewHtml({ lat, lng }, apiKey = '') {
     function init() {
       var pano = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
         position: { lat: ${latS}, lng: ${lngS} },
-        pov: { heading: 34, pitch: 0 },
+        pov: { heading: Math.floor(Math.random()*360), pitch: 0 },
         zoom: 1,
         addressControl: false,
-        linksControl: false,
+        linksControl: true,
         panControl: false,
-        zoomControl: false,
+        zoomControl: true,
         fullscreenControl: false,
         motionTracking: false,
         motionTrackingControl: false,
         enableCloseButton: false,
         showRoadLabels: false,
-        clickToGo: false,
+        clickToGo: true,
         scrollwheel: true,
       });
       var svc = new google.maps.StreetViewService();
-      svc.getPanorama({ location: { lat: ${latS}, lng: ${lngS} }, radius: 1200 }, function(data, status) {
+      svc.getPanorama({ location: { lat: ${latS}, lng: ${lngS} }, radius: 5000, source: google.maps.StreetViewPreference.NEAREST }, function(data, status) {
         if (status === 'OK' && data && data.location && data.location.pano) {
           pano.setPano(data.location.pano);
+          if (data.location.latLng) pano.setPosition(data.location.latLng);
           pano.setVisible(true);
         }
       });
