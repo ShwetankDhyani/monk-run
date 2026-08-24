@@ -5,7 +5,27 @@ import { haversineKm, scoreFromDistanceKm } from './scoring.js'
 export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
-export const LOBBY_COUNTDOWN_MS = 2_400
+export const LOBBY_COUNTDOWN_MS = 3_200
+
+/** Canvas lobby spawn points (must match MonkLobby floor coords). */
+function spawnSlot(index) {
+  const spots = [
+    { x: 300, y: 430, facing: 1 },
+    { x: 460, y: 500, facing: -1 },
+    { x: 620, y: 420, facing: 1 },
+    { x: 780, y: 510, facing: -1 },
+    { x: 900, y: 440, facing: 1 },
+  ]
+  const s = spots[index % spots.length]
+  return {
+    x: s.x,
+    y: s.y,
+    facing: s.facing,
+    emote: null,
+    emoteUntil: 0,
+    hitFlash: 0,
+  }
+}
 
 function clone(s) {
   return JSON.parse(JSON.stringify(s))
@@ -17,18 +37,6 @@ function randomSeed() {
   return buf[0] * 0x100000000 + (buf[1] >>> 0)
 }
 
-function spawnSlot(index) {
-  const spots = [
-    { x: -2, z: 1 },
-    { x: 2, z: 1 },
-    { x: -2, z: -1.5 },
-    { x: 2, z: -1.5 },
-    { x: 0, z: 2.2 },
-  ]
-  const s = spots[index % spots.length]
-  return { x: s.x, y: 0, z: s.z, yaw: Math.PI, emote: null, emoteUntil: 0, hitFlash: 0 }
-}
-
 /** Host-authoritative PeerJS room: temple lobby → portal countdown → GeoGuessr. */
 export function createRoomController({ onState, onError, onEvent }) {
   let peer = null
@@ -36,6 +44,14 @@ export function createRoomController({ onState, onError, onEvent }) {
   let actingHost = false
   const connections = new Map()
   let state = blank()
+  let lastLobbyEmit = 0
+
+  function emitLobbyPoses() {
+    const now = Date.now()
+    if (now - lastLobbyEmit < 40) return
+    lastLobbyEmit = now
+    emit()
+  }
 
   function blank() {
     return {
@@ -46,6 +62,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       players: [],
       lobby: {},
       countdownEndsAt: 0,
+      countdownStartedAt: 0,
       roundIndex: 0,
       totalRounds: DEFAULT_ROUNDS,
       roundEndsAt: 0,
@@ -117,6 +134,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         players: state.players,
         lobby: state.lobby,
         countdownEndsAt: state.countdownEndsAt,
+        countdownStartedAt: state.countdownStartedAt,
         roundIndex: state.roundIndex,
         totalRounds: state.totalRounds,
         roundEndsAt: state.roundEndsAt,
@@ -153,9 +171,10 @@ export function createRoomController({ onState, onError, onEvent }) {
         id: fromId,
         name: String(msg.name || 'Wanderer').slice(0, 18),
         vibe: msg.vibe || 'saffron',
-        ready: false,
         connected: true,
       })
+      const idx = state.players.findIndex((p) => p.id === fromId)
+      state.lobby[fromId] = spawnSlot(Math.max(0, idx))
       if (state.scores[fromId] == null) state.scores[fromId] = 0
       pushSync()
       return
@@ -167,14 +186,22 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (msg.type === 'lobby-pose' && (state.phase === 'lobby' || state.phase === 'countdown')) {
       state.lobby[fromId] = {
-        ...(state.lobby[fromId] || spawnSlot(0)),
+        ...(state.lobby[fromId] || spawnSlot(state.players.findIndex((p) => p.id === fromId))),
         x: msg.x,
-        y: msg.y ?? 0,
-        z: msg.z,
-        yaw: msg.yaw ?? 0,
+        y: msg.y ?? state.lobby[fromId]?.y ?? 430,
+        facing: msg.facing ?? state.lobby[fromId]?.facing ?? 1,
       }
-      // Lightweight pose sync — don't full-snapshot every frame
-      broadcast({ type: 'lobby-pose', id: fromId, x: msg.x, y: msg.y ?? 0, z: msg.z, yaw: msg.yaw ?? 0 }, fromId)
+      broadcast(
+        {
+          type: 'lobby-pose',
+          id: fromId,
+          x: msg.x,
+          y: msg.y ?? state.lobby[fromId]?.y ?? 430,
+          facing: msg.facing ?? 1,
+        },
+        fromId,
+      )
+      emitLobbyPoses()
       return
     }
     if (msg.type === 'smack' && (state.phase === 'lobby' || state.phase === 'countdown')) {
@@ -211,9 +238,8 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.lobby[msg.id] = {
         ...(state.lobby[msg.id] || spawnSlot(0)),
         x: msg.x,
-        y: msg.y ?? 0,
-        z: msg.z,
-        yaw: msg.yaw ?? 0,
+        y: msg.y ?? state.lobby[msg.id]?.y ?? 430,
+        facing: msg.facing ?? state.lobby[msg.id]?.facing ?? 1,
       }
       emit()
       return
@@ -223,7 +249,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         ...(state.lobby[msg.targetId] || spawnSlot(0)),
         hitFlash: Date.now() + 400,
         x: msg.tx,
-        z: msg.tz,
+        y: msg.ty,
       }
       fire({ type: 'smack', fromId: msg.fromId, targetId: msg.targetId })
       emit()
@@ -248,18 +274,22 @@ export function createRoomController({ onState, onError, onEvent }) {
     const b = state.lobby[targetId]
     if (!a || !b) return
     const dx = b.x - a.x
-    const dz = b.z - a.z
-    const d = Math.hypot(dx, dz) || 1
-    if (d > 2.2) return
+    const dy = b.y - a.y
+    const d = Math.hypot(dx, dy) || 1
+    if (d > 95) return
     const nx = dx / d
-    const nz = dz / d
-    const tx = Math.max(-3.2, Math.min(3.2, b.x + nx * 1.1))
-    const tz = Math.max(-3.5, Math.min(3.5, b.z + nz * 1.1))
-    state.lobby[targetId] = { ...b, x: tx, z: tz, hitFlash: Date.now() + 400 }
-    const payload = { type: 'smack', fromId, targetId, tx, tz }
+    const ny = dy / d
+    const tx = clamp(b.x + nx * 42, 120, 1160)
+    const ty = clamp(b.y + ny * 42, 250, 620)
+    state.lobby[targetId] = { ...b, x: tx, y: ty, hitFlash: Date.now() + 400 }
+    const payload = { type: 'smack', fromId, targetId, tx, ty }
     broadcast(payload)
     fire(payload)
     emit()
+  }
+
+  function clamp(n, a, b) {
+    return Math.max(a, Math.min(b, n))
   }
 
   function applyEmote(id, emote) {
@@ -338,7 +368,8 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.selfId = `solo-${Math.random().toString(36).slice(2, 9)}`
     state.message = 'Local mode — voice/multiplayer broker offline. Cabin + GeoGuessr still work.'
     state.scores[state.selfId] = 0
-    upsertPlayer({ id: state.selfId, name, vibe, ready: true, connected: true, isHost: true })
+    upsertPlayer({ id: state.selfId, name, vibe, connected: true, isHost: true })
+    state.lobby[state.selfId] = spawnSlot(0)
     emit()
   }
 
@@ -354,7 +385,8 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.isHost = true
       state.selfId = opened.id
       state.scores[opened.id] = 0
-      upsertPlayer({ id: opened.id, name, vibe, ready: true, connected: true, isHost: true })
+      upsertPlayer({ id: opened.id, name, vibe, connected: true, isHost: true })
+      state.lobby[opened.id] = spawnSlot(0)
       peer.on('connection', (conn) => {
         connections.set(conn.peer, conn)
         conn.on('open', () => {
@@ -424,6 +456,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (actingHost) {
       broadcast({ type: 'lobby-pose', id: state.selfId, ...pose })
+      emitLobbyPoses()
     } else {
       send(hostConn, { type: 'lobby-pose', ...pose })
     }
@@ -453,8 +486,9 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.reveal = null
     state.guesses = {}
     state.phase = 'countdown'
+    state.countdownStartedAt = Date.now()
     state.countdownEndsAt = Date.now() + LOBBY_COUNTDOWN_MS
-    state.message = 'Portal opening…'
+    state.message = 'Black hole forming…'
     pushSync()
   }
 

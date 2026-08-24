@@ -1,10 +1,17 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MONK_VIBES } from '../data/locations'
 
 const WORLD = { w: 1280, h: 720 }
 const FLOOR = { x: 90, y: 210, w: 1100, h: 430 }
 const BH = { x: 980, y: 400, r: 58 }
 const SPEED = 210
+const SPAWN_SPOTS = [
+  { x: 300, y: 430, facing: 1 },
+  { x: 460, y: 500, facing: -1 },
+  { x: 620, y: 420, facing: 1 },
+  { x: 780, y: 510, facing: -1 },
+  { x: 900, y: 440, facing: 1 },
+]
 
 const KEY = {
   ArrowUp: { x: 0, y: -1 },
@@ -239,12 +246,97 @@ function drawHall(ctx, t) {
   ctx.strokeStyle = '#c9a227'
   ctx.lineWidth = 2
   ctx.stroke()
+
+  // Tea table & cushions
+  ctx.fillStyle = '#4a3020'
+  ctx.fillRect(480, 320, 90, 12)
+  ctx.fillRect(488, 332, 10, 28)
+  ctx.fillRect(552, 332, 10, 28)
+  ;[
+    [470, 365],
+    [560, 368],
+    [515, 380],
+  ].forEach(([cx, cy], i) => {
+    ctx.fillStyle = i === 2 ? '#6b2a2a' : '#7a1f1f'
+    ctx.beginPath()
+    ctx.ellipse(cx, cy, 22, 14, 0, 0, Math.PI * 2)
+    ctx.fill()
+  })
+
+  // Bookshelf & scrolls
+  ctx.fillStyle = '#2a1810'
+  ctx.fillRect(860, 260, 70, 110)
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = ['#8b4513', '#5a3818', '#7a5020', '#4a3020'][i]
+    ctx.fillRect(868 + (i % 2) * 28, 270 + Math.floor(i / 2) * 38, 22, 30)
+  }
+
+  // Hanging lanterns
+  for (let i = 0; i < 4; i++) {
+    const lx = 220 + i * 240
+    ctx.strokeStyle = '#5a3a22'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(lx, 0)
+    ctx.lineTo(lx, 120)
+    ctx.stroke()
+    ctx.fillStyle = '#c97830'
+    ctx.fillRect(lx - 14, 118, 28, 34)
+    ctx.fillStyle = `rgba(255,200,100,${0.08 + Math.sin(t * 3 + i) * 0.04})`
+    ctx.beginPath()
+    ctx.arc(lx, 148, 40, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // Light beams
+  for (let i = 0; i < 3; i++) {
+    const bx = 280 + i * 320
+    ctx.fillStyle = `rgba(255,220,160,${0.03 + Math.sin(t + i) * 0.01})`
+    ctx.beginPath()
+    ctx.moveTo(bx - 30, 80)
+    ctx.lineTo(bx + 80, 80)
+    ctx.lineTo(bx + 140, FLOOR.y + FLOOR.h)
+    ctx.lineTo(bx - 60, FLOOR.y + FLOOR.h)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  // Shoe rack by entrance
+  ctx.fillStyle = '#3a2414'
+  ctx.fillRect(130, 560, 80, 8)
+  ctx.fillRect(138, 568, 8, 22)
+  ctx.fillRect(194, 568, 8, 22)
+  ctx.fillStyle = '#2a1810'
+  ctx.fillRect(142, 572, 22, 10)
+  ctx.fillRect(162, 574, 20, 8)
 }
 
-function drawBlackHole(ctx, t, force) {
+function drawMeditationAlcove(ctx) {
+  const { x, y } = BH
+  ctx.fillStyle = '#2a1810'
+  ctx.beginPath()
+  ctx.arc(x, y, 72, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#c9a227'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(x, y - 8, 38, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.fillStyle = 'rgba(255,210,120,0.08)'
+  ctx.beginPath()
+  ctx.arc(x, y - 8, 28, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = 'rgba(255,230,200,0.55)'
+  ctx.font = '600 11px "Segoe UI", system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText('meditation alcove', x, y + 52)
+}
+
+function drawBlackHole(ctx, t, scale, suck) {
+  if (scale <= 0.01) return
   const { x, y, r } = BH
   const pulse = 1 + Math.sin(t * 6) * 0.04
-  const R = r * pulse * (force > 0.15 ? 1 + force * 0.35 : 1)
+  const R = Math.max(2, r * scale * pulse * (1 + suck * 0.35))
 
   // Accretion disk
   for (let i = 8; i >= 1; i--) {
@@ -254,8 +346,8 @@ function drawBlackHole(ctx, t, force) {
     ctx.rotate(ang)
     ctx.scale(1.55, 0.42)
     const ag = ctx.createRadialGradient(0, 0, R * 0.3, 0, 0, R * (1.2 + i * 0.18))
-    ag.addColorStop(0, `rgba(255,200,120,${0.08 * force + 0.04})`)
-    ag.addColorStop(0.45, `rgba(255,120,40,${0.12 + force * 0.1})`)
+    ag.addColorStop(0, `rgba(255,200,120,${0.08 * suck + 0.04})`)
+    ag.addColorStop(0.45, `rgba(255,120,40,${0.12 + suck * 0.1})`)
     ag.addColorStop(0.75, `rgba(180,40,80,${0.1})`)
     ag.addColorStop(1, 'rgba(0,0,0,0)')
     ctx.fillStyle = ag
@@ -266,8 +358,8 @@ function drawBlackHole(ctx, t, force) {
   }
 
   // Photon ring
-  ctx.strokeStyle = `rgba(255,220,160,${0.35 + force * 0.4})`
-  ctx.lineWidth = 3 + force * 2
+  ctx.strokeStyle = `rgba(255,220,160,${0.2 + scale * 0.5 + suck * 0.4})`
+  ctx.lineWidth = 2 + scale * 2 + suck * 2
   ctx.beginPath()
   ctx.ellipse(x, y, R * 1.35, R * 0.55, t * 0.4, 0, Math.PI * 2)
   ctx.stroke()
@@ -284,24 +376,21 @@ function drawBlackHole(ctx, t, force) {
   ctx.fill()
 
   // Inner void shimmer
-  ctx.strokeStyle = `rgba(120,180,255,${0.15 + force * 0.25})`
+  ctx.strokeStyle = `rgba(120,180,255,${0.1 + scale * 0.2 + suck * 0.25})`
   ctx.lineWidth = 1.5
   ctx.beginPath()
   ctx.arc(x, y, R * 0.72, t, t + Math.PI * 1.2)
   ctx.stroke()
 
-  if (force < 0.2) {
-    ctx.fillStyle = 'rgba(255,230,180,0.85)'
-    ctx.font = '700 13px "Segoe UI", system-ui, sans-serif'
+  if (scale < 0.85 && suck < 0.3) {
+    ctx.fillStyle = `rgba(255,230,180,${0.4 + scale * 0.5})`
+    ctx.font = '700 12px "Segoe UI", system-ui, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('BLACK HOLE', x, y + R + 28)
-    ctx.fillStyle = 'rgba(255,210,150,0.65)'
-    ctx.font = '600 11px "Segoe UI", system-ui, sans-serif'
-    ctx.fillText('stand near · host opens the way', x, y + R + 44)
+    ctx.fillText('singularity forming…', x, y + R + 22)
   }
 }
 
-function drawNameplate(ctx, x, y, name, ready, isSelf) {
+function drawNameplate(ctx, x, y, name, isSelf) {
   const label = (name || 'Monk').slice(0, 16)
   ctx.font = `700 12px "Segoe UI", system-ui, sans-serif`
   const tw = ctx.measureText(label).width
@@ -312,11 +401,11 @@ function drawNameplate(ctx, x, y, name, ready, isSelf) {
   ctx.fillStyle = 'rgba(20,10,6,0.78)'
   roundRect(ctx, hx, hy, w, 20, 6)
   ctx.fill()
-  ctx.strokeStyle = ready ? 'rgba(120,220,140,0.9)' : isSelf ? 'rgba(255,200,100,0.85)' : 'rgba(200,160,100,0.45)'
+  ctx.strokeStyle = isSelf ? 'rgba(255,200,100,0.85)' : 'rgba(200,160,100,0.45)'
   ctx.lineWidth = 1.5
   ctx.stroke()
 
-  ctx.fillStyle = ready ? '#b8f0c0' : '#ffe8c0'
+  ctx.fillStyle = '#ffe8c0'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(label, x, hy + 10)
@@ -333,6 +422,65 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
+function makeNpcs() {
+  return [
+    { name: 'Ananda', x: 260, y: 490, facing: 1, walk: 0, activity: 'sweep', t: 0, robe: '#6b4423', sash: '#c9a227', skin: '#ddb896' },
+    { name: 'Maya', x: 540, y: 360, facing: -1, walk: 0, activity: 'incense', t: 1.2, robe: '#7a2840', sash: '#d4af37', skin: '#e0b898' },
+    { name: 'Tenzin', x: 680, y: 470, facing: 1, walk: 0, activity: 'meditate', t: 0.5, robe: '#8b6914', sash: '#b8860b', skin: '#c9a882' },
+    { name: 'Lotus', x: 420, y: 560, facing: -1, walk: 0, activity: 'tea', t: 2, robe: '#4a6741', sash: '#8fbc8f', skin: '#ddb896' },
+    { name: 'Jizo', x: 820, y: 380, facing: 1, walk: 0, activity: 'chant', t: 0.8, robe: '#5a4632', sash: '#c97830', skin: '#c9a882' },
+  ]
+}
+
+function updateNpc(npc, dt, t) {
+  if (npc.activity === 'sweep') {
+    const span = 120
+    npc.x = 220 + ((t * 45 + npc.t * 50) % (span * 2))
+    if (npc.x > 220 + span) npc.x = 220 + span * 2 - (npc.x - 220 - span)
+    npc.facing = Math.sin(t * 0.8 + npc.t) > 0 ? 1 : -1
+    npc.walk += dt * 1.4
+  } else if (npc.activity === 'incense') {
+    npc.walk = Math.sin(t * 1.5) * 0.05
+  } else if (npc.activity === 'meditate') {
+    npc.walk = 0
+  } else if (npc.activity === 'tea') {
+    npc.walk = Math.sin(t * 2 + npc.t) * 0.08
+  } else if (npc.activity === 'chant') {
+    npc.walk = Math.sin(t * 3) * 0.12
+    npc.y = 380 + Math.sin(t * 0.6) * 3
+  }
+}
+
+function drawActivityIcon(ctx, npc, t) {
+  const icons = { incense: '🪔', meditate: '🧘', tea: '🍵', chant: '📿', sweep: '🧹' }
+  const icon = icons[npc.activity]
+  if (!icon) return
+  ctx.font = '16px serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(icon, npc.x + (npc.facing > 0 ? 24 : -24), npc.y - 44 + Math.sin(t * 2 + npc.t) * 2)
+}
+
+function canvasFromClient(canvas, clientX, clientY) {
+  const rect = canvas.getBoundingClientRect()
+  return {
+    x: ((clientX - rect.left) / rect.width) * WORLD.w,
+    y: ((clientY - rect.top) / rect.height) * WORLD.h,
+  }
+}
+
+function nearestPlayer(x, y, selfId, me, peers, players, maxDist = 70) {
+  let best = null
+  let bestD = maxDist
+  for (const [id, pose] of peers.entries()) {
+    const d = Math.hypot(pose.x - x, pose.y - y)
+    if (d < bestD) {
+      bestD = d
+      best = { id, pose, name: players.find((p) => p.id === id)?.name || 'Monk' }
+    }
+  }
+  return best
+}
+
 export function MonkLobby({
   selfId,
   players,
@@ -341,7 +489,10 @@ export function MonkLobby({
   onSmack,
   onEmote,
   countdownSec = null,
-  portalForce = 0,
+  portalActive = false,
+  countdownStartedAt = 0,
+  countdownEndsAt = 0,
+  portalHold = false,
   focused = true,
 }) {
   const canvasRef = useRef(null)
@@ -358,36 +509,56 @@ export function MonkLobby({
   const lastTs = useRef(performance.now())
   const smackCd = useRef(0)
   const suckLocal = useRef({ active: false, stretchX: 1, stretchY: 1, spin: 0 })
-  const forceRef = useRef(portalForce)
+  const portalRef = useRef({ scale: 0, suck: 0, active: false })
+  const npcsRef = useRef(makeNpcs())
+  const touchRef = useRef({ active: false, lastX: 0, lastY: 0, longPressTimer: null, moved: false })
+  const playersRef = useRef(players)
+  const callbacksRef = useRef({ onPose, onSmack, onEmote })
   const countdownRef = useRef(countdownSec)
-  forceRef.current = portalForce
+  const [actionMenu, setActionMenu] = useState(null)
+  playersRef.current = players
+  callbacksRef.current = { onPose, onSmack, onEmote }
   countdownRef.current = countdownSec
 
   useEffect(() => {
     const map = peersRef.current
     const alive = new Set()
-    for (const [id, pose] of Object.entries(lobby || {})) {
-      if (id === selfId) continue
-      alive.add(id)
-      const cur = map.get(id) || {
-        x: pose.x,
-        y: pose.y,
-        facing: pose.facing || 1,
+    for (const p of players) {
+      if (p.id === selfId) continue
+      alive.add(p.id)
+      const pose = lobby?.[p.id] || {}
+      const idx = Math.max(0, players.findIndex((x) => x.id === p.id))
+      const spot = SPAWN_SPOTS[idx % SPAWN_SPOTS.length]
+      const cur = map.get(p.id) || {
+        x: pose.x ?? spot.x,
+        y: pose.y ?? spot.y,
+        facing: pose.facing ?? spot.facing,
         walk: 0,
         stretchX: 1,
         stretchY: 1,
         spin: 0,
       }
-      cur.tx = pose.x
-      cur.ty = pose.y
-      cur.facing = pose.facing || cur.facing
+      if (pose.x != null) cur.tx = pose.x
+      if (pose.y != null) cur.ty = pose.y
+      if (cur.tx == null) {
+        cur.tx = spot.x
+        cur.ty = spot.y
+        cur.x = spot.x
+        cur.y = spot.y
+      }
+      cur.facing = pose.facing ?? cur.facing ?? spot.facing
       cur.emote = pose.emote
       cur.emoteUntil = pose.emoteUntil
       cur.hitFlash = pose.hitFlash
-      map.set(id, cur)
+      map.set(p.id, cur)
     }
     for (const id of map.keys()) if (!alive.has(id)) map.delete(id)
-  }, [lobby, selfId])
+  }, [lobby, players, selfId])
+
+  useEffect(() => {
+    const me = selfRef.current
+    callbacksRef.current.onPose?.({ x: me.x, y: me.y, facing: me.facing })
+  }, [])
 
   // Seed hall debris once
   useEffect(() => {
@@ -422,13 +593,15 @@ export function MonkLobby({
         e.preventDefault()
         if (smackCd.current <= 0) {
           smackCd.current = 0.4
-          onSmack?.()
+          const me = selfRef.current
+          const near = nearestPlayer(me.x, me.y, selfId, me, peersRef.current, playersRef.current, 95)
+          callbacksRef.current.onSmack?.(near?.id)
         }
       }
-      if (e.key === '1') onEmote?.('wave')
-      if (e.key === '2') onEmote?.('bow')
-      if (e.key === '3') onEmote?.('laugh')
-      if (e.key === '4') onEmote?.('shock')
+      if (e.key === '1') callbacksRef.current.onEmote?.('wave')
+      if (e.key === '2') callbacksRef.current.onEmote?.('bow')
+      if (e.key === '3') callbacksRef.current.onEmote?.('laugh')
+      if (e.key === '4') callbacksRef.current.onEmote?.('shock')
     }
     const up = (e) => keysRef.current.delete(e.key)
     window.addEventListener('keydown', down)
@@ -437,7 +610,81 @@ export function MonkLobby({
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
     }
-  }, [focused, onSmack, onEmote])
+  }, [focused])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !focused) return undefined
+
+    const clearLongPress = () => {
+      if (touchRef.current.longPressTimer) {
+        clearTimeout(touchRef.current.longPressTimer)
+        touchRef.current.longPressTimer = null
+      }
+    }
+
+    const onTouchStart = (e) => {
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      touchRef.current.active = true
+      touchRef.current.lastX = t.clientX
+      touchRef.current.lastY = t.clientY
+      touchRef.current.moved = false
+      clearLongPress()
+      const pt = canvasFromClient(canvas, t.clientX, t.clientY)
+      touchRef.current.longPressTimer = setTimeout(() => {
+        if (touchRef.current.moved) return
+        const near = nearestPlayer(pt.x, pt.y, selfId, selfRef.current, peersRef.current, playersRef.current, 80)
+        if (near) {
+          setActionMenu({
+            targetId: near.id,
+            targetName: near.name,
+            clientX: t.clientX,
+            clientY: t.clientY,
+          })
+        }
+      }, 480)
+    }
+
+    const onTouchMove = (e) => {
+      if (!touchRef.current.active || e.touches.length !== 1) return
+      const t = e.touches[0]
+      const dx = t.clientX - touchRef.current.lastX
+      const dy = t.clientY - touchRef.current.lastY
+      if (Math.hypot(dx, dy) > 8) {
+        touchRef.current.moved = true
+        clearLongPress()
+      }
+      touchRef.current.lastX = t.clientX
+      touchRef.current.lastY = t.clientY
+      const len = Math.hypot(dx, dy) || 1
+      keysRef.current.clear()
+      if (Math.abs(dx) > Math.abs(dy)) {
+        keysRef.current.add(dx > 0 ? 'ArrowRight' : 'ArrowLeft')
+      } else {
+        keysRef.current.add(dy > 0 ? 'ArrowDown' : 'ArrowUp')
+      }
+      e.preventDefault()
+    }
+
+    const onTouchEnd = () => {
+      touchRef.current.active = false
+      keysRef.current.clear()
+      clearLongPress()
+    }
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+    canvas.addEventListener('touchend', onTouchEnd)
+    canvas.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      clearLongPress()
+      canvas.removeEventListener('touchstart', onTouchStart)
+      canvas.removeEventListener('touchmove', onTouchMove)
+      canvas.removeEventListener('touchend', onTouchEnd)
+      canvas.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [focused, selfId])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -450,8 +697,20 @@ export function MonkLobby({
       lastTs.current = now
       smackCd.current = Math.max(0, smackCd.current - dt)
 
-      const force = forceRef.current || 0
-      const sucking = force > 0.08
+      let bhScale = 0
+      let suck = 0
+      if (portalHold) {
+        bhScale = 1
+        suck = 1
+      } else if (portalActive && countdownStartedAt && countdownEndsAt) {
+        const total = Math.max(1, countdownEndsAt - countdownStartedAt)
+        const elapsed = Date.now() - countdownStartedAt
+        const p = Math.min(1, elapsed / total)
+        bhScale = p < 0.45 ? (p / 0.45) ** 1.6 : 1
+        suck = p < 0.55 ? 0 : ((p - 0.55) / 0.45) ** 1.2
+      }
+      portalRef.current = { scale: bhScale, suck, active: portalActive || portalHold }
+      const sucking = suck > 0.08
       const me = selfRef.current
       const keys = keysRef.current
       const countdownSecNow = countdownRef.current
@@ -484,18 +743,18 @@ export function MonkLobby({
         const dx = BH.x - me.x
         const dy = BH.y - me.y
         const dist = Math.hypot(dx, dy) || 1
-        const pull = 380 + force * 1400
+        const pull = 380 + suck * 1400
         me.x += (dx / dist) * pull * dt
         me.y += (dy / dist) * pull * dt
         me.walk += dt * 4
-        const stretch = 1 + force * 2.8
-        const squash = Math.max(0.15, 1 - force * 0.85)
+        const stretch = 1 + suck * 2.8
+        const squash = Math.max(0.15, 1 - suck * 0.85)
         const tang = Math.atan2(dy, dx)
         suckLocal.current = {
           active: true,
           stretchX: squash + Math.abs(Math.cos(tang)) * (stretch - 1) * 0.5,
           stretchY: stretch,
-          spin: force * 8,
+          spin: suck * 8,
         }
         if (dist < BH.r * 0.45) {
           me.x = BH.x
@@ -507,27 +766,27 @@ export function MonkLobby({
 
       if (now - lastSend.current > 50) {
         lastSend.current = now
-        onPose?.({ x: me.x, y: me.y, facing: me.facing })
+        callbacksRef.current.onPose?.({ x: me.x, y: me.y, facing: me.facing })
       }
 
       // Peer lerp + suck
       for (const peer of peersRef.current.values()) {
         if (peer.tx != null) {
-          peer.x += (peer.tx - peer.x) * Math.min(1, dt * 14)
-          peer.y += (peer.ty - peer.y) * Math.min(1, dt * 14)
+          peer.x += (peer.tx - peer.x) * Math.min(1, dt * 24)
+          peer.y += (peer.ty - peer.y) * Math.min(1, dt * 24)
           peer.walk += dt
         }
         if (sucking) {
           const dx = BH.x - peer.x
           const dy = BH.y - peer.y
           const dist = Math.hypot(dx, dy) || 1
-          const pull = 320 + force * 1200
+          const pull = 320 + suck * 1200
           peer.x += (dx / dist) * pull * dt
           peer.y += (dy / dist) * pull * dt
-          const stretch = 1 + force * 2.5
-          peer.stretchX = Math.max(0.12, 1 - force * 0.8)
+          const stretch = 1 + suck * 2.5
+          peer.stretchX = Math.max(0.12, 1 - suck * 0.8)
           peer.stretchY = stretch
-          peer.spin = force * 7
+          peer.spin = suck * 7
         } else {
           peer.stretchX = 1
           peer.stretchY = 1
@@ -541,13 +800,12 @@ export function MonkLobby({
           const dx = BH.x - d.x
           const dy = BH.y - d.y
           const dist = Math.hypot(dx, dy) || 1
-          const pull = 200 + force * 1600
+          const pull = 200 + suck * 1600
           d.vx += (dx / dist) * pull * dt
           d.vy += (dy / dist) * pull * dt
-          d.rot += force * 10 * dt
-          // Spiral
-          d.vx += (-dy / dist) * force * 180 * dt
-          d.vy += (dx / dist) * force * 180 * dt
+          d.rot += suck * 10 * dt
+          d.vx += (-dy / dist) * suck * 180 * dt
+          d.vy += (dx / dist) * suck * 180 * dt
         } else {
           d.vx *= 0.92
           d.vy *= 0.92
@@ -569,19 +827,24 @@ export function MonkLobby({
       // Draw
       const t = now / 1000
       drawHall(ctx, t)
-      drawBlackHole(ctx, t, force)
+      if (bhScale > 0.01) drawBlackHole(ctx, t, bhScale, suck)
+      else drawMeditationAlcove(ctx)
+
+      for (const npc of npcsRef.current) {
+        updateNpc(npc, dt, t)
+      }
 
       // Dust streams when sucking
       if (sucking) {
         for (let i = 0; i < 40; i++) {
           const a = t * 3 + i * 0.4
-          const rad = BH.r + 40 + ((i * 37 + t * 220 * force) % 320)
+          const rad = BH.r * bhScale + 40 + ((i * 37 + t * 220 * suck) % 320)
           const px = BH.x + Math.cos(a) * rad * 0.85
           const py = BH.y + Math.sin(a) * rad * 0.45
           const life = 1 - rad / 400
-          ctx.fillStyle = `rgba(255,200,140,${0.15 * force * Math.max(0, life)})`
+          ctx.fillStyle = `rgba(255,200,140,${0.15 * suck * Math.max(0, life)})`
           ctx.beginPath()
-          ctx.arc(px, py, 1.5 + force * 2, 0, Math.PI * 2)
+          ctx.arc(px, py, 1.5 + suck * 2, 0, Math.PI * 2)
           ctx.fill()
         }
       }
@@ -638,6 +901,13 @@ export function MonkLobby({
         ctx.restore()
       }
 
+      // NPC monks
+      for (const npc of npcsRef.current) {
+        softBody(ctx, npc.x, npc.y, npc.robe, npc.sash, npc.skin, npc.facing, npc.walk || 0)
+        drawNameplate(ctx, npc.x, npc.y, npc.name, false)
+        drawActivityIcon(ctx, npc, t)
+      }
+
       const list = [...peersRef.current.entries()]
         .map(([id, pose]) => ({ id, pose, isSelf: false }))
         .concat([{ id: selfId, pose: me, isSelf: true }])
@@ -658,8 +928,8 @@ export function MonkLobby({
         }
         softBody(ctx, pose.x, pose.y, vibe.robe, vibe.sash, vibe.skin, pose.facing || 1, pose.walk || 0, sx, sy)
 
-        if (!sucking || force < 0.85) {
-          drawNameplate(ctx, pose.x, pose.y - (sy - 1) * 20, p?.name || 'Monk', !!p?.ready, isSelf)
+        if (!sucking || suck < 0.85) {
+          drawNameplate(ctx, pose.x, pose.y - (sy - 1) * 20, p?.name || 'Monk', isSelf)
         }
 
         if (!isSelf && pose.hitFlash && pose.hitFlash > now) {
@@ -675,21 +945,15 @@ export function MonkLobby({
           ctx.textAlign = 'center'
           ctx.fillText(icon, pose.x + 22, pose.y - 48)
         }
-        if (p?.ready && !sucking) {
-          ctx.fillStyle = 'rgba(100,220,130,0.9)'
-          ctx.beginPath()
-          ctx.arc(pose.x + 16, pose.y - 36, 5, 0, Math.PI * 2)
-          ctx.fill()
-        }
         ctx.restore()
       }
 
       // Screen vignette when sucking hard
-      if (force > 0.3) {
+      if (suck > 0.3) {
         const vg = ctx.createRadialGradient(BH.x, BH.y, 40, BH.x, BH.y, 700)
         vg.addColorStop(0, 'rgba(0,0,0,0)')
-        vg.addColorStop(0.5, `rgba(0,0,0,${force * 0.25})`)
-        vg.addColorStop(1, `rgba(0,0,0,${force * 0.55})`)
+        vg.addColorStop(0.5, `rgba(0,0,0,${suck * 0.25})`)
+        vg.addColorStop(1, `rgba(0,0,0,${suck * 0.55})`)
         ctx.fillStyle = vg
         ctx.fillRect(0, 0, WORLD.w, WORLD.h)
       }
@@ -712,7 +976,14 @@ export function MonkLobby({
 
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [selfId, players, onPose])
+  }, [selfId, portalActive, countdownStartedAt, countdownEndsAt, portalHold])
+
+  const runAction = (kind) => {
+    if (!actionMenu) return
+    if (kind === 'smack') callbacksRef.current.onSmack?.(actionMenu.targetId)
+    else callbacksRef.current.onEmote?.(kind)
+    setActionMenu(null)
+  }
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#1a100c]">
@@ -720,12 +991,46 @@ export function MonkLobby({
         ref={canvasRef}
         width={WORLD.w}
         height={WORLD.h}
-        className="h-full w-full object-contain"
+        className="h-full w-full touch-none object-contain"
         tabIndex={0}
       />
+      {actionMenu && (
+        <div
+          className="absolute z-20 min-w-[140px] rounded-xl border border-amber/30 bg-[#1a100c]/95 p-2 shadow-xl"
+          style={{
+            left: Math.min(window.innerWidth - 160, actionMenu.clientX - 70),
+            top: Math.max(8, actionMenu.clientY - 120),
+          }}
+        >
+          <p className="mb-2 px-2 text-[10px] uppercase tracking-widest text-muted">{actionMenu.targetName}</p>
+          {[
+            ['wave', 'Wave'],
+            ['bow', 'Bow'],
+            ['laugh', 'Laugh'],
+            ['shock', 'Shock'],
+            ['smack', 'Smack'],
+          ].map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-amber-100 hover:bg-white/10"
+              onClick={() => runAction(k)}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="mt-1 w-full rounded-lg px-3 py-1 text-xs text-muted hover:bg-white/5"
+            onClick={() => setActionMenu(null)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
       <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/55 px-3 py-2 text-[11px] text-amber-100/85">
-        Move · <kbd className="text-amber-200">WASD</kbd> / arrows · smack{' '}
-        <kbd className="text-amber-200">Space</kbd> · emotes 1–4
+        Move · <kbd className="text-amber-200">WASD</kbd> / drag · smack{' '}
+        <kbd className="text-amber-200">Space</kbd> · long-press for actions
       </div>
     </div>
   )

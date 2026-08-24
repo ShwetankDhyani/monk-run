@@ -32,8 +32,8 @@ Without a key, monk.run uses a Google Maps Street View embed (and a satellite ba
 ## How to play
 
 1. **Create room** (share the 6-digit PIN) or **Join with PIN**
-2. **Join voice**, Ready up, walk the temple hall
-3. Host hits **Open black hole** → fast suck-in → Round 1
+2. **Join voice**, walk the temple hall with other monks and NPCs
+3. Host hits **PLAY** → black hole forms from a dot, then pulls everyone in
 4. Explore Street View → pin the world map → lock → reveal → next round
 5. Final podium + downloadable card
 

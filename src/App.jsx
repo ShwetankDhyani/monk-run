@@ -273,14 +273,7 @@ export default function App() {
     }
   }
 
-  const portalForce = (() => {
-    if (portalHold) return 1
-    if (room?.phase === 'countdown' && room.countdownEndsAt) {
-      const left = Math.max(0, room.countdownEndsAt - Date.now())
-      return Math.min(1, Math.max(0.12, 1 - left / LOBBY_COUNTDOWN_MS))
-    }
-    return 0
-  })()
+  const portalActive = room?.phase === 'countdown' || portalHold
 
   const lockGuess = useCallback(() => {
     if (!guess || selfGuessed) return
@@ -418,7 +411,6 @@ export default function App() {
   }
 
   if (inLobby) {
-    const self = room.players.find((p) => p.id === room.selfId)
     const inPortal = room.phase === 'countdown' || portalHold
     return (
       <div className="flex h-full min-h-full flex-col bg-ink">
@@ -455,18 +447,10 @@ export default function App() {
             >
               {!voice.active ? 'Join voice' : voice.muted ? 'Unmute' : 'Mute mic'}
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={inPortal}
-              onClick={() => ctrlRef.current.setReady(!self?.ready)}
-            >
-              {self?.ready ? 'Unready' : 'Ready'}
-            </button>
             {room.isHost && room.phase === 'lobby' && (
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary px-8 text-lg font-bold tracking-wide"
                 onClick={() =>
                   ctrlRef.current.beginCountdown({
                     rounds: DEFAULT_ROUNDS,
@@ -474,7 +458,7 @@ export default function App() {
                   })
                 }
               >
-                Open black hole ({DEFAULT_ROUNDS} rounds)
+                PLAY
               </button>
             )}
           </div>
@@ -489,7 +473,10 @@ export default function App() {
             onSmack={onSmack}
             onEmote={onEmote}
             countdownSec={room.phase === 'countdown' ? lobbyLeft : portalHold ? 0 : null}
-            portalForce={portalForce}
+            portalActive={portalActive}
+            countdownStartedAt={room.countdownStartedAt}
+            countdownEndsAt={room.countdownEndsAt}
+            portalHold={portalHold}
             focused={!inPortal}
           />
           <aside className="panel flex flex-col gap-3 p-4">
@@ -503,8 +490,8 @@ export default function App() {
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: v.color }} />
                       <span className="font-display text-sm">{p.name}</span>
                     </span>
-                    <span className={`text-[10px] uppercase ${p.ready ? 'text-mint' : 'text-muted'}`}>
-                      {p.connected === false ? 'away' : p.ready ? 'ready' : 'here'}
+                    <span className={`text-[10px] uppercase ${p.connected === false ? 'text-coral' : 'text-mint'}`}>
+                      {p.connected === false ? 'away' : 'here'}
                     </span>
                   </li>
                 )
@@ -520,12 +507,12 @@ export default function App() {
                   : 'off'}
               </p>
               {voice.error && <p className="text-coral">{voice.error}</p>}
-              <p>Emotes: 1 wave · 2 bow · 3 laugh · 4 shock</p>
+              <p>Desktop: WASD move · Space smack · 1–4 emotes</p>
+              <p className="text-amber/80">Mobile: drag to walk · long-press a monk for actions</p>
               {inPortal ? (
                 <p className="text-amber">Black hole is pulling everyone in…</p>
               ) : (
-                !room.isHost &&
-                room.phase === 'lobby' && <p>Waiting for host to open the black hole…</p>
+                !room.isHost && room.phase === 'lobby' && <p>Waiting for host to press PLAY…</p>
               )}
               {error && <p className="text-coral">{error}</p>}
             </div>
