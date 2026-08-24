@@ -8,6 +8,7 @@ import {
   openRoundView,
   getViewForToken,
   getLocationForSessionRound,
+  getEnrichedLocationForSessionRound,
   renderStreetViewHtml,
   sendHtml,
 } from './game.mjs'
@@ -182,7 +183,7 @@ const server = createServer(async (req, res) => {
   const roundTruth = url?.match(/^\/api\/game\/session\/([a-f0-9]+)\/round\/(\d+)\/truth$/)
   if (req.method === 'GET' && roundTruth) {
     const [, sessionId, roundIdx] = roundTruth
-    const loc = getLocationForSessionRound(sessionId, Number(roundIdx))
+    const loc = await getEnrichedLocationForSessionRound(sessionId, Number(roundIdx))
     if (!loc) {
       sendJson(res, 404, { error: 'Not found' })
       return

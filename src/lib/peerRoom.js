@@ -743,6 +743,12 @@ export function createRoomController({ onState, onError, onEvent }) {
   function tick() {
     if (!actingHost) return
     if (state.phase === 'countdown' && Date.now() >= state.countdownEndsAt) {
+      // Wait until game session exists — place picking can finish after the portal animation
+      if (!secrets.gameSessionId) {
+        state.message = 'Locking worldwide locations…'
+        pushSync()
+        return
+      }
       state.phase = 'loading-round'
       state.countdownEndsAt = 0
       pushSync()

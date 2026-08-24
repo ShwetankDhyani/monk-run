@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { pickGlobalPlaces } from './randomPlaces.mjs'
+import { pickGlobalPlaces, enrichPlace } from './randomPlaces.mjs'
 
 /** @type {Map<string, { roomCode: string, locations: object[], roundTokens: (string|null)[], createdAt: number }>} */
 const sessions = new Map()
@@ -84,6 +84,12 @@ export function getLocationForSessionRound(sessionId, roundIndex) {
   const session = sessions.get(sessionId)
   if (!session) return null
   return session.locations?.[roundIndex] || null
+}
+
+export async function getEnrichedLocationForSessionRound(sessionId, roundIndex) {
+  const loc = getLocationForSessionRound(sessionId, roundIndex)
+  if (!loc) return null
+  return enrichPlace(loc)
 }
 
 /** Locked-down Street View page — coordinates exist only server-side. */
