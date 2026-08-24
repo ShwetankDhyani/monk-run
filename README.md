@@ -1,13 +1,13 @@
 # monk.run
 
-Multiplayer party GeoGuessr — hang out in a **temple lobby** as robed monks, talk on **live voice chat**, then get pulled through a **portal** into **5 synchronized Street View rounds**.
+Multiplayer party GeoGuessr — hang out in a **Buddhist temple lobby** as robed monks, talk on **live voice chat**, then get pulled into a **black hole** and out into **5 synchronized Street View rounds**.
 
 ## Features
 
-- **Private rooms** (up to 5 players) via PeerJS
-- **Temple lobby** — walk as monks, nudge friends, emotes 1–4
+- **6-digit PIN rooms** (up to 5 players) via PeerJS — create a room or join with the PIN
+- **Temple lobby** — walk as monks with names above heads, smack friends, emotes 1–4
 - **WebRTC voice chat** — Join voice / mute toggle
-- **Portal launch** — host opens the portal; physics suck-in into Round 1
+- **Black hole launch** — host opens the singularity; monks (and hall debris) get stretched and sucked in fast
 - **Random location seeding** — crypto seed so even the host doesn't know the rounds
 - **GeoGuessr loop** — Street View, pin guess, auto-reveal when everyone locks, podium + share card
 
@@ -31,11 +31,11 @@ Without a key, monk.run uses a Google Maps Street View embed (and a satellite ba
 
 ## How to play
 
-1. Create or join a room  
-2. **Join voice**, Ready up, walk the temple hall  
-3. Host hits **Open portal** → portal forms → monks get pulled in  
-4. Explore Street View → pin the world map → lock → reveal → next round  
-5. Final podium + downloadable card  
+1. **Create room** (share the 6-digit PIN) or **Join with PIN**
+2. **Join voice**, Ready up, walk the temple hall
+3. Host hits **Open black hole** → fast suck-in → Round 1
+4. Explore Street View → pin the world map → lock → reveal → next round
+5. Final podium + downloadable card
 
 ## Stack
 

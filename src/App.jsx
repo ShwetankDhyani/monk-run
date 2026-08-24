@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MONK_VIBES, getLocation } from './data/locations.js'
-import { formatKm, makeRoomCode } from './lib/scoring.js'
+import { formatKm, makeRoomCode, normalizeRoomPin } from './lib/scoring.js'
 import {
   createRoomController,
   DEFAULT_ROUNDS,
   DEFAULT_ROUND_MS,
+  LOBBY_COUNTDOWN_MS,
   MAX_PLAYERS,
 } from './lib/peerRoom.js'
 import { getMapsApiKey } from './lib/maps.js'
 import { createVoiceChat } from './lib/voiceChat.js'
 import StreetView from './components/StreetView.jsx'
 import GuessMap from './components/GuessMap.jsx'
-import MonkLobby from './components/MonkLobby.jsx'
+import { MonkLobby } from './components/MonkLobby.jsx'
 
 function parseRoomFromHash() {
   const h = window.location.hash.replace(/^#/, '')
-  const m = h.match(/(?:room\/)?([a-z]+-\d{2,})/i)
-  return m ? m[1].toLowerCase() : ''
+  const m = h.match(/(?:room\/)?(\d{4,8})/)
+  return m ? normalizeRoomPin(m[1]) : ''
 }
 
 function useCountdown(endsAt, active) {
@@ -158,14 +159,14 @@ export default function App() {
       setCountry('')
     }
 
-    // Countdown just finished → play portal suck, then enter the round
+    // Countdown just finished → finish black-hole suck, then enter the round
     if (prev === 'countdown' && room.phase === 'playing') {
       setPortalHold(true)
       setScreen('cabin')
       const t = setTimeout(() => {
         setPortalHold(false)
         setScreen('game')
-      }, 2400)
+      }, 750)
       return () => clearTimeout(t)
     }
 
@@ -245,7 +246,7 @@ export default function App() {
       await ctrlRef.current.joinRoom({
         name: name.trim() || 'Wanderer',
         vibe,
-        code: joinCode.trim().toLowerCase(),
+        code: normalizeRoomPin(joinCode),
       })
       setScreen('cabin')
     } catch (err) {
@@ -255,16 +256,24 @@ export default function App() {
     }
   }
 
-  const copyLink = async () => {
-    const url = `${window.location.origin}${window.location.pathname}#room/${room.roomCode}`
+  const copyPin = async () => {
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(String(room.roomCode))
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      setError('Could not copy link')
+      setError('Could not copy PIN')
     }
   }
+
+  const portalForce = (() => {
+    if (portalHold) return 1
+    if (room?.phase === 'countdown' && room.countdownEndsAt) {
+      const left = Math.max(0, room.countdownEndsAt - Date.now())
+      return Math.min(1, Math.max(0.12, 1 - left / LOBBY_COUNTDOWN_MS))
+    }
+    return 0
+  })()
 
   const lockGuess = useCallback(() => {
     if (!guess || selfGuessed) return
@@ -284,6 +293,7 @@ export default function App() {
   }, [])
 
   if (screen === 'landing') {
+    const pinReady = normalizeRoomPin(joinCode).length === 6
     return (
       <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
         <div className="panel w-full max-w-lg p-6 md:p-8">
@@ -294,11 +304,11 @@ export default function App() {
             monk.run
           </h1>
           <p className="mt-3 text-center text-sm leading-relaxed text-muted">
-            Meet in the temple lobby as monks, talk on voice, then get pulled through the portal into 5 synchronized
-            Street View rounds.
+            Meet in the temple as monks, talk on voice, then get pulled into a black hole — and out into 5
+            synchronized Street View rounds.
           </p>
 
-          <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Name</label>
+          <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Your monk name</label>
           <input
             className="input-clean mt-1"
             maxLength={18}
@@ -322,25 +332,38 @@ export default function App() {
             ))}
           </div>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button type="button" className="btn btn-primary flex-1" disabled={busy} onClick={create}>
-              Create room
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost flex-1"
-              disabled={busy || !joinCode.trim()}
-              onClick={join}
-            >
-              Join
-            </button>
+          <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
+            Create room
+          </button>
+          <p className="mt-2 text-center text-[11px] text-muted">Host gets a 6-digit PIN to share</p>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted">or join with PIN</span>
+            <div className="h-px flex-1 bg-white/10" />
           </div>
+
+          <label className="block text-[10px] uppercase tracking-widest text-muted">Room PIN</label>
           <input
-            className="input-clean mt-3"
+            className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
             value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toLowerCase())}
-            placeholder="room code e.g. cosmic-77"
+            onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && pinReady && !busy) join()
+            }}
+            placeholder="000000"
           />
+          <button
+            type="button"
+            className="btn btn-ghost mt-3 w-full"
+            disabled={busy || !pinReady}
+            onClick={join}
+          >
+            Join room
+          </button>
           {error && <p className="mt-3 text-center text-xs text-coral">{error}</p>}
           <p className="mt-5 text-center text-[10px] text-muted">
             {getMapsApiKey()
@@ -367,18 +390,26 @@ export default function App() {
       <div className="flex h-full min-h-full flex-col bg-ink">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
           <div>
-            <p className="font-display text-xl font-bold text-fog">
-              monk.run <span className="text-sky">/{room.roomCode}</span>
-            </p>
+            <p className="font-display text-xl font-bold text-fog">monk.run</p>
             <p className="text-[10px] uppercase tracking-widest text-muted">
               Temple lobby · {room.players.length}/{MAX_PLAYERS}
               {room.localOnly ? ' · local' : ''}
             </p>
           </div>
+          <button
+            type="button"
+            className="rounded-xl border border-amber/30 bg-black/30 px-4 py-2 text-left disabled:opacity-60"
+            onClick={copyPin}
+            disabled={inPortal}
+            title="Copy PIN"
+          >
+            <p className="text-[9px] uppercase tracking-[0.25em] text-muted">Room PIN</p>
+            <p className="font-mono text-2xl font-bold tracking-[0.2em] text-amber">
+              {room.roomCode}
+            </p>
+            <p className="text-[10px] text-sky">{copied ? 'Copied!' : 'Tap to copy'}</p>
+          </button>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn btn-ghost" onClick={copyLink} disabled={inPortal}>
-              {copied ? 'Copied' : 'Invite link'}
-            </button>
             <button
               type="button"
               className={`btn ${voice.active && !voice.muted ? 'btn-primary' : 'btn-ghost'}`}
@@ -409,7 +440,7 @@ export default function App() {
                   })
                 }
               >
-                Open portal ({DEFAULT_ROUNDS} rounds)
+                Open black hole ({DEFAULT_ROUNDS} rounds)
               </button>
             )}
           </div>
@@ -424,7 +455,7 @@ export default function App() {
             onSmack={onSmack}
             onEmote={onEmote}
             countdownSec={room.phase === 'countdown' ? lobbyLeft : portalHold ? 0 : null}
-            portalForce={portalHold}
+            portalForce={portalForce}
             focused={!inPortal}
           />
           <aside className="panel flex flex-col gap-3 p-4">
@@ -455,11 +486,12 @@ export default function App() {
                   : 'off'}
               </p>
               {voice.error && <p className="text-coral">{voice.error}</p>}
-              <p>Emotes: 1 🙏 2 😢 3 😠 4 😊</p>
+              <p>Emotes: 1 wave · 2 bow · 3 laugh · 4 shock</p>
               {inPortal ? (
-                <p className="text-amber">Portal is pulling everyone in…</p>
+                <p className="text-amber">Black hole is pulling everyone in…</p>
               ) : (
-                !room.isHost && room.phase === 'lobby' && <p>Waiting for host to open the portal…</p>
+                !room.isHost &&
+                room.phase === 'lobby' && <p>Waiting for host to open the black hole…</p>
               )}
               {error && <p className="text-coral">{error}</p>}
             </div>

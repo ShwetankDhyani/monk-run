@@ -34,10 +34,12 @@ export function formatKm(km) {
   return `${Math.round(km)} km`
 }
 
+/** 6-digit room PIN (e.g. "482913"). */
 export function makeRoomCode() {
-  const words = [
-    'cosmic', 'lotus', 'void', 'saffron', 'zen', 'mantra', 'karma', 'aura',
-    'prism', 'orbit', 'ember', 'cyan', 'monk', 'koan', 'nirvana', 'pulse',
-  ]
-  return `${words[Math.floor(Math.random() * words.length)]}-${Math.floor(Math.random() * 90) + 10}`
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000
+  return String(n).padStart(6, '0')
+}
+
+export function normalizeRoomPin(raw) {
+  return String(raw || '').replace(/\D/g, '').slice(0, 6)
 }

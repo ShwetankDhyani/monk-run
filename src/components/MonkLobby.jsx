@@ -1,900 +1,732 @@
 import { useEffect, useRef } from 'react'
-import { MONK_VIBES } from '../data/locations.js'
+import { MONK_VIBES } from '../data/locations'
 
-const EMOTES = { happy: '🙏', sad: '😢', angry: '😠', kiss: '😊' }
+const WORLD = { w: 1280, h: 720 }
+const FLOOR = { x: 90, y: 210, w: 1100, h: 430 }
+const BH = { x: 980, y: 400, r: 58 }
+const SPEED = 210
 
-const ROOM = { w: 920, h: 520, pad: 56 }
+const KEY = {
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  w: { x: 0, y: -1 },
+  W: { x: 0, y: -1 },
+  s: { x: 0, y: 1 },
+  S: { x: 0, y: 1 },
+  a: { x: -1, y: 0 },
+  A: { x: -1, y: 0 },
+  d: { x: 1, y: 0 },
+  D: { x: 1, y: 0 },
+}
 
-/**
- * Temple hall lobby — warm stone monastery, robed monks, portal suck-in.
- */
-export default function MonkLobby({
+function vibeOf(id, name) {
+  let h = 0
+  const s = String(id || name || 'monk')
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return MONK_VIBES[h % MONK_VIBES.length]
+}
+
+function clamp(n, a, b) {
+  return Math.max(a, Math.min(b, n))
+}
+
+function softBody(ctx, x, y, robe, sash, skin, facing, walk, stretchX = 1, stretchY = 1) {
+  const bob = Math.sin(walk * 10) * 1.4
+  const leg = Math.sin(walk * 11) * 5
+  ctx.save()
+  ctx.translate(x, y + bob)
+  ctx.scale(facing < 0 ? -stretchX : stretchX, stretchY)
+
+  ctx.fillStyle = 'rgba(20,12,6,0.22)'
+  ctx.beginPath()
+  ctx.ellipse(0, 30, 16, 5, 0, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.strokeStyle = robe
+  ctx.lineWidth = 7
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(-7, 18)
+  ctx.lineTo(-7 - leg * 0.25, 30)
+  ctx.moveTo(7, 18)
+  ctx.lineTo(7 + leg * 0.25, 30)
+  ctx.stroke()
+
+  ctx.fillStyle = robe
+  ctx.beginPath()
+  ctx.moveTo(-15, -6)
+  ctx.quadraticCurveTo(-18, 10, -12, 22)
+  ctx.lineTo(12, 22)
+  ctx.quadraticCurveTo(18, 10, 15, -6)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.fillStyle = sash
+  ctx.fillRect(-14, 4, 28, 5)
+  ctx.beginPath()
+  ctx.moveTo(2, -4)
+  ctx.quadraticCurveTo(18, 6, 10, 20)
+  ctx.quadraticCurveTo(4, 14, 2, 4)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.strokeStyle = skin
+  ctx.lineWidth = 5
+  ctx.beginPath()
+  ctx.moveTo(-14, 2)
+  ctx.quadraticCurveTo(-22, 8 + leg * 0.2, -16, 16)
+  ctx.moveTo(14, 2)
+  ctx.quadraticCurveTo(22, 6 - leg * 0.2, 17, 15)
+  ctx.stroke()
+
+  ctx.fillStyle = skin
+  ctx.beginPath()
+  ctx.ellipse(0, -18, 13, 14, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#1a1008'
+  ctx.beginPath()
+  ctx.ellipse(0, -26, 13, 7, 0, Math.PI, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#2a1a0c'
+  ctx.beginPath()
+  ctx.ellipse(-4.5, -19, 1.5, 2, 0, 0, Math.PI * 2)
+  ctx.ellipse(4.5, -19, 1.5, 2, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#5a3a28'
+  ctx.lineWidth = 1.2
+  ctx.beginPath()
+  ctx.arc(0, -14, 3.5, 0.15, Math.PI - 0.15)
+  ctx.stroke()
+
+  ctx.restore()
+}
+
+function drawHall(ctx, t) {
+  const g = ctx.createLinearGradient(0, 0, 0, WORLD.h)
+  g.addColorStop(0, '#1a100c')
+  g.addColorStop(0.35, '#3a2418')
+  g.addColorStop(0.55, '#5c3a24')
+  g.addColorStop(1, '#2a1810')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, WORLD.w, WORLD.h)
+
+  // Ceiling beams
+  ctx.fillStyle = '#1a1008'
+  for (let i = 0; i < 7; i++) {
+    const x = 80 + i * 180
+    ctx.fillRect(x, 0, 28, 200)
+    ctx.fillStyle = '#5a3a22'
+    ctx.fillRect(x + 4, 0, 8, 200)
+    ctx.fillStyle = '#1a1008'
+  }
+
+  // Back wall fresco strip
+  ctx.fillStyle = '#4a3020'
+  ctx.fillRect(60, 70, WORLD.w - 120, 130)
+  ctx.fillStyle = '#c9a227'
+  ctx.fillRect(60, 70, WORLD.w - 120, 6)
+  ctx.fillRect(60, 194, WORLD.w - 120, 6)
+
+  // Buddha niches
+  for (let i = 0; i < 5; i++) {
+    const x = 160 + i * 220
+    ctx.fillStyle = '#2a1810'
+    ctx.beginPath()
+    ctx.moveTo(x - 48, 190)
+    ctx.quadraticCurveTo(x - 48, 90, x, 82)
+    ctx.quadraticCurveTo(x + 48, 90, x + 48, 190)
+    ctx.fill()
+    ctx.fillStyle = '#d4af37'
+    ctx.beginPath()
+    ctx.ellipse(x, 128, 18, 22, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#b8860b'
+    ctx.fillRect(x - 22, 148, 44, 36)
+    ctx.fillStyle = 'rgba(255,210,100,0.12)'
+    ctx.beginPath()
+    ctx.arc(x, 130, 40 + Math.sin(t * 2 + i) * 3, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // Floor
+  const fg = ctx.createLinearGradient(0, FLOOR.y, 0, FLOOR.y + FLOOR.h)
+  fg.addColorStop(0, '#8b5a2b')
+  fg.addColorStop(1, '#5a3818')
+  ctx.fillStyle = fg
+  ctx.fillRect(FLOOR.x, FLOOR.y, FLOOR.w, FLOOR.h)
+
+  ctx.strokeStyle = 'rgba(40,22,10,0.25)'
+  ctx.lineWidth = 1
+  for (let y = FLOOR.y; y < FLOOR.y + FLOOR.h; y += 36) {
+    ctx.beginPath()
+    ctx.moveTo(FLOOR.x, y)
+    ctx.lineTo(FLOOR.x + FLOOR.w, y)
+    ctx.stroke()
+  }
+  for (let x = FLOOR.x; x < FLOOR.x + FLOOR.w; x += 48) {
+    ctx.beginPath()
+    ctx.moveTo(x, FLOOR.y)
+    ctx.lineTo(x, FLOOR.y + FLOOR.h)
+    ctx.stroke()
+  }
+
+  // Prayer mats
+  const mats = [
+    [220, 480],
+    [380, 520],
+    [540, 470],
+    [700, 530],
+  ]
+  mats.forEach(([mx, my], i) => {
+    ctx.save()
+    ctx.translate(mx, my)
+    ctx.rotate(-0.08 + i * 0.04)
+    ctx.fillStyle = '#7a1f1f'
+    ctx.fillRect(-34, -18, 68, 36)
+    ctx.fillStyle = '#c9a227'
+    ctx.strokeRect(-34, -18, 68, 36)
+    ctx.fillRect(-28, -4, 56, 4)
+    ctx.restore()
+  })
+
+  // Offering table
+  ctx.fillStyle = '#3a2414'
+  ctx.fillRect(180, 300, 120, 18)
+  ctx.fillRect(190, 318, 14, 40)
+  ctx.fillRect(276, 318, 14, 40)
+  ctx.fillStyle = '#c9a227'
+  ctx.beginPath()
+  ctx.arc(210, 292, 6, 0, Math.PI * 2)
+  ctx.arc(240, 288, 7, 0, Math.PI * 2)
+  ctx.arc(270, 292, 6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = 'rgba(255,160,40,0.5)'
+  ctx.beginPath()
+  ctx.arc(210, 284, 4 + Math.sin(t * 8) * 1.5, 0, Math.PI * 2)
+  ctx.arc(240, 278, 5 + Math.sin(t * 9) * 1.5, 0, Math.PI * 2)
+  ctx.arc(270, 284, 4 + Math.sin(t * 7) * 1.5, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Incense smoke near altar
+  for (let i = 0; i < 5; i++) {
+    const sx = 240 + Math.sin(t * 0.7 + i) * 8
+    const sy = 260 - ((t * 28 + i * 18) % 70)
+    ctx.fillStyle = `rgba(220,200,180,${0.12 - i * 0.015})`
+    ctx.beginPath()
+    ctx.ellipse(sx, sy, 10 + i * 2, 16, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // Side pillars
+  ;[120, 1160].forEach((px) => {
+    ctx.fillStyle = '#2a1810'
+    ctx.fillRect(px - 22, 200, 44, 430)
+    ctx.fillStyle = '#c9a227'
+    ctx.fillRect(px - 26, 200, 52, 14)
+    ctx.fillRect(px - 26, 610, 52, 14)
+  })
+
+  // Bell
+  ctx.fillStyle = '#8a7010'
+  ctx.beginPath()
+  ctx.moveTo(150, 250)
+  ctx.quadraticCurveTo(150, 290, 170, 300)
+  ctx.quadraticCurveTo(190, 290, 190, 250)
+  ctx.closePath()
+  ctx.fill()
+  ctx.strokeStyle = '#c9a227'
+  ctx.lineWidth = 2
+  ctx.stroke()
+}
+
+function drawBlackHole(ctx, t, force) {
+  const { x, y, r } = BH
+  const pulse = 1 + Math.sin(t * 6) * 0.04
+  const R = r * pulse * (force > 0.15 ? 1 + force * 0.35 : 1)
+
+  // Accretion disk
+  for (let i = 8; i >= 1; i--) {
+    const ang = t * (1.2 + i * 0.15)
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(ang)
+    ctx.scale(1.55, 0.42)
+    const ag = ctx.createRadialGradient(0, 0, R * 0.3, 0, 0, R * (1.2 + i * 0.18))
+    ag.addColorStop(0, `rgba(255,200,120,${0.08 * force + 0.04})`)
+    ag.addColorStop(0.45, `rgba(255,120,40,${0.12 + force * 0.1})`)
+    ag.addColorStop(0.75, `rgba(180,40,80,${0.1})`)
+    ag.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = ag
+    ctx.beginPath()
+    ctx.arc(0, 0, R * (1.15 + i * 0.12), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  // Photon ring
+  ctx.strokeStyle = `rgba(255,220,160,${0.35 + force * 0.4})`
+  ctx.lineWidth = 3 + force * 2
+  ctx.beginPath()
+  ctx.ellipse(x, y, R * 1.35, R * 0.55, t * 0.4, 0, Math.PI * 2)
+  ctx.stroke()
+
+  // Event horizon
+  const eg = ctx.createRadialGradient(x, y, 0, x, y, R)
+  eg.addColorStop(0, '#000')
+  eg.addColorStop(0.7, '#050508')
+  eg.addColorStop(0.92, '#1a0a18')
+  eg.addColorStop(1, 'rgba(40,10,30,0.3)')
+  ctx.fillStyle = eg
+  ctx.beginPath()
+  ctx.arc(x, y, R, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Inner void shimmer
+  ctx.strokeStyle = `rgba(120,180,255,${0.15 + force * 0.25})`
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.arc(x, y, R * 0.72, t, t + Math.PI * 1.2)
+  ctx.stroke()
+
+  if (force < 0.2) {
+    ctx.fillStyle = 'rgba(255,230,180,0.85)'
+    ctx.font = '700 13px "Segoe UI", system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('BLACK HOLE', x, y + R + 28)
+    ctx.fillStyle = 'rgba(255,210,150,0.65)'
+    ctx.font = '600 11px "Segoe UI", system-ui, sans-serif'
+    ctx.fillText('stand near · host opens the way', x, y + R + 44)
+  }
+}
+
+function drawNameplate(ctx, x, y, name, ready, isSelf) {
+  const label = (name || 'Monk').slice(0, 16)
+  ctx.font = `700 12px "Segoe UI", system-ui, sans-serif`
+  const tw = ctx.measureText(label).width
+  const w = tw + 16
+  const hx = x - w / 2
+  const hy = y - 58
+
+  ctx.fillStyle = 'rgba(20,10,6,0.78)'
+  roundRect(ctx, hx, hy, w, 20, 6)
+  ctx.fill()
+  ctx.strokeStyle = ready ? 'rgba(120,220,140,0.9)' : isSelf ? 'rgba(255,200,100,0.85)' : 'rgba(200,160,100,0.45)'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+
+  ctx.fillStyle = ready ? '#b8f0c0' : '#ffe8c0'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, x, hy + 10)
+  ctx.textBaseline = 'alphabetic'
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+export function MonkLobby({
   selfId,
-  players = [],
-  lobby = {},
+  players,
+  lobby,
   onPose,
   onSmack,
   onEmote,
   countdownSec = null,
-  portalForce = false,
+  portalForce = 0,
   focused = true,
 }) {
   const canvasRef = useRef(null)
-  const apiRef = useRef({})
-  const localRef = useRef({
-    x: 460,
-    y: 310,
-    vx: 0,
-    vy: 0,
+  const keysRef = useRef(new Set())
+  const selfRef = useRef({
+    x: FLOOR.x + 160,
+    y: FLOOR.y + FLOOR.h / 2,
     facing: 1,
     walk: 0,
-    scale: 1,
-    spin: 0,
   })
-  const fxRef = useRef({
-    incense: [],
-    dust: [],
-    portal: { open: 0, swirl: 0, particles: [] },
-    remoteMotion: {},
-  })
+  const peersRef = useRef(new Map())
+  const debrisRef = useRef([])
+  const lastSend = useRef(0)
+  const lastTs = useRef(performance.now())
+  const smackCd = useRef(0)
+  const suckLocal = useRef({ active: false, stretchX: 1, stretchY: 1, spin: 0 })
+  const forceRef = useRef(portalForce)
+  const countdownRef = useRef(countdownSec)
+  forceRef.current = portalForce
+  countdownRef.current = countdownSec
 
   useEffect(() => {
-    apiRef.current = { onPose, onSmack, onEmote, selfId, players, lobby, countdownSec, portalForce }
-  }, [onPose, onSmack, onEmote, selfId, players, lobby, countdownSec, portalForce])
+    const map = peersRef.current
+    const alive = new Set()
+    for (const [id, pose] of Object.entries(lobby || {})) {
+      if (id === selfId) continue
+      alive.add(id)
+      const cur = map.get(id) || {
+        x: pose.x,
+        y: pose.y,
+        facing: pose.facing || 1,
+        walk: 0,
+        stretchX: 1,
+        stretchY: 1,
+        spin: 0,
+      }
+      cur.tx = pose.x
+      cur.ty = pose.y
+      cur.facing = pose.facing || cur.facing
+      cur.emote = pose.emote
+      cur.emoteUntil = pose.emoteUntil
+      cur.hitFlash = pose.hitFlash
+      map.set(id, cur)
+    }
+    for (const id of map.keys()) if (!alive.has(id)) map.delete(id)
+  }, [lobby, selfId])
+
+  // Seed hall debris once
+  useEffect(() => {
+    if (debrisRef.current.length) return
+    const items = []
+    for (let i = 0; i < 28; i++) {
+      items.push({
+        x: FLOOR.x + 40 + Math.random() * (FLOOR.w - 200),
+        y: FLOOR.y + 40 + Math.random() * (FLOOR.h - 80),
+        kind: i % 5,
+        rot: Math.random() * Math.PI * 2,
+        s: 0.6 + Math.random() * 0.7,
+        vx: 0,
+        vy: 0,
+      })
+    }
+    // A few recognizable props near the mats
+    items.push({ x: 300, y: 500, kind: 10, rot: 0.2, s: 1, vx: 0, vy: 0 })
+    items.push({ x: 520, y: 440, kind: 11, rot: -0.1, s: 1, vx: 0, vy: 0 })
+    items.push({ x: 640, y: 560, kind: 12, rot: 0.4, s: 1, vx: 0, vy: 0 })
+    debrisRef.current = items
+  }, [])
 
   useEffect(() => {
-    // Always start near the hall center so the monk is obvious (not off-canvas)
-    const spawn = lobby?.[selfId]
-    localRef.current.x = 460 + (spawn?.x || 0) * 40
-    localRef.current.y = 310 + (spawn?.z || 0) * 30
-    localRef.current.scale = 1
-  }, [selfId]) // eslint-disable-line react-hooks/exhaustive-deps
+    const down = (e) => {
+      if (!focused) return
+      if (KEY[e.key]) {
+        keysRef.current.add(e.key)
+        e.preventDefault()
+      }
+      if (e.code === 'Space') {
+        e.preventDefault()
+        if (smackCd.current <= 0) {
+          smackCd.current = 0.4
+          onSmack?.()
+        }
+      }
+      if (e.key === '1') onEmote?.('wave')
+      if (e.key === '2') onEmote?.('bow')
+      if (e.key === '3') onEmote?.('laugh')
+      if (e.key === '4') onEmote?.('shock')
+    }
+    const up = (e) => keysRef.current.delete(e.key)
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [focused, onSmack, onEmote])
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return undefined
+    if (!canvas) return
     const ctx = canvas.getContext('2d')
-    const keys = new Set()
     let raf = 0
-    let last = performance.now()
-    let poseAcc = 0
-    let flash = 0
-    let t0 = performance.now()
 
-    // seed ambient particles
-    const fx = fxRef.current
-    if (!fx.incense.length) {
-      for (let i = 0; i < 28; i++) {
-        fx.incense.push({
-          x: 0.35 + Math.random() * 0.3,
-          y: 0.55 + Math.random() * 0.2,
-          life: Math.random(),
-          speed: 0.04 + Math.random() * 0.06,
-          wobble: Math.random() * Math.PI * 2,
-        })
-      }
-      for (let i = 0; i < 40; i++) {
-        fx.dust.push({
-          x: Math.random(),
-          y: Math.random(),
-          r: 0.4 + Math.random() * 1.2,
-          a: 0.08 + Math.random() * 0.18,
-          drift: (Math.random() - 0.5) * 0.02,
-        })
-      }
-    }
+    const frame = (now) => {
+      const dt = Math.min(0.05, (now - lastTs.current) / 1000)
+      lastTs.current = now
+      smackCd.current = Math.max(0, smackCd.current - dt)
 
-    const onKeyDown = (e) => {
-      if (!focused) return
-      keys.add(e.code)
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault()
-      if (e.code === 'Digit1') apiRef.current.onEmote?.('happy')
-      if (e.code === 'Digit2') apiRef.current.onEmote?.('sad')
-      if (e.code === 'Digit3') apiRef.current.onEmote?.('angry')
-      if (e.code === 'Digit4') apiRef.current.onEmote?.('kiss')
-      if (e.code === 'Space') trySmack()
-    }
-    const onKeyUp = (e) => keys.delete(e.code)
+      const force = forceRef.current || 0
+      const sucking = force > 0.08
+      const me = selfRef.current
+      const keys = keysRef.current
+      const countdownSecNow = countdownRef.current
 
-    function trySmack() {
-      const { selfId: sid, lobby: lb, onSmack: smack, countdownSec: cd, portalForce: pf } = apiRef.current
-      if (cd != null || pf) return
-      const me = localRef.current
-      let best = null
-      let bestD = 72
-      for (const [id, pose] of Object.entries(lb || {})) {
-        if (id === sid) continue
-        const px = 460 + (pose.x || 0) * 68
-        const py = 310 + (pose.z || 0) * 52
-        const d = Math.hypot(px - me.x, py - me.y)
-        if (d < bestD) {
-          bestD = d
-          best = id
+      // Movement
+      if (!sucking) {
+        let dx = 0
+        let dy = 0
+        for (const k of keys) {
+          const v = KEY[k]
+          if (v) {
+            dx += v.x
+            dy += v.y
+          }
+        }
+        if (dx || dy) {
+          const len = Math.hypot(dx, dy) || 1
+          me.x += (dx / len) * SPEED * dt
+          me.y += (dy / len) * SPEED * dt
+          me.facing = dx !== 0 ? Math.sign(dx) : me.facing
+          me.walk += dt
+        } else {
+          me.walk *= 0.85
+        }
+        me.x = clamp(me.x, FLOOR.x + 28, FLOOR.x + FLOOR.w - 28)
+        me.y = clamp(me.y, FLOOR.y + 36, FLOOR.y + FLOOR.h - 24)
+        suckLocal.current = { active: false, stretchX: 1, stretchY: 1, spin: 0 }
+      } else {
+        // Fast black-hole pull with tidal stretch
+        const dx = BH.x - me.x
+        const dy = BH.y - me.y
+        const dist = Math.hypot(dx, dy) || 1
+        const pull = 380 + force * 1400
+        me.x += (dx / dist) * pull * dt
+        me.y += (dy / dist) * pull * dt
+        me.walk += dt * 4
+        const stretch = 1 + force * 2.8
+        const squash = Math.max(0.15, 1 - force * 0.85)
+        const tang = Math.atan2(dy, dx)
+        suckLocal.current = {
+          active: true,
+          stretchX: squash + Math.abs(Math.cos(tang)) * (stretch - 1) * 0.5,
+          stretchY: stretch,
+          spin: force * 8,
+        }
+        if (dist < BH.r * 0.45) {
+          me.x = BH.x
+          me.y = BH.y
+          suckLocal.current.stretchX = 0.12
+          suckLocal.current.stretchY = 3.2
         }
       }
-      if (best) {
-        smack?.(best)
-        flash = 1
-      }
-    }
 
-    function resize() {
-      const parent = canvas.parentElement
-      const w = parent?.clientWidth || 960
-      const h = Math.max(parent?.clientHeight || 540, 360)
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      canvas.width = Math.floor(w * dpr)
-      canvas.height = Math.floor(h * dpr)
-      canvas.style.width = `${w}px`
-      canvas.style.height = `${h}px`
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    }
-    resize()
-    const ro = new ResizeObserver(resize)
-    ro.observe(canvas.parentElement || canvas)
-
-    window.addEventListener('keydown', onKeyDown, { passive: false })
-    window.addEventListener('keyup', onKeyUp)
-
-    function roomOrigin(w, h) {
-      return { rx: (w - ROOM.w) / 2, ry: (h - ROOM.h) / 2 }
-    }
-
-    function drawTemple(w, h, time) {
-      const { rx, ry } = roomOrigin(w, h)
-      const cx = rx + ROOM.w / 2
-      const cy = ry + ROOM.h / 2 + 10
-
-      // hall backdrop — warm dusk courtyard beyond
-      const sky = ctx.createLinearGradient(0, 0, 0, h)
-      sky.addColorStop(0, '#1a1410')
-      sky.addColorStop(0.45, '#2c2118')
-      sky.addColorStop(1, '#0c0a08')
-      ctx.fillStyle = sky
-      ctx.fillRect(0, 0, w, h)
-
-      // soft mountain silhouettes
-      ctx.fillStyle = 'rgba(40, 32, 24, 0.9)'
-      ctx.beginPath()
-      ctx.moveTo(0, h * 0.42)
-      ctx.quadraticCurveTo(w * 0.2, h * 0.28, w * 0.38, h * 0.4)
-      ctx.quadraticCurveTo(w * 0.55, h * 0.22, w * 0.72, h * 0.38)
-      ctx.quadraticCurveTo(w * 0.88, h * 0.3, w, h * 0.4)
-      ctx.lineTo(w, h)
-      ctx.lineTo(0, h)
-      ctx.fill()
-
-      // outer stone walls
-      roundRect(ctx, rx - 18, ry - 22, ROOM.w + 36, ROOM.h + 44, 18)
-      const wall = ctx.createLinearGradient(rx, ry, rx, ry + ROOM.h)
-      wall.addColorStop(0, '#5c4634')
-      wall.addColorStop(0.5, '#3d2e22')
-      wall.addColorStop(1, '#2a1f18')
-      ctx.fillStyle = wall
-      ctx.fill()
-
-      // wooden floor with perspective planks
-      roundRect(ctx, rx, ry, ROOM.w, ROOM.h, 14)
-      const floor = ctx.createLinearGradient(rx, ry, rx, ry + ROOM.h)
-      floor.addColorStop(0, '#6b4f35')
-      floor.addColorStop(0.55, '#4a3524')
-      floor.addColorStop(1, '#2f2218')
-      ctx.fillStyle = floor
-      ctx.fill()
-
-      ctx.save()
-      ctx.beginPath()
-      roundRect(ctx, rx, ry, ROOM.w, ROOM.h, 14)
-      ctx.clip()
-
-      // floor planks
-      for (let i = 0; i < 18; i++) {
-        const y = ry + 20 + i * 28
-        const shade = i % 2 === 0 ? 'rgba(0,0,0,0.08)' : 'rgba(255,220,160,0.04)'
-        ctx.fillStyle = shade
-        ctx.fillRect(rx, y, ROOM.w, 28)
-        ctx.strokeStyle = 'rgba(20,12,8,0.35)'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(rx + 8, y)
-        ctx.lineTo(rx + ROOM.w - 8, y)
-        ctx.stroke()
+      if (now - lastSend.current > 50) {
+        lastSend.current = now
+        onPose?.({ x: me.x, y: me.y, facing: me.facing })
       }
 
-      // center meditation carpet
-      ctx.fillStyle = 'rgba(140, 40, 30, 0.55)'
-      ctx.beginPath()
-      ctx.ellipse(cx, cy + 30, 160, 72, 0, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = 'rgba(212, 160, 70, 0.45)'
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.ellipse(cx, cy + 30, 148, 62, 0, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.strokeStyle = 'rgba(212, 160, 70, 0.2)'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.ellipse(cx, cy + 30, 90, 38, 0, 0, Math.PI * 2)
-      ctx.stroke()
-
-      // windows with misty light
-      for (let i = 0; i < 4; i++) {
-        const wx = rx + 70 + i * 210
-        const wy = ry + 22
-        roundRect(ctx, wx, wy, 150, 70, 6)
-        const g = ctx.createLinearGradient(wx, wy, wx, wy + 70)
-        g.addColorStop(0, '#c4a574')
-        g.addColorStop(0.4, '#8a9aaa')
-        g.addColorStop(1, '#5a6a78')
-        ctx.fillStyle = g
-        ctx.fill()
-        // light shafts
-        const shaft = ctx.createLinearGradient(wx + 75, wy + 70, wx + 75, wy + 220)
-        shaft.addColorStop(0, 'rgba(255, 210, 140, 0.18)')
-        shaft.addColorStop(1, 'rgba(255, 210, 140, 0)')
-        ctx.fillStyle = shaft
-        ctx.beginPath()
-        ctx.moveTo(wx + 20, wy + 70)
-        ctx.lineTo(wx + 130, wy + 70)
-        ctx.lineTo(wx + 160, wy + 220)
-        ctx.lineTo(wx - 10, wy + 220)
-        ctx.fill()
-      }
-
-      // pillars
-      for (const side of [-1, 1]) {
-        for (let i = 0; i < 3; i++) {
-          const px = cx + side * (160 + i * 10)
-          const py = ry + 110 + i * 110
-          drawPillar(ctx, px + side * (i * 55), py)
+      // Peer lerp + suck
+      for (const peer of peersRef.current.values()) {
+        if (peer.tx != null) {
+          peer.x += (peer.tx - peer.x) * Math.min(1, dt * 14)
+          peer.y += (peer.ty - peer.y) * Math.min(1, dt * 14)
+          peer.walk += dt
+        }
+        if (sucking) {
+          const dx = BH.x - peer.x
+          const dy = BH.y - peer.y
+          const dist = Math.hypot(dx, dy) || 1
+          const pull = 320 + force * 1200
+          peer.x += (dx / dist) * pull * dt
+          peer.y += (dy / dist) * pull * dt
+          const stretch = 1 + force * 2.5
+          peer.stretchX = Math.max(0.12, 1 - force * 0.8)
+          peer.stretchY = stretch
+          peer.spin = force * 7
+        } else {
+          peer.stretchX = 1
+          peer.stretchY = 1
+          peer.spin = 0
         }
       }
-      drawPillar(ctx, rx + 48, ry + 180)
-      drawPillar(ctx, rx + ROOM.w - 48, ry + 180)
-      drawPillar(ctx, rx + 48, ry + 360)
-      drawPillar(ctx, rx + ROOM.w - 48, ry + 360)
 
-      // altar
-      const ax = cx
-      const ay = ry + 118
-      ctx.fillStyle = '#2a1c12'
-      roundRect(ctx, ax - 70, ay, 140, 28, 4)
-      ctx.fill()
-      ctx.fillStyle = '#5a4030'
-      roundRect(ctx, ax - 58, ay - 18, 116, 22, 3)
-      ctx.fill()
-      // candles
-      for (const dx of [-36, 0, 36]) {
-        const flicker = 0.7 + Math.sin(time * 6 + dx) * 0.15
-        ctx.fillStyle = '#e8dcc8'
-        ctx.fillRect(ax + dx - 3, ay - 36, 6, 18)
-        ctx.fillStyle = `rgba(255, 170, 60, ${flicker})`
-        ctx.beginPath()
-        ctx.ellipse(ax + dx, ay - 42, 5, 7, 0, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.fillStyle = `rgba(255, 220, 120, ${flicker * 0.35})`
-        ctx.beginPath()
-        ctx.arc(ax + dx, ay - 42, 14, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // zabuton cushions
-      const cushions = [
-        [rx + 120, ry + ROOM.h - 100],
-        [rx + 240, ry + ROOM.h - 90],
-        [rx + ROOM.w - 240, ry + ROOM.h - 90],
-        [rx + ROOM.w - 120, ry + ROOM.h - 100],
-        [rx + 160, ry + 250],
-        [rx + ROOM.w - 160, ry + 250],
-      ]
-      for (const [zx, zy] of cushions) {
-        ctx.fillStyle = 'rgba(90, 30, 24, 0.85)'
-        ctx.beginPath()
-        ctx.ellipse(zx, zy, 38, 18, 0, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.fillStyle = 'rgba(160, 70, 50, 0.5)'
-        ctx.beginPath()
-        ctx.ellipse(zx, zy - 4, 28, 12, 0, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // hanging lanterns
-      for (let i = 0; i < 5; i++) {
-        const lx = rx + 100 + i * 180
-        const sway = Math.sin(time * 1.2 + i) * 3
-        ctx.strokeStyle = 'rgba(40, 24, 12, 0.6)'
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(lx, ry)
-        ctx.lineTo(lx + sway, ry + 36)
-        ctx.stroke()
-        ctx.fillStyle = '#8b3a2a'
-        roundRect(ctx, lx + sway - 10, ry + 34, 20, 26, 4)
-        ctx.fill()
-        ctx.fillStyle = `rgba(255, 180, 80, ${0.35 + Math.sin(time * 4 + i) * 0.1})`
-        ctx.beginPath()
-        ctx.arc(lx + sway, ry + 48, 16, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // incense smoke
-      for (const p of fx.incense) {
-        p.life += p.speed * 0.016
-        if (p.life > 1) {
-          p.life = 0
-          p.x = 0.42 + Math.random() * 0.16
-          p.y = 0.28 + Math.random() * 0.08
+      // Debris sucked toward BH
+      for (const d of debrisRef.current) {
+        if (sucking) {
+          const dx = BH.x - d.x
+          const dy = BH.y - d.y
+          const dist = Math.hypot(dx, dy) || 1
+          const pull = 200 + force * 1600
+          d.vx += (dx / dist) * pull * dt
+          d.vy += (dy / dist) * pull * dt
+          d.rot += force * 10 * dt
+          // Spiral
+          d.vx += (-dy / dist) * force * 180 * dt
+          d.vy += (dx / dist) * force * 180 * dt
+        } else {
+          d.vx *= 0.92
+          d.vy *= 0.92
         }
-        const ix = rx + p.x * ROOM.w + Math.sin(time * 2 + p.wobble) * 8
-        const iy = ry + p.y * ROOM.h - p.life * 90
-        ctx.fillStyle = `rgba(220, 200, 170, ${(1 - p.life) * 0.22})`
-        ctx.beginPath()
-        ctx.ellipse(ix, iy, 6 + p.life * 10, 4 + p.life * 6, 0, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // dust motes in light
-      for (const d of fx.dust) {
-        d.x += d.drift * 0.016
-        d.y -= 0.008 * 0.016
-        if (d.y < 0) d.y = 1
-        if (d.x < 0) d.x = 1
-        if (d.x > 1) d.x = 0
-        ctx.fillStyle = `rgba(255, 230, 180, ${d.a})`
-        ctx.beginPath()
-        ctx.arc(rx + d.x * ROOM.w, ry + d.y * ROOM.h, d.r, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      ctx.restore()
-
-      // plaque
-      ctx.fillStyle = 'rgba(20, 14, 10, 0.72)'
-      roundRect(ctx, cx - 100, ry + ROOM.h - 42, 200, 30, 8)
-      ctx.fill()
-      ctx.fillStyle = '#e8d5b5'
-      ctx.font = '600 13px Syne, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText('TEMPLE LOBBY', cx, ry + ROOM.h - 22)
-
-      return { rx, ry, cx, cy }
-    }
-
-    function drawPillar(ctx, x, y) {
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'
-      ctx.beginPath()
-      ctx.ellipse(x, y + 48, 18, 8, 0, 0, Math.PI * 2)
-      ctx.fill()
-      const g = ctx.createLinearGradient(x - 14, y - 60, x + 14, y + 48)
-      g.addColorStop(0, '#8a6a48')
-      g.addColorStop(0.4, '#5c4030')
-      g.addColorStop(1, '#3a2818')
-      ctx.fillStyle = g
-      roundRect(ctx, x - 12, y - 60, 24, 108, 4)
-      ctx.fill()
-      ctx.fillStyle = '#6b4e34'
-      roundRect(ctx, x - 16, y - 68, 32, 14, 3)
-      ctx.fill()
-      roundRect(ctx, x - 16, y + 40, 32, 12, 3)
-      ctx.fill()
-    }
-
-    function drawMonk(px, py, player, pose, isSelf, motion = {}) {
-      const vibe = MONK_VIBES.find((v) => v.id === player.vibe) || MONK_VIBES[0]
-      const hit = pose?.hitFlash > Date.now()
-      const bounce = (motion.walk || 0) % (Math.PI * 2)
-      const bob = Math.sin(bounce) * 2.2
-      const scale = (motion.scale ?? 1) * 1.35
-      const spin = motion.spin || 0
-      const facing = motion.facing ?? (pose?.yaw != null ? (Math.cos(pose.yaw) >= 0 ? 1 : -1) : 1)
-
-      ctx.save()
-      ctx.translate(px, py)
-      ctx.rotate(spin)
-      ctx.scale(scale, scale)
-
-      // soft presence glow so monks read clearly on the dark floor
-      ctx.fillStyle = `${vibe.color}33`
-      ctx.beginPath()
-      ctx.ellipse(0, 22, 28, 10, 0, 0, Math.PI * 2)
-      ctx.fill()
-
-      // shadow
-      ctx.fillStyle = `rgba(0,0,0,${0.28 * Math.min(1, scale)})`
-      ctx.beginPath()
-      ctx.ellipse(0, 20, 18 / Math.max(0.4, scale), 7 / Math.max(0.4, scale), 0, 0, Math.PI * 2)
-      ctx.fill()
-
-      const y = bob + (hit ? Math.sin(Date.now() / 28) * 3 : 0)
-
-      // legs under robe
-      ctx.strokeStyle = shade(vibe.color, -40)
-      ctx.lineWidth = 5
-      ctx.lineCap = 'round'
-      const stride = Math.sin(bounce) * 5
-      ctx.beginPath()
-      ctx.moveTo(-6, 6 + y)
-      ctx.lineTo(-6 - stride * 0.3, 18 + y)
-      ctx.moveTo(6, 6 + y)
-      ctx.lineTo(6 + stride * 0.3, 18 + y)
-      ctx.stroke()
-
-      // robe body
-      const robe = ctx.createLinearGradient(-16, -20 + y, 16, 22 + y)
-      robe.addColorStop(0, hit ? '#fff6e8' : shade(vibe.color, 25))
-      robe.addColorStop(0.45, hit ? '#ffffff' : vibe.color)
-      robe.addColorStop(1, shade(vibe.color, -35))
-      ctx.fillStyle = robe
-      ctx.beginPath()
-      ctx.moveTo(0, -18 + y)
-      ctx.quadraticCurveTo(18, -8 + y, 16, 8 + y)
-      ctx.quadraticCurveTo(14, 20 + y, 0, 22 + y)
-      ctx.quadraticCurveTo(-14, 20 + y, -16, 8 + y)
-      ctx.quadraticCurveTo(-18, -8 + y, 0, -18 + y)
-      ctx.fill()
-
-      // sash
-      ctx.strokeStyle = shade(vibe.accent || vibe.color, -20)
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.moveTo(-12, -2 + y)
-      ctx.quadraticCurveTo(0, 4 + y, 12, -2 + y)
-      ctx.stroke()
-
-      // head (shaved)
-      const skin = '#d4a574'
-      ctx.fillStyle = skin
-      ctx.beginPath()
-      ctx.ellipse(facing * 1, -26 + y, 11, 12, 0, 0, Math.PI * 2)
-      ctx.fill()
-      // scalp sheen
-      ctx.fillStyle = 'rgba(255,255,255,0.18)'
-      ctx.beginPath()
-      ctx.ellipse(facing * 1 - 3, -30 + y, 4, 3, -0.4, 0, Math.PI * 2)
-      ctx.fill()
-      // ear
-      ctx.fillStyle = shade(skin, -15)
-      ctx.beginPath()
-      ctx.ellipse(facing * 11, -26 + y, 2.5, 3.5, 0, 0, Math.PI * 2)
-      ctx.fill()
-      // eyes
-      ctx.fillStyle = '#2a1810'
-      ctx.beginPath()
-      ctx.arc(facing * 1 - 3.5, -26 + y, 1.2, 0, Math.PI * 2)
-      ctx.arc(facing * 1 + 3.5, -26 + y, 1.2, 0, Math.PI * 2)
-      ctx.fill()
-      // calm smile
-      ctx.strokeStyle = 'rgba(60,30,20,0.45)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.arc(facing * 1, -22 + y, 3.5, 0.15, Math.PI - 0.15)
-      ctx.stroke()
-
-      // arms in sleeves
-      ctx.fillStyle = shade(vibe.color, -10)
-      ctx.beginPath()
-      ctx.ellipse(-14, -4 + y, 7, 10, -0.4, 0, Math.PI * 2)
-      ctx.ellipse(14, -4 + y, 7, 10, 0.4, 0, Math.PI * 2)
-      ctx.fill()
-
-      // name plate
-      ctx.fillStyle = 'rgba(20,12,8,0.65)'
-      roundRect(ctx, -36, -52 + y, 72, 16, 6)
-      ctx.fill()
-      ctx.fillStyle = '#f3e6d0'
-      ctx.font = '600 11px Syne, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(player.name + (isSelf ? ' · you' : ''), 0, -41 + y)
-
-      const emoteOn = pose?.emoteUntil > Date.now() && pose?.emote
-      if (emoteOn) {
-        ctx.font = '20px serif'
-        ctx.fillText(EMOTES[pose.emote] || '🙏', 0, -60 + y)
-      }
-
-      if (player.ready) {
-        ctx.fillStyle = '#34d399'
-        ctx.beginPath()
-        ctx.arc(28, -28 + y, 4.5, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-        ctx.lineWidth = 1
-        ctx.stroke()
-      }
-
-      ctx.restore()
-    }
-
-    function updatePortal(dt, time, cx, cy, suckT) {
-      const portal = fx.portal
-      // open: 0→1 as countdown progresses / portalForce
-      const targetOpen = suckT > 0 ? Math.min(1, suckT * 1.35) : 0
-      portal.open += (targetOpen - portal.open) * Math.min(1, dt * 3.2)
-      portal.swirl += dt * (1.8 + portal.open * 6)
-
-      // maintain orbiting particles
-      while (portal.particles.length < 90 * portal.open + 8) {
-        const a = Math.random() * Math.PI * 2
-        const r = 40 + Math.random() * 160
-        portal.particles.push({
-          a,
-          r,
-          z: Math.random(),
-          speed: 1.2 + Math.random() * 2.4,
-          size: 1 + Math.random() * 2.5,
-          hue: Math.random(),
-        })
-      }
-      // trim when closing
-      if (portal.open < 0.05 && portal.particles.length > 12) {
-        portal.particles.length = 12
-      }
-
-      for (const p of portal.particles) {
-        p.a += p.speed * dt * (0.8 + suckT * 2.5)
-        // spiral inward when sucking hard
-        const pull = 8 + suckT * 140
-        p.r += (18 + p.z * 30 - p.r) * dt * 0.4 - pull * dt * (0.15 + suckT)
-        if (p.r < 8) {
-          p.r = 50 + Math.random() * 140
-          p.a = Math.random() * Math.PI * 2
+        d.x += d.vx * dt
+        d.y += d.vy * dt
+        if (sucking && Math.hypot(BH.x - d.x, BH.y - d.y) < BH.r * 0.5) {
+          d.s *= 0.85
+          if (d.s < 0.08) {
+            d.x = FLOOR.x + Math.random() * (FLOOR.w * 0.55)
+            d.y = FLOOR.y + Math.random() * FLOOR.h
+            d.s = 0.5 + Math.random() * 0.6
+            d.vx = 0
+            d.vy = 0
+          }
         }
       }
-      return portal
-    }
 
-    function drawPortal(ctx, cx, cy, portal, suckT, time) {
-      if (portal.open < 0.02) return
-      const R = 30 + portal.open * 86
-      const shake =
-        suckT > 0.5 ? Math.sin(time * 48) * (suckT - 0.5) * 5 + Math.cos(time * 37) * (suckT - 0.5) * 3 : 0
-      const px = cx + shake
-      const py = cy + shake * 0.6
-      ctx.save()
+      // Draw
+      const t = now / 1000
+      drawHall(ctx, t)
+      drawBlackHole(ctx, t, force)
 
-      // floor scorch / shadow under portal
-      ctx.fillStyle = `rgba(0,0,0,${0.25 + portal.open * 0.35})`
-      ctx.beginPath()
-      ctx.ellipse(px, py + 14, R * 1.45, R * 0.38, 0, 0, Math.PI * 2)
-      ctx.fill()
-
-      // gravitational lensing rings
-      for (let i = 0; i < 4; i++) {
-        const rr = R * (1.15 + i * 0.22 + Math.sin(time * 3 + i) * 0.03)
-        ctx.strokeStyle = `rgba(255, 190, 110, ${(0.08 + portal.open * 0.12) * (1 - i * 0.18)})`
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.ellipse(px, py, rr, rr * 0.55, time * 0.2 + i, 0, Math.PI * 2)
-        ctx.stroke()
-      }
-
-      // outer glow
-      const glow = ctx.createRadialGradient(px, py, R * 0.15, px, py, R * 2.4)
-      glow.addColorStop(0, `rgba(255, 200, 90, ${0.4 * portal.open})`)
-      glow.addColorStop(0.25, `rgba(255, 100, 40, ${0.22 * portal.open})`)
-      glow.addColorStop(0.55, `rgba(80, 30, 120, ${0.16 * portal.open})`)
-      glow.addColorStop(1, 'rgba(0,0,0,0)')
-      ctx.fillStyle = glow
-      ctx.beginPath()
-      ctx.arc(px, py, R * 2.4, 0, Math.PI * 2)
-      ctx.fill()
-
-      // event horizon disc
-      const disc = ctx.createRadialGradient(px - R * 0.22, py - R * 0.28, 2, px, py, R)
-      disc.addColorStop(0, `rgba(255, 248, 220, ${0.98 * portal.open})`)
-      disc.addColorStop(0.12, `rgba(255, 190, 80, ${0.9 * portal.open})`)
-      disc.addColorStop(0.32, `rgba(220, 60, 40, ${0.92 * portal.open})`)
-      disc.addColorStop(0.55, `rgba(40, 10, 60, ${0.96 * portal.open})`)
-      disc.addColorStop(0.82, `rgba(5, 2, 12, ${0.99 * portal.open})`)
-      disc.addColorStop(1, `rgba(0, 0, 0, ${portal.open})`)
-      ctx.fillStyle = disc
-      ctx.beginPath()
-      ctx.arc(px, py, R, 0, Math.PI * 2)
-      ctx.fill()
-
-      // accretion bands
-      ctx.save()
-      ctx.translate(px, py)
-      ctx.rotate(portal.swirl * 0.45)
-      for (let i = 0; i < 6; i++) {
-        ctx.rotate(0.48)
-        ctx.strokeStyle = `rgba(255, ${130 + i * 18}, ${40 + i * 10}, ${0.1 + portal.open * 0.22})`
-        ctx.lineWidth = 1.8 + i * 0.35
-        ctx.beginPath()
-        ctx.ellipse(0, 0, R * (0.5 + i * 0.11), R * (0.18 + i * 0.045), i * 0.35, 0, Math.PI * 2)
-        ctx.stroke()
-      }
-      ctx.restore()
-
-      // particles
-      for (const p of portal.particles) {
-        const x = px + Math.cos(p.a + portal.swirl) * p.r
-        const y = py + Math.sin(p.a + portal.swirl) * p.r * 0.58
-        const a = (0.25 + p.z * 0.55) * portal.open
-        ctx.fillStyle =
-          p.hue > 0.55
-            ? `rgba(255, 230, 150, ${a})`
-            : p.hue > 0.28
-              ? `rgba(255, 110, 50, ${a})`
-              : `rgba(140, 70, 255, ${a * 0.75})`
-        ctx.beginPath()
-        ctx.arc(x, y, p.size * (0.55 + portal.open), 0, Math.PI * 2)
-        ctx.fill()
-        if (suckT > 0.35) {
-          const nx = (px - x) * 0.22 * suckT
-          const ny = (py - y) * 0.22 * suckT
-          ctx.strokeStyle = `rgba(255, 210, 130, ${a * 0.55})`
-          ctx.lineWidth = 1
+      // Dust streams when sucking
+      if (sucking) {
+        for (let i = 0; i < 40; i++) {
+          const a = t * 3 + i * 0.4
+          const rad = BH.r + 40 + ((i * 37 + t * 220 * force) % 320)
+          const px = BH.x + Math.cos(a) * rad * 0.85
+          const py = BH.y + Math.sin(a) * rad * 0.45
+          const life = 1 - rad / 400
+          ctx.fillStyle = `rgba(255,200,140,${0.15 * force * Math.max(0, life)})`
           ctx.beginPath()
-          ctx.moveTo(x, y)
-          ctx.lineTo(x + nx, y + ny)
+          ctx.arc(px, py, 1.5 + force * 2, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      // Debris
+      for (const d of debrisRef.current) {
+        ctx.save()
+        ctx.translate(d.x, d.y)
+        ctx.rotate(d.rot)
+        ctx.scale(d.s, d.s)
+        if (d.kind === 10) {
+          // singing bowl
+          ctx.fillStyle = '#b8860b'
+          ctx.beginPath()
+          ctx.ellipse(0, 0, 14, 8, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = '#ffe08a'
+          ctx.stroke()
+        } else if (d.kind === 11) {
+          // lotus
+          ctx.fillStyle = '#e8a0b0'
+          for (let p = 0; p < 6; p++) {
+            ctx.rotate(Math.PI / 3)
+            ctx.beginPath()
+            ctx.ellipse(0, -8, 4, 10, 0, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.fillStyle = '#f0d060'
+          ctx.beginPath()
+          ctx.arc(0, 0, 4, 0, Math.PI * 2)
+          ctx.fill()
+        } else if (d.kind === 12) {
+          // mala beads
+          ctx.strokeStyle = '#c9a227'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(0, 0, 12, 0, Math.PI * 1.5)
+          ctx.stroke()
+          ctx.fillStyle = '#8b1a1a'
+          for (let b = 0; b < 8; b++) {
+            const ang = (b / 8) * Math.PI * 1.5
+            ctx.beginPath()
+            ctx.arc(Math.cos(ang) * 12, Math.sin(ang) * 12, 2.5, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        } else {
+          // dust / petal / leaf
+          const colors = ['#e8c9a0', '#d4a574', '#c97878', '#c9a227', '#8fbc8f']
+          ctx.fillStyle = colors[d.kind % colors.length]
+          ctx.beginPath()
+          ctx.ellipse(0, 0, 5, 3, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.restore()
+      }
+
+      const list = [...peersRef.current.entries()]
+        .map(([id, pose]) => ({ id, pose, isSelf: false }))
+        .concat([{ id: selfId, pose: me, isSelf: true }])
+        .sort((a, b) => a.pose.y - b.pose.y)
+
+      for (const { id, pose, isSelf } of list) {
+        const p = players.find((x) => x.id === id)
+        const vibe = vibeOf(id, p?.name)
+        const sx = isSelf ? suckLocal.current.stretchX : pose.stretchX || 1
+        const sy = isSelf ? suckLocal.current.stretchY : pose.stretchY || 1
+        const spin = isSelf ? suckLocal.current.spin : pose.spin || 0
+
+        ctx.save()
+        if (spin) {
+          ctx.translate(pose.x, pose.y)
+          ctx.rotate(spin * 0.15)
+          ctx.translate(-pose.x, -pose.y)
+        }
+        softBody(ctx, pose.x, pose.y, vibe.robe, vibe.sash, vibe.skin, pose.facing || 1, pose.walk || 0, sx, sy)
+
+        if (!sucking || force < 0.85) {
+          drawNameplate(ctx, pose.x, pose.y - (sy - 1) * 20, p?.name || 'Monk', !!p?.ready, isSelf)
+        }
+
+        if (!isSelf && pose.hitFlash && pose.hitFlash > now) {
+          ctx.strokeStyle = 'rgba(255,80,60,0.85)'
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.arc(pose.x, pose.y - 8, 28, 0, Math.PI * 2)
           ctx.stroke()
         }
+        if (pose.emote && pose.emoteUntil > now) {
+          const icon = { wave: '👋', bow: '🙇', laugh: '😆', shock: '😲' }[pose.emote] || '✨'
+          ctx.font = '22px serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(icon, pose.x + 22, pose.y - 48)
+        }
+        if (p?.ready && !sucking) {
+          ctx.fillStyle = 'rgba(100,220,130,0.9)'
+          ctx.beginPath()
+          ctx.arc(pose.x + 16, pose.y - 36, 5, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.restore()
       }
 
-      // photon ring
-      ctx.strokeStyle = `rgba(255, 240, 200, ${0.35 + Math.sin(time * 8) * 0.15})`
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(px, py, R * 0.92, 0, Math.PI * 2)
-      ctx.stroke()
-
-      // core spark
-      ctx.fillStyle = `rgba(255,255,250,${0.55 + Math.sin(time * 12) * 0.25})`
-      ctx.beginPath()
-      ctx.arc(px, py, 3.5 + suckT * 10, 0, Math.PI * 2)
-      ctx.fill()
-
-      // vignette pull when hard suck
-      if (suckT > 0.5) {
-        const v = ctx.createRadialGradient(px, py, R * 0.8, px, py, Math.max(cx, cy) * 1.5)
-        v.addColorStop(0, 'rgba(0,0,0,0)')
-        v.addColorStop(0.65, `rgba(10, 4, 0, ${(suckT - 0.5) * 0.55})`)
-        v.addColorStop(1, `rgba(0,0,0,${(suckT - 0.5) * 1.5})`)
-        ctx.fillStyle = v
-        ctx.fillRect(px - 2400, py - 2400, 4800, 4800)
+      // Screen vignette when sucking hard
+      if (force > 0.3) {
+        const vg = ctx.createRadialGradient(BH.x, BH.y, 40, BH.x, BH.y, 700)
+        vg.addColorStop(0, 'rgba(0,0,0,0)')
+        vg.addColorStop(0.5, `rgba(0,0,0,${force * 0.25})`)
+        vg.addColorStop(1, `rgba(0,0,0,${force * 0.55})`)
+        ctx.fillStyle = vg
+        ctx.fillRect(0, 0, WORLD.w, WORLD.h)
       }
 
-      ctx.restore()
-    }
-
-    function applySuck(body, cx, cy, dt, suckT) {
-      if (suckT <= 0) return
-      const dx = cx - body.x
-      const dy = cy - body.y
-      const dist = Math.hypot(dx, dy) || 1
-      const nx = dx / dist
-      const ny = dy / dist
-      // tangential swirl (orbital angular momentum before fall-in)
-      const tx = -ny
-      const ty = nx
-      // softened inverse-square gravity + constant terminal pull
-      const g = (120 + suckT * suckT * 1400) / (dist * dist * 0.00035 + dist * 0.08 + 1)
-      const swirl = (55 + suckT * 280) * (dist / (dist + 40))
-      body.vx = (body.vx || 0) + nx * g * dt + tx * swirl * dt
-      body.vy = (body.vy || 0) + ny * g * dt + ty * swirl * dt
-      // air drag fades as you near the horizon (free-fall feel)
-      const damp = 1 - Math.min(0.94, 0.28 + suckT * 0.55 * (1 - Math.min(1, dist / 220)))
-      body.vx *= Math.pow(damp, dt * 60)
-      body.vy *= Math.pow(damp, dt * 60)
-      // velocity cap so frames stay stable
-      const spd = Math.hypot(body.vx, body.vy)
-      const maxSpd = 80 + suckT * 520
-      if (spd > maxSpd) {
-        body.vx = (body.vx / spd) * maxSpd
-        body.vy = (body.vy / spd) * maxSpd
+      if (countdownSecNow != null) {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)'
+        ctx.fillRect(0, 0, WORLD.w, 64)
+        ctx.fillStyle = '#ffe6a8'
+        ctx.font = '800 28px "Segoe UI", system-ui, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(
+          countdownSecNow > 0 ? `Singularity in ${countdownSecNow}` : 'Crossing the event horizon…',
+          WORLD.w / 2,
+          42,
+        )
       }
-      body.x += body.vx * dt
-      body.y += body.vy * dt
-      const spinDir = Math.sign(tx * body.vx + ty * body.vy || body.vx || 1)
-      body.spin = (body.spin || 0) + suckT * suckT * dt * 10 * spinDir
-      const targetScale = Math.max(0.06, Math.min(1, (dist - 10) / 200))
-      body.scale = (body.scale ?? 1) + (targetScale - (body.scale ?? 1)) * Math.min(1, dt * 5)
-      if (dist < 26 + suckT * 36) {
-        body.scale *= 1 - dt * 4.2 * suckT
-        body.x += nx * 55 * dt * suckT
-        body.y += ny * 55 * dt * suckT
-      }
-    }
 
-    function frame(now) {
       raf = requestAnimationFrame(frame)
-      const dt = Math.min(0.05, (now - last) / 1000)
-      last = now
-      const time = (now - t0) / 1000
-      const w = canvas.clientWidth
-      const h = canvas.clientHeight
-      const me = localRef.current
-      const cd = apiRef.current.countdownSec
-      const portalForce = apiRef.current.portalForce
-      // suck intensity 0→1. Portal is visible the moment countdown starts.
-      let suckT = 0
-      if (portalForce) suckT = 1
-      else if (cd != null && cd >= 0) {
-        const progress = Math.max(0, Math.min(1, 1 - cd / 7))
-        // Keep a strong minimum so the portal is unmistakable, then ramp the pull
-        suckT = Math.max(0.42, 0.42 + progress * 0.58)
-        if (cd <= 2) suckT = Math.min(1, suckT + 0.15)
-        if (cd === 0) suckT = 1
-      }
-
-      const canWalk = focused && suckT < 0.35
-
-      if (canWalk) {
-        let mx = 0
-        let my = 0
-        if (keys.has('KeyA') || keys.has('ArrowLeft')) mx -= 1
-        if (keys.has('KeyD') || keys.has('ArrowRight')) mx += 1
-        if (keys.has('KeyW') || keys.has('ArrowUp')) my -= 1
-        if (keys.has('KeyS') || keys.has('ArrowDown')) my += 1
-        if (mx || my) {
-          const len = Math.hypot(mx, my) || 1
-          mx /= len
-          my /= len
-          me.facing = mx >= 0 ? 1 : -1
-          me.vx = mx * 200
-          me.vy = my * 200
-          me.walk += dt * 10
-        } else {
-          me.vx *= Math.pow(0.02, dt)
-          me.vy *= Math.pow(0.02, dt)
-          me.walk *= 0.9
-        }
-        me.x += me.vx * dt
-        me.y += me.vy * dt
-        const { rx, ry } = roomOrigin(w, h)
-        me.x = Math.max(rx + ROOM.pad, Math.min(rx + ROOM.w - ROOM.pad, me.x))
-        me.y = Math.max(ry + ROOM.pad + 50, Math.min(ry + ROOM.h - ROOM.pad, me.y))
-        me.scale += (1 - me.scale) * Math.min(1, dt * 5)
-        me.spin *= Math.pow(0.05, dt)
-
-        const server = apiRef.current.lobby?.[apiRef.current.selfId]
-        if (server?.hitFlash > Date.now()) {
-          const sx = 460 + server.x * 68
-          const sy = 310 + server.z * 52
-          me.x += (sx - me.x) * Math.min(1, dt * 8)
-          me.y += (sy - me.y) * Math.min(1, dt * 8)
-        }
-
-        poseAcc += dt
-        if (poseAcc > 0.05) {
-          poseAcc = 0
-          apiRef.current.onPose?.({
-            x: (me.x - 460) / 68,
-            y: 0,
-            z: (me.y - 310) / 52,
-            yaw: me.facing >= 0 ? 0 : Math.PI,
-          })
-        }
-      }
-
-      const room = drawTemple(w, h, time)
-      const { cx, cy } = room
-
-      if (suckT > 0) {
-        applySuck(me, cx, cy, dt, suckT)
-      }
-
-      const portal = updatePortal(dt, time, cx, cy, suckT)
-      // draw portal under monks when opening, then over as it intensifies
-      if (suckT < 0.7) drawPortal(ctx, cx, cy, portal, suckT, time)
-
-      if (flash > 0) flash = Math.max(0, flash - dt * 3)
-
-      const { players: plist, lobby: lb, selfId: sid } = apiRef.current
-      const motions = fx.remoteMotion
-
-      for (const p of plist || []) {
-        if (p.id === sid) continue
-        const pose = lb?.[p.id]
-        const tx = 460 + (pose?.x || 0) * 68
-        const ty = 310 + (pose?.z || 0) * 52
-        if (!motions[p.id]) {
-          motions[p.id] = { x: tx, y: ty, vx: 0, vy: 0, walk: 0, scale: 1, spin: 0, facing: 1 }
-        }
-        const m = motions[p.id]
-        if (suckT < 0.35) {
-          const dx = tx - m.x
-          const dy = ty - m.y
-          if (Math.hypot(dx, dy) > 1) {
-            m.walk += dt * 10
-            m.facing = dx >= 0 ? 1 : -1
-          }
-          m.x += dx * Math.min(1, dt * 8)
-          m.y += dy * Math.min(1, dt * 8)
-          m.scale += (1 - m.scale) * Math.min(1, dt * 5)
-          m.spin *= 0.9
-        } else {
-          applySuck(m, cx, cy, dt, suckT)
-          m.walk += dt * 14 * suckT
-        }
-        drawMonk(m.x, m.y, p, pose, false, m)
-      }
-
-      // Always draw self — even if players[] briefly lags behind peer sync
-      const selfPlayer =
-        (plist || []).find((p) => p.id === sid) || {
-          id: sid,
-          name: 'You',
-          vibe: 'saffron',
-          ready: false,
-        }
-      drawMonk(me.x, me.y, selfPlayer, lb?.[sid], true, me)
-
-      if (suckT >= 0.7) drawPortal(ctx, cx, cy, portal, suckT, time)
-
-      if (flash > 0) {
-        ctx.fillStyle = `rgba(251,113,133,${flash * 0.18})`
-        ctx.fillRect(0, 0, w, h)
-      }
-
-      // white-out at peak suck
-      if (suckT > 0.85) {
-        ctx.fillStyle = `rgba(255, 245, 220, ${(suckT - 0.85) * 3.2})`
-        ctx.fillRect(0, 0, w, h)
-      }
     }
+
     raf = requestAnimationFrame(frame)
-
-    canvas.addEventListener('click', trySmack)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      canvas.removeEventListener('click', trySmack)
-    }
-  }, [focused])
-
-  const showCount = countdownSec != null && countdownSec > 0 && countdownSec <= 5
+    return () => cancelAnimationFrame(raf)
+  }, [selfId, players, onPose])
 
   return (
-    <div className="relative h-full min-h-[420px] w-full overflow-hidden rounded-2xl border border-[#5c4634]/40 bg-[#1a1410]">
-      <canvas ref={canvasRef} className="block h-full w-full" />
-      {showCount && (
-        <div className="pointer-events-none absolute inset-x-0 top-6 z-10 flex justify-center">
-          <p
-            className="font-display text-6xl font-extrabold tabular-nums text-[#f3e6d0] drop-shadow-[0_4px_24px_rgba(255,140,40,0.55)] md:text-7xl"
-            key={countdownSec}
-            style={{ animation: 'monk-count-pop 0.45s ease-out' }}
-          >
-            {countdownSec}
-          </p>
-        </div>
-      )}
-      {countdownSec === 0 && (
-        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-          <p className="font-display text-4xl font-extrabold tracking-[0.2em] text-[#ffe6b8] md:text-5xl">
-            ENTER
-          </p>
-        </div>
-      )}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-xl bg-black/50 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-[#e8d5b5]/85">
-        WASD walk · click / space nudge · 1–4 emotes
+    <div className="relative h-full w-full overflow-hidden bg-[#1a100c]">
+      <canvas
+        ref={canvasRef}
+        width={WORLD.w}
+        height={WORLD.h}
+        className="h-full w-full object-contain"
+        tabIndex={0}
+      />
+      <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/55 px-3 py-2 text-[11px] text-amber-100/85">
+        Move · <kbd className="text-amber-200">WASD</kbd> / arrows · smack{' '}
+        <kbd className="text-amber-200">Space</kbd> · emotes 1–4
       </div>
     </div>
   )
 }
-
-function shade(hex, amount) {
-  const n = hex.replace('#', '')
-  const num = parseInt(n.length === 3 ? n.split('').map((c) => c + c).join('') : n, 16)
-  const r = Math.min(255, Math.max(0, ((num >> 16) & 255) + amount))
-  const g = Math.min(255, Math.max(0, ((num >> 8) & 255) + amount))
-  const b = Math.min(255, Math.max(0, (num & 255) + amount))
-  return `rgb(${r},${g},${b})`
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  const rr = Math.min(r, w / 2, h / 2)
-  ctx.beginPath()
-  ctx.moveTo(x + rr, y)
-  ctx.arcTo(x + w, y, x + w, y + h, rr)
-  ctx.arcTo(x + w, y + h, x, y + h, rr)
-  ctx.arcTo(x, y + h, x, y, rr)
-  ctx.arcTo(x, y, x + w, y, rr)
-  ctx.closePath()
-}
-
-export { EMOTES }

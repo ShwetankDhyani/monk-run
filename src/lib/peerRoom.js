@@ -5,7 +5,7 @@ import { haversineKm, scoreFromDistanceKm } from './scoring.js'
 export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
-export const LOBBY_COUNTDOWN_MS = 7_000
+export const LOBBY_COUNTDOWN_MS = 2_400
 
 function clone(s) {
   return JSON.parse(JSON.stringify(s))
@@ -363,7 +363,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         })
       })
       peer.on('error', (err) => {
-        if (err?.type === 'unavailable-id') fail('Room code already in use. Try another.')
+        if (err?.type === 'unavailable-id') fail('PIN already in use. Create again.')
       })
       emit()
     } catch {
@@ -389,7 +389,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       connections.set(conn.peer, conn)
 
       await new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('Host not found. Check the room code.')), 12000)
+        const t = setTimeout(() => reject(new Error('Host not found. Check the room PIN.')), 12000)
         conn.on('open', () => {
           clearTimeout(t)
           resolve()

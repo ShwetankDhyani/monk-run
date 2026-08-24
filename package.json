@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "monk.run — multiplayer party GeoGuessr with temple lobby, portal jump, and voice chat",
+  "description": "monk.run — multiplayer party GeoGuessr with temple lobby, black hole jump, and voice chat",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 47447",
     "build": "vite build",
