@@ -122,6 +122,7 @@ export default function App() {
   const [voice, setVoice] = useState({ muted: true, active: false, peers: [], error: null })
   const [portalHold, setPortalHold] = useState(false)
   const prevPhaseRef = useRef(null)
+  const prevRoundIndexRef = useRef(-1)
   const [leaderboardKey, setLeaderboardKey] = useState(0)
   const scoreSubmittedRef = useRef(false)
 
@@ -164,6 +165,12 @@ export default function App() {
     }
 
     if (room.phase === 'playing' && prev !== 'playing') {
+      setGuess(null)
+      setCountry('')
+    }
+
+    if (room.roundIndex !== prevRoundIndexRef.current) {
+      prevRoundIndexRef.current = room.roundIndex
       setGuess(null)
       setCountry('')
     }
@@ -706,10 +713,19 @@ export default function App() {
               {isIntermission ? (
                 <div className="mt-4 rounded-xl border border-sky/30 bg-black/30 px-4 py-5 text-center">
                   <p className="text-[10px] uppercase tracking-widest text-muted">Next round</p>
-                  <p className="font-display text-4xl font-bold text-sky">{intermissionLeft || 1}s</p>
-                  <p className="mt-2 text-xs text-muted">
-                    {room.viewToken ? 'Panorama preloading…' : 'Fetching location…'}
-                  </p>
+                  {room.intermissionEndsAt > 0 ? (
+                    <>
+                      <p className="font-display text-4xl font-bold text-sky">{intermissionLeft || 1}s</p>
+                      <p className="mt-2 text-xs text-muted">
+                        {room.viewToken ? 'Panorama preloading…' : 'Fetching location…'}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mt-2 animate-pulse font-display text-xl text-sky">Loading location…</p>
+                      <p className="mt-2 text-xs text-muted">Hang tight — the next panorama is on its way.</p>
+                    </>
+                  )}
                 </div>
               ) : room.isHost ? (
                 <button

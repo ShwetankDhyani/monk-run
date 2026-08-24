@@ -39,6 +39,7 @@ export function createRoomController({ onState, onError, onEvent }) {
   let state = blank()
   let lastLobbyEmit = 0
   let roundLoadGen = 0
+  let revealGen = 0
   let pendingRoundIndex = 0
 
   function emitLobbyPoses() {
@@ -65,6 +66,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       totalRounds: DEFAULT_ROUNDS,
       roundEndsAt: 0,
       intermissionEndsAt: 0,
+      roundStartedAt: 0,
       viewToken: '',
       guesses: {},
       reveal: null,
@@ -91,6 +93,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       totalRounds: state.totalRounds,
       roundEndsAt: state.roundEndsAt,
       intermissionEndsAt: state.intermissionEndsAt,
+      roundStartedAt: state.roundStartedAt,
       viewToken: state.viewToken,
       guesses: state.guesses,
       reveal: state.reveal,
@@ -230,6 +233,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       return
     }
     if (msg.type === 'guess' && state.phase === 'playing') {
+      if (state.roundStartedAt && msg.at < state.roundStartedAt - 250) return
       state.guesses = {
         ...state.guesses,
         [fromId]: { lat: msg.lat, lng: msg.lng, country: msg.country || '', at: Date.now() },
@@ -554,39 +558,58 @@ export function createRoomController({ onState, onError, onEvent }) {
     pushSync()
   }
 
-  function startRound(index, { skipFetch = false } = {}) {
-    void startRoundAsync(index, { skipFetch })
+  function cancelPendingReveal() {
+    revealGen++
   }
 
-  async function startRoundAsync(index, { skipFetch = false } = {}) {
+  /** Sync transition once the next panorama token is ready. */
+  function finishRoundStart(index) {
+    if (!actingHost) return
+    cancelPendingReveal()
+    roundLoadGen++
+    state.roundIndex = index
+    state.guesses = {}
+    state.reveal = null
+    state.intermissionEndsAt = 0
+    state.phase = 'playing'
+    state.roundStartedAt = Date.now()
+    state.roundEndsAt = Date.now() + state.roundTimeMs
+    state.message = `Round ${index + 1}/${state.totalRounds}`
+    pushSync()
+  }
+
+  function startRound(index) {
+    void startRoundAsync(index)
+  }
+
+  async function startRoundAsync(index) {
     if (!actingHost) return
     const gen = ++roundLoadGen
+    cancelPendingReveal()
 
     state.roundIndex = index
     state.guesses = {}
     state.reveal = null
     state.intermissionEndsAt = 0
     state.roundEndsAt = 0
+    state.phase = 'loading-round'
+    state.viewToken = ''
+    pushSync()
 
-    if (!skipFetch || !state.viewToken) {
-      state.phase = 'loading-round'
-      state.viewToken = ''
-      pushSync()
-
-      try {
-        const opened = await openRoundView(secrets.gameSessionId, index)
-        if (gen !== roundLoadGen) return
-        state.viewToken = opened.viewToken
-        secrets.currentLocationId = opened.locationId
-      } catch {
-        if (gen !== roundLoadGen) return
-        fail('Could not load secure round view.')
-        return
-      }
+    try {
+      const opened = await openRoundView(secrets.gameSessionId, index)
+      if (gen !== roundLoadGen) return
+      state.viewToken = opened.viewToken
+      secrets.currentLocationId = opened.locationId
+    } catch {
+      if (gen !== roundLoadGen) return
+      fail('Could not load secure round view.')
+      return
     }
 
     if (gen !== roundLoadGen) return
     state.phase = 'playing'
+    state.roundStartedAt = Date.now()
     state.roundEndsAt = Date.now() + state.roundTimeMs
     state.message = `Round ${index + 1}/${state.totalRounds}`
     pushSync()
@@ -596,17 +619,18 @@ export function createRoomController({ onState, onError, onEvent }) {
     if (!actingHost) return
     pendingRoundIndex = nextIndex
     state.phase = 'intermission'
-    state.intermissionEndsAt = Date.now() + INTERMISSION_MS
+    state.intermissionEndsAt = 0
     state.roundEndsAt = 0
     state.guesses = {}
     state.viewToken = ''
-    state.message = `Round ${nextIndex + 1} loading…`
+    state.message = `Loading round ${nextIndex + 1}…`
     pushSync()
 
     try {
       const opened = await openRoundView(secrets.gameSessionId, nextIndex)
       state.viewToken = opened.viewToken
       secrets.currentLocationId = opened.locationId
+      state.intermissionEndsAt = Date.now() + INTERMISSION_MS
       state.message = `Round ${nextIndex + 1} in ${Math.ceil(INTERMISSION_MS / 1000)}s`
       pushSync()
     } catch {
@@ -615,6 +639,7 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function submitGuess({ lat, lng, country }) {
+    if (state.phase !== 'playing') return
     const guess = { lat, lng, country: country || '', at: Date.now() }
     state.guesses = { ...state.guesses, [state.selfId]: guess }
     if (actingHost) {
@@ -629,7 +654,16 @@ export function createRoomController({ onState, onError, onEvent }) {
   function autoRevealIfReady() {
     if (!actingHost || state.phase !== 'playing') return
     const live = state.players.filter((p) => p.connected !== false)
-    if (live.length > 0 && live.every((p) => state.guesses[p.id])) revealRound()
+    const started = state.roundStartedAt || 0
+    if (
+      live.length > 0 &&
+      live.every((p) => {
+        const g = state.guesses[p.id]
+        return g && (!started || g.at >= started - 250)
+      })
+    ) {
+      revealRound()
+    }
   }
 
   async function buildRevealAsync() {
@@ -679,13 +713,17 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function revealRound() {
+    if (state.phase !== 'playing') return
     void revealRoundAsync()
   }
 
   async function revealRoundAsync() {
     if (!actingHost || state.phase !== 'playing') return
+    const gen = revealGen
+    const idx = state.roundIndex
     state.roundEndsAt = 0
     const reveal = await buildRevealAsync()
+    if (gen !== revealGen || state.phase !== 'playing' || state.roundIndex !== idx) return
     if (!reveal) return
     state.reveal = reveal
     state.viewToken = ''
@@ -706,9 +744,13 @@ export function createRoomController({ onState, onError, onEvent }) {
       startRound(0)
       return
     }
-    if (state.phase === 'intermission' && Date.now() >= state.intermissionEndsAt) {
-      state.intermissionEndsAt = 0
-      startRound(pendingRoundIndex, { skipFetch: true })
+    if (
+      state.phase === 'intermission' &&
+      state.intermissionEndsAt > 0 &&
+      state.viewToken &&
+      Date.now() >= state.intermissionEndsAt
+    ) {
+      finishRoundStart(pendingRoundIndex)
       return
     }
     if (state.phase === 'playing') {
