@@ -355,7 +355,7 @@ export default function App() {
   if (screen === 'landing' && !busy && (!room || room.phase === 'boot')) {
     const pinReady = normalizeRoomPin(joinCode).length === 6
     return (
-      <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
+      <div className="flex min-h-full flex-col items-center justify-center overflow-auto bg-ink p-4 pb-6">
         <div className="panel w-full max-w-lg p-6 md:p-8">
           <p className="text-center font-display text-sm font-bold uppercase tracking-[0.3em] text-sky">
             party geoguessr
@@ -363,10 +363,7 @@ export default function App() {
           <h1 className="mt-2 text-center font-display text-5xl font-extrabold tracking-tight text-fog md:text-6xl">
             monk.run
           </h1>
-          <p className="mt-3 text-center text-sm text-muted">
-            Voice chat + party GeoGuessr.{' '}
-            <AllTimeLeaderboardButton refreshKey={leaderboardKey} />
-          </p>
+          <p className="mt-3 text-center text-sm text-muted">Voice chat + party GeoGuessr.</p>
 
           <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Your monk name</label>
           <input
@@ -421,6 +418,7 @@ export default function App() {
           </button>
           {error && <p className="mt-3 text-center text-xs text-coral">{error}</p>}
         </div>
+        <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
       </div>
     )
   }
@@ -603,12 +601,10 @@ export default function App() {
   if (room.phase === 'podium') {
     return (
       <Fragment>
-      <div className="screen-enter flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
+      <div className="screen-enter flex min-h-full flex-col items-center justify-center overflow-auto bg-ink p-4 pb-6">
         <div className="panel w-full max-w-2xl p-6 md:p-8">
           <h2 className="text-center font-display text-4xl font-extrabold text-mint">Final podium</h2>
-          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">
-            room {room.roomCode} · <AllTimeLeaderboardButton refreshKey={leaderboardKey} />
-          </p>
+          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">room {room.roomCode}</p>
           <ol className="mt-6 space-y-3">
             {ranked.map((p, i) => {
               const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
@@ -650,6 +646,7 @@ export default function App() {
             New party
           </button>
         </div>
+        <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
       </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>

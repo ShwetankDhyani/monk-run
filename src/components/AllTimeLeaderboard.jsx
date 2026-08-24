@@ -140,19 +140,17 @@ function LeaderboardModal({ onClose, refreshKey }) {
   )
 }
 
-/** Clickable text link that opens the all-time top 10 podium view. */
+/** Small footer link — opens the all-time top 10 podium view. */
 export function AllTimeLeaderboardButton({ refreshKey = 0, className = '' }) {
   const [open, setOpen] = useState(false)
 
   return (
     <>
-      <button
-        type="button"
-        className={`inline text-[11px] font-display font-semibold uppercase tracking-[0.22em] text-amber/85 transition hover:text-amber hover:underline ${className}`}
-        onClick={() => setOpen(true)}
-      >
-        All Time Leaderboard
-      </button>
+      <div className={`flex justify-center ${className}`}>
+        <button type="button" className="lb-footlink" onClick={() => setOpen(true)}>
+          all-time leaderboard
+        </button>
+      </div>
       {open && <LeaderboardModal onClose={() => setOpen(false)} refreshKey={refreshKey} />}
     </>
   )

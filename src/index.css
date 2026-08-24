@@ -114,6 +114,22 @@
     background: #0b1220;
     font: inherit;
   }
+  .lb-footlink {
+    appearance: none;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: rgba(251, 191, 36, 0.42);
+    transition: color 0.2s ease;
+  }
+  .lb-footlink:hover {
+    color: rgba(251, 191, 36, 0.88);
+  }
 }
 
 @keyframes monk-count-pop {
