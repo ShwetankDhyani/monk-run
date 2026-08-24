@@ -21,6 +21,25 @@ function ClickDrop({ enabled, onDrop }) {
   return null
 }
 
+function InvalidateSize() {
+  const map = useMap()
+  useEffect(() => {
+    const kick = () => map.invalidateSize()
+    kick()
+    const t1 = setTimeout(kick, 50)
+    const t2 = setTimeout(kick, 250)
+    const t3 = setTimeout(kick, 600)
+    window.addEventListener('resize', kick)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+      window.removeEventListener('resize', kick)
+    }
+  }, [map])
+  return null
+}
+
 function FitReveal({ truth, guesses }) {
   const map = useMap()
   useEffect(() => {
@@ -48,6 +67,7 @@ export default function GuessMap({
   locked = false,
   country = '',
   onCountry,
+  tall = false,
 }) {
   const [filter, setFilter] = useState('')
   const countries = useMemo(() => {
@@ -57,25 +77,26 @@ export default function GuessMap({
   }, [filter])
 
   const center = guess ? [guess.lat, guess.lng] : [20, 0]
+  const mapH = tall ? 'min-h-[220px] flex-1' : 'h-[280px]'
 
   return (
-    <div className="flex h-full min-h-[280px] flex-col gap-2">
+    <div className={`flex flex-col gap-2 ${tall ? 'h-full min-h-0' : ''}`}>
       {mode === 'guess' && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Filter countries…"
-            className="input-mystic min-w-[140px] flex-1"
+            className="input-clean min-w-[120px] flex-1"
             disabled={locked}
           />
           <select
-            className="input-mystic min-w-[160px] flex-[2]"
+            className="input-clean min-w-[140px] flex-[2]"
             value={country}
             disabled={locked}
             onChange={(e) => onCountry?.(e.target.value)}
           >
-            <option value="">Country assist (optional)</option>
+            <option value="">Country (optional)</option>
             {countries.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -85,16 +106,20 @@ export default function GuessMap({
         </div>
       )}
 
-      <div className="relative min-h-[240px] flex-1 overflow-hidden rounded-xl border border-saffron/30 shadow-[0_0_40px_rgba(244,162,97,0.12)]">
+      <div
+        className={`relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]`}
+      >
         <MapContainer
           center={center}
-          zoom={guess ? 3 : 1}
-          className="h-full w-full bg-[#0a0614]"
+          zoom={guess ? 3 : 2}
+          className="h-full w-full"
+          style={{ height: '100%', width: '100%', background: '#0b1220' }}
           scrollWheelZoom
           worldCopyJump
         >
+          <InvalidateSize />
           <TileLayer
-            attribution="&copy; CARTO"
+            attribution="&copy; OpenStreetMap &copy; CARTO"
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
           {mode === 'guess' && <ClickDrop enabled={!locked} onDrop={onGuess} />}
@@ -139,9 +164,16 @@ export default function GuessMap({
           )}
         </MapContainer>
         {mode === 'guess' && !guess && (
-          <div className="pointer-events-none absolute inset-x-0 top-3 text-center">
-            <span className="rounded-full bg-black/55 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-saffron">
-              tap the map to drop your pin
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] text-center">
+            <span className="rounded-full bg-sky px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-lg">
+              click anywhere on this map to drop your pin
+            </span>
+          </div>
+        )}
+        {mode === 'guess' && guess && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] text-center">
+            <span className="rounded-full bg-mint/90 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-lg">
+              pin dropped — hit lock guess
             </span>
           </div>
         )}

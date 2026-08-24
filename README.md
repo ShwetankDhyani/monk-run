@@ -27,7 +27,7 @@ cp .env.example .env
 # set VITE_GOOGLE_MAPS_API_KEY
 ```
 
-Without a key, the astral panorama fallback is fully playable.
+Without a key, monk.run uses a Google Maps Street View embed (and a satellite backup if the embed is blocked).
 
 ## How to play
 

@@ -111,7 +111,6 @@ export default function App() {
   const [room, setRoom] = useState(null)
   const [guess, setGuess] = useState(null)
   const [country, setCountry] = useState('')
-  const [mapOpen, setMapOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [voice, setVoice] = useState({ muted: true, active: false, peers: [], error: null })
 
@@ -147,9 +146,8 @@ export default function App() {
     if (room.phase === 'playing') {
       setGuess(null)
       setCountry('')
-      setMapOpen(false)
     }
-  }, [room?.phase])
+  }, [room?.phase, room?.roundIndex])
 
   useEffect(() => {
     voiceRef.current?.refresh?.()
@@ -240,7 +238,6 @@ export default function App() {
   const lockGuess = useCallback(() => {
     if (!guess || selfGuessed) return
     ctrlRef.current.submitGuess({ lat: guess.lat, lng: guess.lng, country })
-    setMapOpen(false)
   }, [guess, country, selfGuessed])
 
   const onPose = useCallback((pose) => {
@@ -546,80 +543,102 @@ export default function App() {
     )
   }
 
+  // Playing: Street View + always-visible world map (never hide the map behind a button)
   return (
-    <div className="relative h-full min-h-full overflow-hidden bg-ink">
-      {location && <StreetView location={location} interactive={!mapOpen} />}
+    <div className="flex h-full min-h-full flex-col overflow-hidden bg-ink md:flex-row">
+      <div className="relative min-h-0 flex-1">
+        {location && <StreetView location={location} interactive />}
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
-        <div className="pointer-events-auto panel px-3 py-2">
-          <p className="font-display text-lg font-bold">monk.run</p>
-          <p className="text-[10px] text-muted">
-            Round {room.roundIndex + 1}/{room.totalRounds} · locked {lockedCount}/{room.players.length}
-          </p>
-        </div>
-        <div className="pointer-events-auto panel px-4 py-2 text-center">
-          <p className="text-[10px] uppercase tracking-widest text-muted">Time</p>
-          <p className={`font-display text-2xl font-bold ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
-            {roundLeft}s
-          </p>
-        </div>
-        <div className="pointer-events-auto panel max-w-[150px] px-3 py-2">
-          {ranked.slice(0, 3).map((p) => (
-            <div key={p.id} className="flex justify-between gap-2 text-[10px]">
-              <span className="truncate text-muted">{p.name}</span>
-              <span className="text-mint">{p.score}</span>
-            </div>
-          ))}
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
+          <div className="pointer-events-auto panel px-3 py-2">
+            <p className="font-display text-lg font-bold">monk.run</p>
+            <p className="text-[10px] text-muted">
+              Round {room.roundIndex + 1}/{room.totalRounds} · locked {lockedCount}/{room.players.length}
+            </p>
+          </div>
+          <div className="pointer-events-auto panel px-4 py-2 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted">Time</p>
+            <p className={`font-display text-2xl font-bold ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
+              {roundLeft}s
+            </p>
+          </div>
+          <div className="pointer-events-auto panel max-w-[150px] px-3 py-2">
+            {ranked.slice(0, 3).map((p) => (
+              <div key={p.id} className="flex justify-between gap-2 text-[10px]">
+                <span className="truncate text-muted">{p.name}</span>
+                <span className="text-mint">{p.score}</span>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn btn-ghost mt-2 w-full !px-2 !py-1"
+              onClick={() => {
+                if (!voice.active) ensureVoice()
+                else voiceRef.current?.toggleMute()
+              }}
+            >
+              {!voice.active ? 'Voice' : voice.muted ? 'Unmute' : 'Mute'}
+            </button>
+          </div>
+        </header>
+
+        {room.isHost && (
           <button
             type="button"
-            className="btn btn-ghost mt-2 w-full !px-2 !py-1"
-            onClick={() => {
-              if (!voice.active) ensureVoice()
-              else voiceRef.current?.toggleMute()
-            }}
+            className="btn btn-ghost absolute bottom-3 left-3 z-20"
+            onClick={() => ctrlRef.current.revealRound()}
           >
-            {!voice.active ? 'Voice' : voice.muted ? 'Unmute' : 'Mute'}
-          </button>
-        </div>
-      </header>
-
-      <div className="absolute bottom-3 right-3 z-20 flex flex-col items-end gap-2">
-        {!selfGuessed && (
-          <button type="button" className="btn btn-primary" onClick={() => setMapOpen((v) => !v)}>
-            {mapOpen ? 'Hide map' : 'Guess'}
-          </button>
-        )}
-        {selfGuessed && (
-          <div className="panel px-4 py-2 text-xs text-mint">
-            {lockedCount >= room.players.filter((p) => p.connected !== false).length
-              ? 'All locked — revealing…'
-              : `Guess locked · ${lockedCount}/${room.players.length} in`}
-          </div>
-        )}
-        {room.isHost && (
-          <button type="button" className="btn btn-ghost" onClick={() => ctrlRef.current.revealRound()}>
             Force reveal
           </button>
         )}
       </div>
 
-      {mapOpen && !selfGuessed && (
-        <div className="absolute inset-x-3 bottom-20 z-30 mx-auto max-w-xl md:inset-x-auto md:right-3 md:w-[420px]">
-          <div className="panel p-3">
-            <GuessMap
-              mode="guess"
-              guess={guess}
-              onGuess={setGuess}
-              country={country}
-              onCountry={setCountry}
-              locked={selfGuessed}
-            />
-            <button type="button" className="btn btn-primary mt-3 w-full" disabled={!guess} onClick={lockGuess}>
-              Lock guess
+      <aside className="z-30 flex max-h-[48vh] w-full shrink-0 flex-col border-t border-sky/30 bg-panel/95 p-3 md:max-h-none md:w-[min(42vw,460px)] md:border-l md:border-t-0">
+        {!selfGuessed ? (
+          <>
+            <div className="mb-2">
+              <p className="font-display text-base font-bold text-sky">World map</p>
+              <p className="text-[11px] text-muted">
+                Street View is on the left. Tap this map to drop your pin, then lock.
+              </p>
+            </div>
+            <div className="min-h-0 flex-1">
+              <GuessMap
+                mode="guess"
+                guess={guess}
+                onGuess={setGuess}
+                country={country}
+                onCountry={setCountry}
+                locked={selfGuessed}
+                tall
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary mt-3 w-full shrink-0"
+              disabled={!guess}
+              onClick={lockGuess}
+            >
+              {guess ? 'Lock guess' : 'Drop a pin on the world map first'}
             </button>
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+            <p className="font-display text-xl text-mint">Guess locked</p>
+            <p className="text-sm text-muted">
+              {lockedCount >= room.players.filter((p) => p.connected !== false).length
+                ? 'Everyone in — revealing…'
+                : `Waiting · ${lockedCount}/${room.players.length} locked`}
+            </p>
+            {guess && (
+              <p className="font-mono text-xs text-sky">
+                Your pin · {guess.lat.toFixed(2)}, {guess.lng.toFixed(2)}
+                {country ? ` · ${country}` : ''}
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </aside>
     </div>
   )
 }
