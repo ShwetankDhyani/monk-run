@@ -31,8 +31,8 @@ export function HowToPlayModal({ open, onClose }) {
         role="dialog"
         aria-labelledby="howto-title"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 id="howto-title" className="font-display text-xl font-bold text-fog">
+        <div className="flex items-center justify-between border-b border-brass/15 px-5 py-4">
+          <h2 id="howto-title" className="font-display text-xl font-medium text-fog">
             How to play
           </h2>
           <button type="button" className="btn btn-ghost px-3 py-1 text-sm" onClick={onClose}>
@@ -42,15 +42,15 @@ export function HowToPlayModal({ open, onClose }) {
         <ol className="space-y-4 px-5 py-5">
           {STEPS.map((s, i) => (
             <li key={s.title} className="flex gap-3">
-              <span className="font-display text-lg font-bold text-amber">{i + 1}</span>
+              <span className="font-display text-lg text-amber">{i + 1}</span>
               <div>
-                <p className="font-display font-semibold text-fog">{s.title}</p>
+                <p className="font-display font-medium text-fog">{s.title}</p>
                 <p className="mt-1 text-sm text-muted">{s.body}</p>
               </div>
             </li>
           ))}
         </ol>
-        <p className="border-t border-white/10 px-5 py-3 text-[11px] text-muted">
+        <p className="border-t border-brass/15 px-5 py-3 text-[11px] text-muted">
           Controls in lobby: WASD / arrows move · Space smack · 1–4 emotes · voice is opt-in
         </p>
       </div>

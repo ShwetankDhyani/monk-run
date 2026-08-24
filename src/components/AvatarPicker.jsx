@@ -16,18 +16,17 @@ export function AvatarPicker({ value, onChange }) {
   }, [])
 
   return (
-    <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
+    <div className="scout-grid mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7">
       {MONK_AVATARS.map((a) => (
         <button
           key={a.id}
           type="button"
+          data-active={value === a.id}
           onClick={() => onChange(a.id)}
-          className={`flex flex-col items-center rounded-xl border p-2 transition ${
-            value === a.id ? 'border-sky bg-sky/10 ring-2 ring-sky' : 'border-white/10 bg-black/20 hover:border-white/25'
-          }`}
+          className="flex flex-col items-center p-2"
         >
           <canvas ref={(el) => { refs.current[a.id] = el }} width={64} height={64} className="h-14 w-14" />
-          <span className="mt-1 text-[9px] font-display uppercase tracking-wide text-muted">{a.label}</span>
+          <span className="mt-1 font-display text-[9px] uppercase tracking-wide text-muted">{a.label}</span>
         </button>
       ))}
     </div>

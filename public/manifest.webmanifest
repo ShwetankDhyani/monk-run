@@ -4,8 +4,8 @@
   "description": "Temple lobby party geography — voice, black holes, worldwide Street View.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0b1220",
-  "theme_color": "#0b1220",
+  "background_color": "#06080e",
+  "theme_color": "#06080e",
   "lang": "en",
   "icons": [
     {

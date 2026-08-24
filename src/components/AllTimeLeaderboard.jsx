@@ -63,8 +63,8 @@ function LeaderboardModal({ onClose, refreshKey }) {
         role="dialog"
         aria-labelledby="lb-title"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 id="lb-title" className="font-display text-xl font-bold text-fog">
+        <div className="flex items-center justify-between border-b border-brass/15 px-5 py-4">
+          <h2 id="lb-title" className="font-display text-xl font-medium text-fog">
             All Time Leaderboard
           </h2>
           <button type="button" className="btn btn-ghost px-3 py-1 text-sm" onClick={onClose}>

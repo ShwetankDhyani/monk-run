@@ -20,8 +20,8 @@ export function SettingsModal({ open, onClose }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose} role="presentation">
       <div className="panel w-full max-w-md p-0" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="settings-title">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 id="settings-title" className="font-display text-xl font-bold">
+        <div className="flex items-center justify-between border-b border-brass/15 px-5 py-4">
+          <h2 id="settings-title" className="font-display text-xl font-medium">
             Settings
           </h2>
           <button type="button" className="btn btn-ghost px-3 py-1 text-sm" onClick={onClose}>

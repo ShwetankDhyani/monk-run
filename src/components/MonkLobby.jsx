@@ -80,7 +80,7 @@ function propColliders(props) {
 
 function drawNameplate(ctx, x, y, name, isSelf) {
   const label = (name || 'Monk').slice(0, 14)
-  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif'
+  ctx.font = '600 13px Fraunces, Georgia, serif'
   const tw = ctx.measureText(label).width
   ctx.fillStyle = 'rgba(10,6,4,0.92)'
   ctx.strokeStyle = isSelf ? '#fbbf24' : 'rgba(200,160,100,0.65)'

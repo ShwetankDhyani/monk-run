@@ -19,6 +19,7 @@ import { playerError } from './lib/playerErrors.js'
 import { HowToPlayModal } from './components/HowToPlayModal.jsx'
 import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
+import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
 import { sfx } from './lib/sfx.js'
 
 function useCountdown(endsAt, active) {
@@ -55,16 +56,17 @@ function ShareCard({ players, scores, roomCode }) {
     c.width = w
     c.height = h
     const g = ctx.createLinearGradient(0, 0, w, h)
-    g.addColorStop(0, '#0b1220')
-    g.addColorStop(1, '#102a43')
+    g.addColorStop(0, '#06080e')
+    g.addColorStop(0.45, '#121820')
+    g.addColorStop(1, '#1a2a28')
     ctx.fillStyle = g
     ctx.fillRect(0, 0, w, h)
-    ctx.fillStyle = '#38bdf8'
-    ctx.font = '800 72px Syne, sans-serif'
-    ctx.fillText('monk.run', 80, 140)
-    ctx.fillStyle = 'rgba(232,238,247,0.7)'
-    ctx.font = '500 28px IBM Plex Mono, monospace'
-    ctx.fillText(`ROOM ${roomCode} · FINAL PODIUM`, 80, 200)
+    ctx.fillStyle = '#f0c98a'
+    ctx.font = '500 78px Fraunces, serif'
+    ctx.fillText('monk.run', 80, 150)
+    ctx.fillStyle = 'rgba(230,235,232,0.65)'
+    ctx.font = '400 26px Outfit, sans-serif'
+    ctx.fillText(`ROOM ${roomCode} · FINAL PODIUM`, 80, 210)
     ranked.slice(0, 5).forEach((p, i) => {
       const y = 320 + i * 140
       const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
@@ -72,21 +74,21 @@ function ShareCard({ players, scores, roomCode }) {
       ctx.beginPath()
       ctx.arc(110, y, 28, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = '#e8eef7'
-      ctx.font = '700 42px Syne, sans-serif'
+      ctx.fillStyle = '#e6ebe8'
+      ctx.font = '500 42px Fraunces, serif'
       ctx.fillText(`${i + 1}. ${p.name}`, 170, y + 12)
-      ctx.fillStyle = '#34d399'
-      ctx.font = '600 36px IBM Plex Mono, monospace'
+      ctx.fillStyle = '#5ec4b6'
+      ctx.font = '500 36px IBM Plex Mono, monospace'
       ctx.fillText(String(p.score), 820, y + 12)
     })
-    ctx.fillStyle = 'rgba(56,189,248,0.85)'
-    ctx.font = '500 24px IBM Plex Mono, monospace'
-    ctx.fillText('party world-guess · voice lobby · smack responsibly', 80, 1260)
+    ctx.fillStyle = 'rgba(212,165,116,0.85)'
+    ctx.font = '400 24px Outfit, sans-serif'
+    ctx.fillText('temple lobby · black hole · world guess', 80, 1260)
   }, [ranked, roomCode])
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <canvas ref={canvasRef} className="max-h-64 w-full max-w-xs rounded-xl border border-white/10" />
+      <canvas ref={canvasRef} className="max-h-64 w-full max-w-xs border border-brass/20" />
       <button
         type="button"
         className="btn btn-ghost"
@@ -115,6 +117,7 @@ export default function App() {
   const [showHowTo, setShowHowTo] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [legal, setLegal] = useState(null)
+  const [gateMode, setGateMode] = useState(null) // null | 'create' | 'join'
   const commitRef = useRef({ sessionId: '', tokens: {} })
   const [room, setRoom] = useState(null)
   const [guess, setGuess] = useState(null)
@@ -395,110 +398,144 @@ export default function App() {
   if (screen === 'landing' && !busy && (!room || room.phase === 'boot')) {
     const pinReady = normalizeRoomPin(joinCode).length === 6
     return (
-      <div className="flex min-h-full flex-col items-center justify-center overflow-auto bg-ink p-4 pb-6">
-        <div className="panel w-full max-w-lg p-6 md:p-8">
-          <p className="text-center font-display text-sm font-bold uppercase tracking-[0.3em] text-sky">
-            party world-guess
-          </p>
-          <h1 className="mt-2 text-center font-display text-5xl font-extrabold tracking-tight text-fog md:text-6xl">
-            monk.run
-          </h1>
-          <p className="mt-3 text-center text-sm text-muted">Voice chat + party world-guess.</p>
-
-          <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Your monk name</label>
-          <input
-            className="input-clean mt-1"
-            maxLength={18}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Wanderer"
-          />
-
-          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Choose your scout</p>
-          <AvatarPicker
-            value={avatar}
-            onChange={(id) => {
-              setAvatar(id)
-              localStorage.setItem('monk-avatar', id)
-            }}
-          />
-          <p className="mt-2 text-[10px] text-muted">Same character? You get a different robe color in-room.</p>
-
-          <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
-            Create room
-          </button>
-          <p className="mt-2 text-center text-[11px] text-muted">Host gets a 6-digit PIN to share</p>
-
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted">or join with PIN</span>
-            <div className="h-px flex-1 bg-white/10" />
+      <div className="landing">
+        <Atmosphere />
+        <div className="landing-stage">
+          <div className="landing-brand">
+            <BrandMark className="landing-mark" />
+            <h1 className="landing-title">monk.run</h1>
+            <p className="landing-tag">Temple lobby. Black hole jump. Guess the world with your party.</p>
           </div>
 
-          <label className="block text-[10px] uppercase tracking-widest text-muted">Room PIN</label>
-          <input
-            className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            value={joinCode}
-            onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && pinReady && !busy) join()
-            }}
-            placeholder="000000"
-          />
-          <button
-            type="button"
-            className="btn btn-ghost mt-3 w-full"
-            disabled={busy || !pinReady}
-            onClick={join}
-          >
-            Join room
-          </button>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-[11px] text-muted">
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowHowTo(true)}>How to play</button>
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowSettings(true)}>Settings</button>
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('privacy')}>Privacy</button>
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('terms')}>Terms</button>
-          </div>
-          {error && (
-            <div
-              className="mt-4 rounded-xl border border-amber/30 bg-amber/10 px-3 py-2 text-center text-xs text-amber"
-              role="status"
-            >
-              <p>{playerError(error)}</p>
-              <button
-                type="button"
-                className="mt-1 text-[10px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
-                onClick={() => setError('')}
-              >
-                Dismiss
+          {!gateMode && (
+            <div className="landing-ctas">
+              <button type="button" className="btn btn-primary" onClick={() => setGateMode('create')}>
+                Create room
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => setGateMode('join')}>
+                Enter with PIN
               </button>
             </div>
           )}
+
+          {gateMode && (
+            <div className="landing-gate">
+              <button
+                type="button"
+                className="mb-4 text-[10px] uppercase tracking-[0.2em] text-muted hover:text-brass-bright"
+                onClick={() => setGateMode(null)}
+              >
+                ← Back
+              </button>
+
+              <label className="landing-label">Your monk name</label>
+              <input
+                className="input-clean mt-1"
+                maxLength={18}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Wanderer"
+                autoFocus
+              />
+
+              {gateMode === 'create' && (
+                <>
+                  <p className="landing-label mt-6">Choose your scout</p>
+                  <AvatarPicker
+                    value={avatar}
+                    onChange={(id) => {
+                      setAvatar(id)
+                      localStorage.setItem('monk-avatar', id)
+                    }}
+                  />
+                  <p className="landing-hint">Same scout? You get a different robe in-room.</p>
+                  <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
+                    Open the temple
+                  </button>
+                  <p className="landing-hint">Host gets a 6-digit PIN to share</p>
+                </>
+              )}
+
+              {gateMode === 'join' && (
+                <>
+                  <p className="landing-label mt-5">Choose your scout</p>
+                  <AvatarPicker
+                    value={avatar}
+                    onChange={(id) => {
+                      setAvatar(id)
+                      localStorage.setItem('monk-avatar', id)
+                    }}
+                  />
+                  <label className="landing-label mt-6">Room PIN</label>
+                  <input
+                    className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && pinReady && !busy) join()
+                    }}
+                    placeholder="000000"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary mt-5 w-full"
+                    disabled={busy || !pinReady}
+                    onClick={join}
+                  >
+                    Step inside
+                  </button>
+                </>
+              )}
+
+              {error && (
+                <div className="notice-soft" role="status">
+                  <p>{playerError(error)}</p>
+                  <button
+                    type="button"
+                    className="mt-2 text-[10px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
+                    onClick={() => setError('')}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="landing-foot">
+            <button type="button" onClick={() => setShowHowTo(true)}>How to play</button>
+            <button type="button" onClick={() => setShowSettings(true)}>Settings</button>
+            <button type="button" onClick={() => setLegal('privacy')}>Privacy</button>
+            <button type="button" onClick={() => setLegal('terms')}>Terms</button>
+          </div>
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4 shrink-0 self-center" />
         </div>
-        <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
-      
-      <HowToPlayModal open={showHowTo} onClose={() => setShowHowTo(false)} />
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+
+        <HowToPlayModal open={showHowTo} onClose={() => setShowHowTo(false)} />
+        <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       </div>
     )
   }
 
   if (!room || room.phase === 'boot') {
     return (
-      <div className="grid min-h-full place-items-center bg-ink">
-        <p className="animate-pulse text-xs tracking-widest text-sky">CONNECTING…</p>
+      <div className="relative grid min-h-full place-items-center overflow-hidden">
+        <Atmosphere intensity="soft" />
+        <p className="relative z-10 animate-pulse font-display text-sm tracking-[0.35em] text-brass">CONNECTING…</p>
       </div>
     )
   }
 
   if (room.phase === 'error') {
     return (
-      <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
-        <div className="panel w-full max-w-md p-6 text-center">
-          <p className="font-display text-2xl font-bold text-fog">
+      <div className="relative flex min-h-full items-center justify-center overflow-auto p-4">
+        <Atmosphere intensity="soft" />
+        <div className="relative z-10 w-full max-w-md text-center">
+          <BrandMark className="mx-auto mb-4 h-12 w-12 text-brass opacity-80" />
+          <p className="font-display text-3xl font-medium text-fog">
             {hostLeft ? 'Host left the room' : 'Connection lost'}
           </p>
           <p className="mt-3 text-sm text-muted">
@@ -506,16 +543,17 @@ export default function App() {
           </p>
           <button
             type="button"
-            className="btn btn-primary mt-6 w-full"
+            className="btn btn-primary mt-8 w-full"
             onClick={() => {
               setError('')
+              setGateMode(null)
               ctrlRef.current.destroy()
               setRoom(null)
               setScreen('landing')
               window.location.hash = ''
             }}
           >
-            Back to start
+            Back to temple
           </button>
         </div>
       </div>
@@ -526,18 +564,19 @@ export default function App() {
     const inPortal = room.phase === 'countdown' || portalHold
     return (
       <Fragment>
-      <div className="flex h-full min-h-full flex-col bg-ink">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+      <div className="lobby-shell">
+        <Atmosphere intensity="soft" />
+        <header className="lobby-header">
           <div>
-            <p className="font-display text-xl font-bold text-fog">monk.run</p>
-            <p className="text-[10px] uppercase tracking-widest text-muted">
+            <p className="font-display text-2xl font-medium tracking-tight text-fog">monk.run</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted">
               Temple lobby · {room.players.length}/{MAX_PLAYERS}
               {room.localOnly ? ' · local' : ''}
             </p>
           </div>
           <button
             type="button"
-            className="rounded-xl border border-amber/30 bg-black/30 px-4 py-2 text-left disabled:opacity-60"
+            className="pin-plate"
             onClick={copyPin}
             disabled={inPortal}
             title="Copy PIN"
@@ -546,7 +585,7 @@ export default function App() {
             <p className="font-mono text-2xl font-bold tracking-[0.2em] text-amber">
               {room.roomCode}
             </p>
-            <p className="text-[10px] text-sky">{copied ? 'Copied!' : 'Tap to copy'}</p>
+            <p className="text-[10px] text-jade-bright">{copied ? 'Copied!' : 'Tap to copy'}</p>
           </button>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -563,7 +602,7 @@ export default function App() {
             {room.isHost && room.phase === 'lobby' && (
               <button
                 type="button"
-                className="btn btn-primary px-8 text-lg font-bold tracking-wide"
+                className="btn btn-primary px-8 text-lg tracking-wide"
                 onClick={() =>
                   ctrlRef.current.beginCountdown({
                     rounds: DEFAULT_ROUNDS,
@@ -577,7 +616,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[1fr_280px]">
+        <div className="relative z-10 grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[1fr_280px]">
           <MonkLobby
             selfId={room.selfId}
             players={room.players}
@@ -595,12 +634,12 @@ export default function App() {
             focused={!inPortal}
           />
           <aside className="panel flex min-h-0 flex-col gap-3 p-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted">Players</p>
+            <p className="landing-label">Players</p>
             <ul className="space-y-2">
               {room.players.map((p) => {
                 const look = resolvePlayerLook(p.avatar || p.vibe, p.id, room.players)
                 return (
-                  <li key={p.id} className="flex items-center justify-between rounded-lg bg-black/20 px-2 py-2">
+                  <li key={p.id} className="flex items-center justify-between border-b border-brass/10 px-1 py-2">
                     <span className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: look.robe }} />
                       <span className="font-display text-sm">{p.name}</span>
@@ -614,8 +653,8 @@ export default function App() {
               })}
             </ul>
 
-            <p className="text-[10px] uppercase tracking-widest text-muted">Chat</p>
-            <ul className="min-h-[72px] max-h-36 flex-1 space-y-1.5 overflow-y-auto rounded-lg bg-black/25 p-2">
+            <p className="landing-label mt-1">Chat</p>
+            <ul className="min-h-[72px] max-h-36 flex-1 space-y-1.5 overflow-y-auto border border-brass/10 bg-black/25 p-2">
               {(room.chat || []).length === 0 && (
                 <li className="text-[11px] text-muted">Say hi to the room…</li>
               )}
@@ -651,7 +690,7 @@ export default function App() {
                   : 'off'}
               </p>
               {voice.error && (
-                <p className="rounded-lg border border-amber/20 bg-amber/10 px-2 py-1 text-amber">
+                <p className="notice-soft !mt-2 text-left text-amber">
                   {playerError(voice.error, 'Voice unavailable right now.')}
                 </p>
               )}
@@ -659,15 +698,9 @@ export default function App() {
                 <p>Waiting for host to press PLAY…</p>
               )}
               {(error || (room.message && /couldn|try again|didn.t load|hiccup|reach the game/i.test(room.message))) && (
-                <div className="rounded-lg border border-amber/25 bg-amber/10 px-2 py-1.5 text-amber" role="status">
+                <div className="notice-soft !mt-2 text-left" role="status">
                   <p>{playerError(error || room.message)}</p>
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-[11px] text-muted">
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowHowTo(true)}>How to play</button>
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setShowSettings(true)}>Settings</button>
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('privacy')}>Privacy</button>
-            <button type="button" className="underline-offset-2 hover:text-fog hover:underline" onClick={() => setLegal('terms')}>Terms</button>
-          </div>
-          {error && (
+                  {error && (
                     <button
                       type="button"
                       className="mt-0.5 text-[9px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
@@ -690,22 +723,24 @@ export default function App() {
   if (room.phase === 'podium') {
     return (
       <Fragment>
-      <div className="screen-enter flex min-h-full flex-col items-center justify-center overflow-auto bg-ink p-4 pb-6">
-        <div className="panel w-full max-w-2xl p-6 md:p-8">
-          <h2 className="text-center font-display text-4xl font-extrabold text-mint">Final podium</h2>
+      <div className="screen-enter relative flex min-h-full flex-col items-center justify-center overflow-auto p-4 pb-6">
+        <Atmosphere />
+        <div className="relative z-10 w-full max-w-2xl px-2 md:px-4">
+          <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
+          <h2 className="text-center font-display text-4xl font-medium text-brass-bright md:text-5xl">Final podium</h2>
           <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">room {room.roomCode}</p>
-          <ol className="mt-6 space-y-3">
+          <ol className="mt-8 space-y-1">
             {ranked.map((p, i) => {
               const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
               return (
                 <li
                   key={p.id}
-                  className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3"
+                  className="flex items-center justify-between border-b border-brass/15 px-2 py-3"
                 >
                   <span className="flex items-center gap-3">
-                    <span className="font-display text-xl text-amber">{i + 1}</span>
+                    <span className="podium-rank text-xl text-amber">{i + 1}</span>
                     <span className="h-3 w-3 rounded-full" style={{ background: look.robe }} />
-                    <span className="font-display">{p.name}</span>
+                    <span className="font-display text-lg">{p.name}</span>
                   </span>
                   <span className="font-mono text-mint">{p.score}</span>
                 </li>
@@ -723,6 +758,7 @@ export default function App() {
               voiceRef.current = null
               ctrlRef.current.destroy()
               setRoom(null)
+              setGateMode(null)
               setScreen('landing')
               window.location.hash = ''
               const ctrl = createRoomController({
@@ -736,7 +772,7 @@ export default function App() {
             New party
           </button>
         </div>
-        <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
+        <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="relative z-10 mt-5 shrink-0" />
       </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>
@@ -748,16 +784,17 @@ export default function App() {
     const isIntermission = room.phase === 'intermission'
     return (
       <Fragment>
-      <div className="screen-enter flex min-h-full flex-col bg-ink">
+      <div className="screen-enter relative flex min-h-full flex-col overflow-hidden">
+        <Atmosphere intensity="soft" />
         {isIntermission && room.viewToken && (
           <div className="pointer-events-none absolute inset-0 z-0 opacity-0" aria-hidden>
             <StreetView viewToken={room.viewToken} />
           </div>
         )}
         <div className="relative z-10 grid flex-1 gap-3 p-3 md:grid-cols-2">
-          <div className="panel flex min-h-[280px] flex-col p-3">
-            <p className="text-[10px] uppercase tracking-widest text-mint">Reveal</p>
-            <h3 className="font-display text-2xl text-fog">
+          <div className="flex min-h-[280px] flex-col border border-brass/15 bg-black/30 p-3 backdrop-blur-md">
+            <p className="landing-label text-jade-bright">Reveal</p>
+            <h3 className="reveal-place mt-1 text-fog">
               {room.reveal.truth.city}, {room.reveal.truth.country}
             </h3>
             <div className="mt-3 min-h-[240px] flex-1">
@@ -769,16 +806,16 @@ export default function App() {
               />
             </div>
           </div>
-          <div className="panel flex flex-col gap-3 p-4">
+          <div className="flex flex-col gap-3 border border-brass/15 bg-black/30 p-4 backdrop-blur-md">
             <p className="font-display text-lg">
               You:{' '}
               <span className="text-mint">{selfResult?.missed ? 'missed' : formatKm(selfResult?.km)}</span>
               {' · '}
-              <span className="text-sky">+{selfResult?.score || 0}</span>
+              <span className="text-brass-bright">+{selfResult?.score || 0}</span>
             </p>
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {room.reveal.results.map((r) => (
-                <li key={r.playerId} className="flex justify-between rounded-lg bg-black/20 px-3 py-2 text-sm">
+                <li key={r.playerId} className="flex justify-between border-b border-brass/10 px-1 py-2 text-sm">
                   <span className="font-display">{r.name}</span>
                   <span className="text-muted">
                     {r.missed ? 'missed' : formatKm(r.km)} · <span className="text-mint">{r.score}</span>
@@ -787,26 +824,26 @@ export default function App() {
               ))}
             </ul>
             <div className="mt-auto">
-              <p className="mb-2 text-[10px] uppercase tracking-widest text-muted">Totals</p>
+              <p className="mb-2 landing-label">Totals</p>
               {ranked.map((p) => (
                 <div key={p.id} className="flex justify-between text-xs text-fog/80">
                   <span>{p.name}</span>
-                  <span className="text-sky">{p.score}</span>
+                  <span className="text-brass-bright">{p.score}</span>
                 </div>
               ))}
               {isIntermission ? (
-                <div className="mt-4 rounded-xl border border-sky/30 bg-black/30 px-4 py-5 text-center">
-                  <p className="text-[10px] uppercase tracking-widest text-muted">Next round</p>
+                <div className="mt-4 border border-brass/25 bg-black/40 px-4 py-5 text-center">
+                  <p className="landing-label">Next round</p>
                   {room.intermissionEndsAt > 0 ? (
                     <>
-                      <p className="font-display text-4xl font-bold text-sky">{intermissionLeft || 1}s</p>
+                      <p className="font-display text-4xl font-medium text-brass-bright">{intermissionLeft || 1}s</p>
                       <p className="mt-2 text-xs text-muted">
                         {room.viewToken ? 'Panorama preloading…' : 'Fetching location…'}
                       </p>
                     </>
                   ) : (
                     <>
-                      <p className="mt-2 animate-pulse font-display text-xl text-sky">Loading location…</p>
+                      <p className="mt-2 animate-pulse font-display text-xl text-brass">Loading location…</p>
                       <p className="mt-2 text-xs text-muted">Hang tight — the next panorama is on its way.</p>
                     </>
                   )}
@@ -834,11 +871,13 @@ export default function App() {
   if (room.phase === 'loading-round') {
     return (
       <Fragment>
-      <div className="screen-enter flex min-h-full flex-col items-center justify-center bg-ink p-6">
-        <div className="panel max-w-md p-8 text-center">
-          <p className="text-[10px] uppercase tracking-widest text-muted">Round {room.roundIndex + 1}</p>
-          <p className="mt-2 font-display text-2xl text-sky">Loading panorama…</p>
-          <p className="mt-3 animate-pulse font-mono text-xs text-muted">SECURE VIEW TOKEN · STAY READY</p>
+      <div className="screen-enter relative flex min-h-full flex-col items-center justify-center overflow-hidden p-6">
+        <Atmosphere />
+        <div className="relative z-10 max-w-md text-center">
+          <BrandMark className="mx-auto mb-4 h-12 w-12 animate-pulse text-brass" />
+          <p className="landing-label">Round {room.roundIndex + 1}</p>
+          <p className="mt-2 font-display text-3xl text-brass-bright">Loading panorama…</p>
+          <p className="mt-3 font-mono text-xs tracking-widest text-muted">SECURE VIEW · STAY READY</p>
         </div>
         {room.viewToken && (
           <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>
@@ -854,24 +893,24 @@ export default function App() {
   // Playing: Street View + always-visible world map (never hide the map behind a button)
   return (
     <Fragment>
-    <div className={`screen-enter flex h-full min-h-full flex-col overflow-hidden bg-ink md:flex-row`}>
+    <div className="screen-enter flex h-full min-h-full flex-col overflow-hidden bg-void md:flex-row">
       <div className="relative min-h-0 flex-1">
         {room.viewToken && <StreetView viewToken={room.viewToken} />}
 
         <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
-          <div className="pointer-events-auto panel px-3 py-2">
-            <p className="font-display text-lg font-bold">monk.run</p>
+          <div className="pointer-events-auto hud-chip px-3 py-2">
+            <p className="font-display text-lg font-medium">monk.run</p>
             <p className="text-[10px] text-muted">
               Round {room.roundIndex + 1}/{room.totalRounds} · locked {lockedCount}/{room.players.length}
             </p>
           </div>
-          <div className="pointer-events-auto panel px-4 py-2 text-center">
-            <p className="text-[10px] uppercase tracking-widest text-muted">Time</p>
-            <p className={`font-display text-2xl font-bold ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
+          <div className="pointer-events-auto hud-chip px-4 py-2 text-center">
+            <p className="landing-label">Time</p>
+            <p className={`font-display text-2xl font-medium ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
               {roundLeft}s
             </p>
           </div>
-          <div className="pointer-events-auto panel max-w-[150px] px-3 py-2">
+          <div className="pointer-events-auto hud-chip max-w-[150px] px-3 py-2">
             {ranked.slice(0, 3).map((p) => (
               <div key={p.id} className="flex justify-between gap-2 text-[10px]">
                 <span className="truncate text-muted">{p.name}</span>
@@ -902,11 +941,11 @@ export default function App() {
         )}
       </div>
 
-      <aside className="z-30 flex max-h-[48vh] w-full shrink-0 flex-col border-t border-sky/30 bg-panel/95 p-3 md:max-h-none md:w-[min(42vw,460px)] md:border-l md:border-t-0">
+      <aside className="z-30 flex max-h-[48vh] w-full shrink-0 flex-col border-t border-brass/25 bg-panel/95 p-3 md:max-h-none md:w-[min(42vw,460px)] md:border-l md:border-t-0">
         {!selfGuessed ? (
           <>
             <div className="mb-2">
-              <p className="font-display text-base font-bold text-sky">World map</p>
+              <p className="font-display text-base font-medium text-brass-bright">World map</p>
               <p className="text-[11px] text-muted">
                 Search a city to drop a pin, or click the world map directly.
               </p>
@@ -940,7 +979,7 @@ export default function App() {
                 : `Waiting · ${lockedCount}/${room.players.length} locked`}
             </p>
             {guess && (
-              <p className="font-mono text-xs text-sky">
+              <p className="font-mono text-xs text-brass">
                 Your pin · {guess.lat.toFixed(2)}, {guess.lng.toFixed(2)}
                 {country ? ` · ${country}` : ''}
               </p>
