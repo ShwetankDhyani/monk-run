@@ -36,6 +36,7 @@ const state = {
   warp: 0,
   tint: [1, 1, 1],
   awake: false,
+  openingHook: 0,
   onSutra: null,
 }
 
@@ -70,7 +71,11 @@ async function awaken() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
   world.resetOpening(window.innerWidth, window.innerHeight, dpr)
   world.showToast('THE MANDALA OPENS', 3)
-  state.bloom = 1.4
+  // Viral first-breath: forced bloom + warp + chant swell
+  state.bloom = 1.85
+  state.warp = 1
+  state.chant = 1
+  state.openingHook = 5
   veil.classList.add('gone')
 }
 
@@ -118,12 +123,30 @@ function frame(now) {
   state.lookY = Math.max(-1.2, Math.min(1.2, state.lookY))
 
   const chantTarget = sample.chant && state.awake ? 1 : 0
-  state.chant += (chantTarget - state.chant) * (1 - Math.exp(-6 * dt))
+  // Opening hook overrides player chant for the first spectacular seconds
+  if (state.openingHook > 0) {
+    state.openingHook -= dt
+    const k = Math.max(0, state.openingHook / 5)
+    state.chant = Math.max(state.chant, 0.55 + k * 0.45)
+    state.bloom = Math.max(state.bloom, 0.8 + k * 1.0)
+    state.warp = Math.max(state.warp, k * 0.85)
+    // Spiral the gaze for the camera-ready moment
+    const spin = (5 - state.openingHook) * 1.8
+    state.lookX = Math.sin(spin) * (0.15 + k * 0.35)
+    state.lookY = Math.cos(spin * 1.1) * (0.12 + k * 0.3)
+    if (Math.random() < 0.08) audio.pulse(0.35 + k * 0.4)
+  } else {
+    state.chant += (chantTarget - state.chant) * (1 - Math.exp(-6 * dt))
+  }
 
-  // Opening bloom decays into living breath
-  const breath = 0.15 + 0.1 * Math.sin(state.time * 0.7)
-  state.bloom += (breath - state.bloom) * (1 - Math.exp(-0.6 * dt))
-  state.warp += (0 - state.warp) * (1 - Math.exp(-0.35 * dt))
+  // Opening bloom decays into living breath (hold spectacle during hook)
+  if (state.openingHook <= 0) {
+    const breath = 0.15 + 0.1 * Math.sin(state.time * 0.7)
+    state.bloom += (breath - state.bloom) * (1 - Math.exp(-0.6 * dt))
+    state.warp += (0 - state.warp) * (1 - Math.exp(-0.35 * dt))
+  } else {
+    state.warp += (0 - state.warp) * (1 - Math.exp(-0.15 * dt))
+  }
 
   const lookMag = Math.hypot(state.lookX, state.lookY)
   if (state.awake) {
