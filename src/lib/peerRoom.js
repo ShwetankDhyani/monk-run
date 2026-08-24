@@ -3,6 +3,7 @@ import { migrateVibeToAvatar } from '../data/avatars.js'
 import { randomBlackHolePos, pickRandomSpawn, clampToFloor } from './templeRoom.js'
 import { haversineKm, scoreFromDistanceKm } from './scoring.js'
 import { createGameSession, openRoundView, fetchRoundTruth } from './gameSession.js'
+import { playerError } from './playerErrors.js'
 
 export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
@@ -123,9 +124,10 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function fail(msg) {
+    const text = playerError(msg)
     state.phase = 'error'
-    state.message = msg
-    onError?.(msg)
+    state.message = text
+    onError?.(text)
     emit()
   }
 
@@ -402,7 +404,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.isHost = true
     state.localOnly = true
     state.selfId = `solo-${Math.random().toString(36).slice(2, 9)}`
-    state.message = 'Local mode — voice/multiplayer broker offline. Cabin + GeoGuessr still work.'
+    state.message = 'Playing solo — voice chat will join when friends connect.'
     state.scores[state.selfId] = 0
     upsertPlayer({ id: state.selfId, name, avatar: migrateVibeToAvatar(avatar || vibe), vibe, connected: true, isHost: true })
     state.lobby[state.selfId] = assignSpawn(state.lobby, state.selfId)
@@ -552,13 +554,13 @@ export function createRoomController({ onState, onError, onEvent }) {
       }
       state.totalRounds = session.totalRounds
       pushSync()
-    } catch {
+    } catch (err) {
       if (state.phase !== 'countdown') return
       state.phase = 'lobby'
       state.countdownStartedAt = 0
       state.countdownEndsAt = 0
-      state.message = 'Game server offline — restart with npm run dev (starts API automatically).'
-      onError?.(state.message)
+      // Recoverable — stay in lobby with a soft notice, never expose infra/npm copy
+      state.message = playerError(err, 'Couldn’t start the match. Tap PLAY to try again.')
       emit()
     }
   }
@@ -608,7 +610,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       secrets.currentLocationId = opened.locationId
     } catch {
       if (gen !== roundLoadGen) return
-      fail('Could not load secure round view.')
+      fail('Couldn’t load this round. Head back and try PLAY again.')
       return
     }
 
@@ -639,7 +641,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.message = `Round ${nextIndex + 1} in ${Math.ceil(INTERMISSION_MS / 1000)}s`
       pushSync()
     } catch {
-      fail('Could not load next round.')
+      fail('Couldn’t load the next round. Try starting a new match.')
     }
   }
 

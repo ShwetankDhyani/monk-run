@@ -15,6 +15,7 @@ import { AvatarPicker } from './components/AvatarPicker.jsx'
 import { CinematicOverlay } from './components/CinematicOverlay.jsx'
 import { AllTimeLeaderboardButton } from './components/AllTimeLeaderboard.jsx'
 import { submitScore } from './lib/leaderboard.js'
+import { playerError } from './lib/playerErrors.js'
 
 function useCountdown(endsAt, active) {
   const [left, setLeft] = useState(0)
@@ -130,7 +131,7 @@ export default function App() {
   useEffect(() => {
     const ctrl = createRoomController({
       onState: (s) => setRoom(s),
-      onError: (msg) => setError(msg),
+      onError: (msg) => setError(playerError(msg)),
     })
     ctrlRef.current = ctrl
     const id = setInterval(() => ctrl.tick(), 200)
@@ -283,7 +284,7 @@ export default function App() {
       })
     } catch (err) {
       setScreen('landing')
-      setError(err?.message || 'Could not create room')
+      setError(playerError(err, 'Couldn’t create room. Try again.'))
     } finally {
       setBusy(false)
     }
@@ -304,7 +305,7 @@ export default function App() {
       })
     } catch (err) {
       setScreen('landing')
-      setError(err?.message || 'Join failed')
+      setError(playerError(err, 'Couldn’t join — check the PIN and try again.'))
     } finally {
       setBusy(false)
     }
@@ -421,7 +422,21 @@ export default function App() {
           >
             Join room
           </button>
-          {error && <p className="mt-3 text-center text-xs text-coral">{error}</p>}
+          {error && (
+            <div
+              className="mt-4 rounded-xl border border-amber/30 bg-amber/10 px-3 py-2 text-center text-xs text-amber"
+              role="status"
+            >
+              <p>{playerError(error)}</p>
+              <button
+                type="button"
+                className="mt-1 text-[10px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
+                onClick={() => setError('')}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
         </div>
         <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
       </div>
@@ -440,21 +455,24 @@ export default function App() {
     return (
       <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
         <div className="panel w-full max-w-md p-6 text-center">
-          <p className="font-display text-2xl font-bold text-coral">
-            {hostLeft ? 'Host disconnected' : room.message?.includes('Game server') ? 'Game server needed' : 'Could not connect'}
+          <p className="font-display text-2xl font-bold text-fog">
+            {hostLeft ? 'Host left the room' : 'Connection lost'}
           </p>
-          <p className="mt-3 text-sm text-muted">{room.message || error || 'Something went wrong.'}</p>
+          <p className="mt-3 text-sm text-muted">
+            {playerError(room.message || error, 'Something went wrong. You can head back and try again.')}
+          </p>
           <button
             type="button"
             className="btn btn-primary mt-6 w-full"
             onClick={() => {
+              setError('')
               ctrlRef.current.destroy()
               setRoom(null)
               setScreen('landing')
               window.location.hash = ''
             }}
           >
-            Back
+            Back to start
           </button>
         </div>
       </div>
@@ -589,11 +607,28 @@ export default function App() {
                     : `live (${voice.peers.length} linked)`
                   : 'off'}
               </p>
-              {voice.error && <p className="text-coral">{voice.error}</p>}
+              {voice.error && (
+                <p className="rounded-lg border border-amber/20 bg-amber/10 px-2 py-1 text-amber">
+                  {playerError(voice.error, 'Voice unavailable right now.')}
+                </p>
+              )}
               {!room.isHost && room.phase === 'lobby' && !inPortal && (
                 <p>Waiting for host to press PLAY…</p>
               )}
-              {error && <p className="text-coral">{error}</p>}
+              {(error || (room.message && /couldn|try again|didn.t load|hiccup|reach the game/i.test(room.message))) && (
+                <div className="rounded-lg border border-amber/25 bg-amber/10 px-2 py-1.5 text-amber" role="status">
+                  <p>{playerError(error || room.message)}</p>
+                  {error && (
+                    <button
+                      type="button"
+                      className="mt-0.5 text-[9px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
+                      onClick={() => setError('')}
+                    >
+                      Dismiss
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </aside>
         </div>
@@ -643,9 +678,10 @@ export default function App() {
               window.location.hash = ''
               const ctrl = createRoomController({
                 onState: (s) => setRoom(s),
-                onError: (msg) => setError(msg),
+                onError: (msg) => setError(playerError(msg)),
               })
               ctrlRef.current = ctrl
+              setError('')
             }}
           >
             New party
