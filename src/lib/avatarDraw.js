@@ -305,6 +305,257 @@ function drawErenFloatingHead(ctx, look, dir, walk, scale) {
   drawErenTitanFace(ctx, look, headY, headR, 'down')
 }
 
+function drawLeviBladeUnit(ctx, angle, mirrored = false) {
+  ctx.save()
+  ctx.rotate(angle)
+  if (mirrored) ctx.scale(-1, 1)
+
+  ctx.fillStyle = '#2a2018'
+  ctx.fillRect(-1.6, -2.5, 3.2, 5.5)
+  ctx.fillStyle = '#3a3028'
+  ctx.beginPath()
+  ctx.moveTo(-2.2, 2.5)
+  ctx.lineTo(2.2, 2.5)
+  ctx.lineTo(1.6, 5.5)
+  ctx.lineTo(-1.6, 5.5)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.fillStyle = '#c0c8d0'
+  ctx.strokeStyle = '#687888'
+  ctx.lineWidth = 0.55
+  for (let i = 0; i < 4; i++) {
+    const by = 6 + i * 3.2
+    ctx.fillRect(-2.6, by, 5.2, 2.8)
+    ctx.strokeRect(-2.6, by, 5.2, 2.8)
+  }
+  ctx.fillRect(-1.8, 6 + 4 * 3.2, 3.6, 2)
+  ctx.strokeRect(-1.8, 6 + 4 * 3.2, 3.6, 2)
+
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.fillRect(-1.2, 7, 1, 8)
+
+  ctx.restore()
+}
+
+function drawLeviBlades(ctx, dir, walk, scale) {
+  const sway = Math.sin(walk * 12) * 0.8
+
+  if (dir === 'down') {
+    for (const [hx, hy, ang, mir] of [
+      [-11 * scale, 5 + sway, 0.55, false],
+      [11 * scale, 5 + sway, -0.55, true],
+    ]) {
+      ctx.save()
+      ctx.translate(hx, hy)
+      drawLeviBladeUnit(ctx, ang, mir)
+      ctx.restore()
+    }
+    return
+  }
+
+  if (dir === 'up') {
+    for (const [hx, hy, ang] of [
+      [-9 * scale, 6, -0.25],
+      [9 * scale, 6, 0.25],
+    ]) {
+      ctx.save()
+      ctx.translate(hx, hy)
+      drawLeviBladeUnit(ctx, ang, false)
+      ctx.restore()
+    }
+    return
+  }
+
+  const flip = dir === 'left' ? -1 : 1
+  ctx.save()
+  ctx.scale(flip, 1)
+  ctx.translate(10 * scale, 4 + sway)
+  drawLeviBladeUnit(ctx, 0.35, false)
+  ctx.translate(-4, 3)
+  drawLeviBladeUnit(ctx, -0.15, true)
+  ctx.restore()
+}
+
+function drawLeviCravat(ctx, look, dir, scale) {
+  if (dir === 'up') return
+  ctx.fillStyle = look.cravat || '#f0ece4'
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'
+  ctx.lineWidth = 0.7
+
+  if (dir === 'down') {
+    ctx.beginPath()
+    ctx.moveTo(-5 * scale, -1)
+    ctx.quadraticCurveTo(0, 3 * scale, 5 * scale, -1)
+    ctx.lineTo(4 * scale, 4 * scale)
+    ctx.quadraticCurveTo(0, 6 * scale, -4 * scale, 4 * scale)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'
+    ctx.fillRect(-1.5 * scale, 0, 3 * scale, 2 * scale)
+    return
+  }
+
+  const flip = dir === 'left' ? -1 : 1
+  ctx.save()
+  ctx.scale(flip, 1)
+  ctx.beginPath()
+  ctx.moveTo(2, 0)
+  ctx.quadraticCurveTo(7 * scale, 2 * scale, 5 * scale, 6 * scale)
+  ctx.lineTo(2, 5 * scale)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawLeviHair(ctx, look, headY, headR, dir) {
+  ctx.fillStyle = look.hair
+  if (dir === 'up') {
+    ctx.beginPath()
+    ctx.arc(0, headY, headR * 0.85, 0, Math.PI * 2)
+    ctx.fill()
+    return
+  }
+
+  if (dir === 'left' || dir === 'right') {
+    ctx.beginPath()
+    ctx.arc(2, headY - headR * 0.35, headR * 0.72, Math.PI * 0.85, Math.PI * 2.15)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.moveTo(4, headY - headR * 0.2)
+    ctx.lineTo(7, headY + headR * 0.15)
+    ctx.lineTo(5, headY + headR * 0.05)
+    ctx.closePath()
+    ctx.fill()
+    return
+  }
+
+  ctx.fillRect(-headR * 0.95, headY - headR * 0.15, headR * 0.22, headR * 0.8)
+  ctx.fillRect(headR * 0.73, headY - headR * 0.15, headR * 0.22, headR * 0.8)
+  ctx.beginPath()
+  ctx.arc(0, headY - headR * 0.32, headR * 0.74, Math.PI, Math.PI * 2)
+  ctx.fill()
+
+  const fringes = [
+    [-0.34, 0.38], [-0.14, 0.52], [0, 0.48], [0.14, 0.52], [0.34, 0.38],
+  ]
+  for (const [sx, len] of fringes) {
+    ctx.beginPath()
+    ctx.moveTo(sx * headR, headY - headR * 0.52)
+    ctx.lineTo(sx * headR * 0.82, headY - headR * 0.52 + headR * len * 0.38)
+    ctx.lineTo(sx * headR * 1.08, headY - headR * 0.52 + headR * len * 0.38)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)'
+  ctx.lineWidth = 0.7
+  ctx.beginPath()
+  ctx.moveTo(0, headY - headR * 0.78)
+  ctx.lineTo(0, headY - headR * 0.32)
+  ctx.stroke()
+}
+
+function drawLeviEyes(ctx, look, headY, headR, dir = 'down') {
+  if (dir === 'left' || dir === 'right') {
+    const flip = dir === 'left' ? -1 : 1
+    ctx.save()
+    ctx.scale(flip, 1)
+    ctx.fillStyle = look.eyes
+    ctx.beginPath()
+    ctx.ellipse(9, headY - 1, 1.6, 1, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#1a1008'
+    ctx.beginPath()
+    ctx.arc(9.2, headY - 1, 0.7, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = look.brow
+    ctx.lineWidth = 1.1
+    ctx.beginPath()
+    ctx.moveTo(6, headY - headR * 0.18)
+    ctx.lineTo(10, headY - headR * 0.24)
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+
+  const eyeY = headY + 1
+  const gap = headR * 0.27
+  const eyeW = 1.55
+
+  ctx.fillStyle = look.skin
+  ctx.fillRect(-gap - eyeW - 0.5, eyeY - eyeW - 1.2, eyeW * 2 + 1, 1.4)
+  ctx.fillRect(gap - eyeW - 0.5, eyeY - eyeW - 1.2, eyeW * 2 + 1, 1.4)
+
+  ctx.fillStyle = look.eyes
+  ctx.beginPath()
+  ctx.ellipse(-gap, eyeY, eyeW, eyeW * 0.52, 0, 0, Math.PI * 2)
+  ctx.ellipse(gap, eyeY, eyeW, eyeW * 0.52, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#1a1008'
+  ctx.beginPath()
+  ctx.arc(-gap, eyeY, eyeW * 0.42, 0, Math.PI * 2)
+  ctx.arc(gap, eyeY, eyeW * 0.42, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.strokeStyle = look.brow
+  ctx.lineWidth = 1.15
+  ctx.beginPath()
+  ctx.moveTo(-headR * 0.52, headY - headR * 0.1)
+  ctx.lineTo(-headR * 0.06, headY - headR * 0.2)
+  ctx.moveTo(headR * 0.52, headY - headR * 0.1)
+  ctx.lineTo(headR * 0.06, headY - headR * 0.2)
+  ctx.stroke()
+}
+
+function drawLeviFace(ctx, look, dir, headY, headR) {
+  if (dir === 'left' || dir === 'right') {
+    const flip = dir === 'left' ? -1 : 1
+    ctx.save()
+    ctx.scale(flip, 1)
+    ctx.fillStyle = look.skin
+    ctx.beginPath()
+    ctx.ellipse(5, headY - 1, headR * 0.72, headR * 0.9, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#1a1008'
+    ctx.lineWidth = 1.3
+    ctx.stroke()
+    drawLeviHair(ctx, look, headY, headR, dir)
+    drawLeviEyes(ctx, look, headY, headR, dir)
+    ctx.strokeStyle = '#4a3830'
+    ctx.lineWidth = 0.9
+    ctx.beginPath()
+    ctx.moveTo(7, headY + headR * 0.22)
+    ctx.lineTo(9, headY + headR * 0.22)
+    ctx.stroke()
+    ctx.restore()
+    return
+  }
+
+  if (dir === 'up') {
+    drawLeviHair(ctx, look, headY, headR, dir)
+    return
+  }
+
+  ctx.fillStyle = look.skin
+  ctx.beginPath()
+  ctx.ellipse(0, headY, headR * 0.92, headR * 0.98, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#1a1008'
+  ctx.lineWidth = 1.4
+  ctx.stroke()
+  drawLeviHair(ctx, look, headY, headR, dir)
+  drawLeviEyes(ctx, look, headY, headR, dir)
+  ctx.strokeStyle = '#4a3830'
+  ctx.lineWidth = 0.9
+  ctx.beginPath()
+  ctx.moveTo(-headR * 0.12, headY + headR * 0.34)
+  ctx.lineTo(headR * 0.12, headY + headR * 0.34)
+  ctx.stroke()
+}
+
 function drawMikasaScarfAtNeck(ctx, look, scale) {
   if (!look.scarf) return
   const y = 1 * scale
@@ -369,17 +620,7 @@ function drawHair(ctx, look, headY, headR, feature, dir) {
     ctx.fill()
     ctx.fillRect(-headR + 1, headY - headR - 1, headR * 2 - 2, 6)
   } else if (feature === 'levi') {
-    ctx.fillRect(-headR * 0.55, headY - headR - 4, headR * 1.1, 4)
-    ctx.beginPath()
-    ctx.moveTo(-headR * 0.45, headY - headR * 0.15)
-    ctx.lineTo(-headR * 0.15, headY + 1)
-    ctx.lineTo(-headR * 0.05, headY - headR * 0.1)
-    ctx.fill()
-    ctx.beginPath()
-    ctx.moveTo(headR * 0.45, headY - headR * 0.15)
-    ctx.lineTo(headR * 0.15, headY + 1)
-    ctx.lineTo(headR * 0.05, headY - headR * 0.1)
-    ctx.fill()
+    drawLeviHair(ctx, look, headY, headR, dir)
   } else if (feature === 'hange') {
     ctx.beginPath()
     ctx.arc(0, headY - 1, headR + 2, Math.PI, Math.PI * 2)
@@ -412,6 +653,10 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
   const feature = look.feature || 'eren'
 
   if (feature === 'eren') return
+  if (feature === 'levi') {
+    drawLeviFace(ctx, look, dir, headY, headR)
+    return
+  }
 
   if (dir === 'left' || dir === 'right') {
     const flip = dir === 'left' ? -1 : 1
@@ -609,6 +854,7 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
   const headY = dir === 'up' ? 0 : -10
   const facing = DIRECTIONS.includes(dir) ? dir : 'down'
   const isEren = look.feature === 'eren'
+  const isLevi = look.feature === 'levi'
 
   ctx.save()
   ctx.translate(x, y + bob)
@@ -628,11 +874,17 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
   if (facing === 'up') {
     drawLegs(ctx, look, facing, walk, scale)
     drawMonkRobe(ctx, look, facing, walk, scale)
+    if (isLevi) drawLeviBlades(ctx, facing, walk, scale)
     drawCharacterFace(ctx, look, facing, headY, headR)
     if (look.feature === 'mikasa') drawMikasaScarfAtNeck(ctx, look, scale)
   } else {
     drawMonkRobe(ctx, look, facing, walk, scale)
-    drawPrayerBeads(ctx, look, facing)
+    if (isLevi) {
+      drawLeviBlades(ctx, facing, walk, scale)
+      drawLeviCravat(ctx, look, facing, scale)
+    } else {
+      drawPrayerBeads(ctx, look, facing)
+    }
     drawLegs(ctx, look, facing, walk, scale)
     drawCharacterFace(ctx, look, facing, headY, headR)
     if (look.feature === 'mikasa') drawMikasaScarfAtNeck(ctx, look, scale)
