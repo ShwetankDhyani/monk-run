@@ -43,11 +43,11 @@ export default function MonkLobby({
   }, [onPose, onSmack, onEmote, selfId, players, lobby, countdownSec, portalForce])
 
   useEffect(() => {
+    // Always start near the hall center so the monk is obvious (not off-canvas)
     const spawn = lobby?.[selfId]
-    if (spawn) {
-      localRef.current.x = 460 + spawn.x * 68
-      localRef.current.y = 310 + spawn.z * 52
-    }
+    localRef.current.x = 460 + (spawn?.x || 0) * 40
+    localRef.current.y = 310 + (spawn?.z || 0) * 30
+    localRef.current.scale = 1
   }, [selfId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -384,7 +384,7 @@ export default function MonkLobby({
       const hit = pose?.hitFlash > Date.now()
       const bounce = (motion.walk || 0) % (Math.PI * 2)
       const bob = Math.sin(bounce) * 2.2
-      const scale = motion.scale ?? 1
+      const scale = (motion.scale ?? 1) * 1.35
       const spin = motion.spin || 0
       const facing = motion.facing ?? (pose?.yaw != null ? (Math.cos(pose.yaw) >= 0 ? 1 : -1) : 1)
 
@@ -392,6 +392,12 @@ export default function MonkLobby({
       ctx.translate(px, py)
       ctx.rotate(spin)
       ctx.scale(scale, scale)
+
+      // soft presence glow so monks read clearly on the dark floor
+      ctx.fillStyle = `${vibe.color}33`
+      ctx.beginPath()
+      ctx.ellipse(0, 22, 28, 10, 0, 0, Math.PI * 2)
+      ctx.fill()
 
       // shadow
       ctx.fillStyle = `rgba(0,0,0,${0.28 * Math.min(1, scale)})`
@@ -701,14 +707,14 @@ export default function MonkLobby({
       const me = localRef.current
       const cd = apiRef.current.countdownSec
       const portalForce = apiRef.current.portalForce
-      // suck intensity 0→1: portal opens early, gravity ramps hard in the final stretch
+      // suck intensity 0→1. Portal is visible the moment countdown starts.
       let suckT = 0
       if (portalForce) suckT = 1
       else if (cd != null && cd >= 0) {
         const progress = Math.max(0, Math.min(1, 1 - cd / 7))
-        // open phase (0–0.4 progress) then escalating pull
-        suckT = progress < 0.35 ? progress * 0.55 : 0.19 + ((progress - 0.35) / 0.65) * 0.81
-        if (cd <= 1) suckT = Math.min(1, suckT + 0.2)
+        // Keep a strong minimum so the portal is unmistakable, then ramp the pull
+        suckT = Math.max(0.42, 0.42 + progress * 0.58)
+        if (cd <= 2) suckT = Math.min(1, suckT + 0.15)
         if (cd === 0) suckT = 1
       }
 
@@ -805,10 +811,15 @@ export default function MonkLobby({
         drawMonk(m.x, m.y, p, pose, false, m)
       }
 
-      const selfPlayer = (plist || []).find((p) => p.id === sid)
-      if (selfPlayer) {
-        drawMonk(me.x, me.y, selfPlayer, lb?.[sid], true, me)
-      }
+      // Always draw self — even if players[] briefly lags behind peer sync
+      const selfPlayer =
+        (plist || []).find((p) => p.id === sid) || {
+          id: sid,
+          name: 'You',
+          vibe: 'saffron',
+          ready: false,
+        }
+      drawMonk(me.x, me.y, selfPlayer, lb?.[sid], true, me)
 
       if (suckT >= 0.7) drawPortal(ctx, cx, cy, portal, suckT, time)
 

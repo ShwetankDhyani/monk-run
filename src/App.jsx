@@ -141,30 +141,44 @@ export default function App() {
     window.location.hash = `room/${room.roomCode}`
   }, [room?.roomCode])
 
+  // Phase → screen routing. portalHold is intentionally NOT a dependency:
+  // putting it in deps re-ran this effect, cleared the enter timeout, and
+  // stuck players forever on the cabin (no Street View).
   useEffect(() => {
-    if (!room) return
+    if (!room) return undefined
     const prev = prevPhaseRef.current
     prevPhaseRef.current = room.phase
-    if (room.phase === 'lobby' || room.phase === 'countdown' || portalHold) setScreen('cabin')
-    if ((room.phase === 'playing' || room.phase === 'reveal' || room.phase === 'podium') && !portalHold) {
-      setScreen('game')
+
+    if (room.phase === 'lobby' || room.phase === 'countdown') {
+      setScreen('cabin')
     }
-    if (room.phase === 'playing') {
+
+    if (room.phase === 'playing' && prev !== 'playing') {
       setGuess(null)
       setCountry('')
     }
-    // After countdown, hold temple + portal suck for a beat before Street View
+
+    // Countdown just finished → play portal suck, then enter the round
     if (prev === 'countdown' && room.phase === 'playing') {
       setPortalHold(true)
       setScreen('cabin')
       const t = setTimeout(() => {
         setPortalHold(false)
         setScreen('game')
-      }, 2200)
+      }, 2400)
       return () => clearTimeout(t)
     }
+
+    if (
+      (room.phase === 'playing' || room.phase === 'reveal' || room.phase === 'podium') &&
+      prev !== 'countdown'
+    ) {
+      setPortalHold(false)
+      setScreen('game')
+    }
+
     return undefined
-  }, [room?.phase, room?.roundIndex, portalHold])
+  }, [room?.phase, room?.roundIndex])
 
   useEffect(() => {
     voiceRef.current?.refresh?.()
