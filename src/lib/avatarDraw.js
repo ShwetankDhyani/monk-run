@@ -1,45 +1,58 @@
-/** Top-down monk sprites — 4-way facing, always upright (no rotation flip). */
-import { ROBE_PALETTE } from '../data/avatars.js'
+/** Top-down AOT monk scouts — big heads, small robed bodies, 4-way facing. */
+import { ROBE_PALETTE, MONK_AVATARS } from '../data/avatars.js'
 
 export const DIRECTIONS = ['down', 'up', 'left', 'right']
 
-/** Pick facing from movement delta; keeps last direction when still. */
 export function dirFromDelta(dx, dy, prev = 'down') {
   if (!dx && !dy) return prev
   if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'right' : 'left'
   return dy > 0 ? 'down' : 'up'
 }
 
-function drawRobeBody(ctx, look, dir, walk, isBaby) {
-  const bodyW = isBaby ? 18 : 26
-  const bodyH = isBaby ? 20 : 28
-  const sway = Math.sin(walk * 12) * 0.8
+function bodyScale(feature) {
+  if (feature === 'levi') return 0.82
+  if (feature === 'armin') return 0.9
+  return 1
+}
 
-  ctx.fillStyle = look.robe
+function headRadius(feature) {
+  if (feature === 'levi') return 14
+  if (feature === 'armin') return 15
+  return 16
+}
+
+function drawRobeBody(ctx, look, dir, walk, scale) {
+  const bodyW = 18 * scale
+  const bodyH = 20 * scale
+  const sway = Math.sin(walk * 12) * 0.6
+
+  ctx.fillStyle = look.robe || look.hood
   ctx.strokeStyle = '#1a1008'
-  ctx.lineWidth = 2
+  ctx.lineWidth = 1.5
 
   if (dir === 'down' || dir === 'up') {
     ctx.beginPath()
-    ctx.ellipse(0, 6 + sway * 0.3, bodyW * 0.48, bodyH * 0.42, 0, 0, Math.PI * 2)
+    ctx.ellipse(0, 8 + sway * 0.2, bodyW * 0.5, bodyH * 0.45, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
-    ctx.strokeStyle = 'rgba(26,16,8,0.35)'
-    ctx.lineWidth = 1.5
+    ctx.fillStyle = look.hood || look.robe
     ctx.beginPath()
-    ctx.moveTo(-bodyW * 0.3, 14)
-    ctx.quadraticCurveTo(-bodyW * 0.15, 18, 0, 16)
-    ctx.quadraticCurveTo(bodyW * 0.15, 18, bodyW * 0.3, 14)
+    ctx.moveTo(-bodyW * 0.35, 0)
+    ctx.quadraticCurveTo(0, -6, bodyW * 0.35, 0)
+    ctx.lineTo(bodyW * 0.28, 6)
+    ctx.lineTo(-bodyW * 0.28, 6)
+    ctx.closePath()
+    ctx.fill()
     ctx.stroke()
   } else {
     const flip = dir === 'left' ? -1 : 1
     ctx.save()
     ctx.scale(flip, 1)
     ctx.beginPath()
-    ctx.moveTo(-4, -2)
-    ctx.quadraticCurveTo(14, 4, 12, 18)
-    ctx.lineTo(-6, 20)
-    ctx.quadraticCurveTo(-10, 8, -4, -2)
+    ctx.moveTo(-2, 0)
+    ctx.quadraticCurveTo(10, 4, 9, 16)
+    ctx.lineTo(-4, 17)
+    ctx.quadraticCurveTo(-8, 8, -2, 0)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
@@ -48,145 +61,235 @@ function drawRobeBody(ctx, look, dir, walk, isBaby) {
 
   ctx.fillStyle = look.sash
   if (dir === 'down' || dir === 'up') {
-    ctx.fillRect(-bodyW * 0.38, 2, bodyW * 0.76, 5)
+    ctx.fillRect(-bodyW * 0.42, 4, bodyW * 0.84, 4)
   } else {
     const flip = dir === 'left' ? -1 : 1
     ctx.save()
     ctx.scale(flip, 1)
-    ctx.fillRect(-2, 2, 14, 4)
+    ctx.fillRect(-1, 4, 11, 3)
     ctx.restore()
   }
 }
 
-function drawHead(ctx, look, dir, id) {
-  const isBaby = id === 'monk-baby'
-  const headR = isBaby ? 9 : 11
-  const headY = dir === 'up' ? 2 : -8
+function drawEyes(ctx, look, headY, headR, dir, wide = false) {
+  if (dir !== 'down') return
+  const eyeY = headY + 1
+  const eyeW = wide ? 2.2 : 1.8
+  ctx.fillStyle = '#fff'
+  ctx.beginPath()
+  ctx.ellipse(-headR * 0.32, eyeY, eyeW + 0.5, eyeW + 1, 0, 0, Math.PI * 2)
+  ctx.ellipse(headR * 0.32, eyeY, eyeW + 0.5, eyeW + 1, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = look.eyes || '#2a1810'
+  ctx.beginPath()
+  ctx.arc(-headR * 0.32, eyeY, eyeW * 0.65, 0, Math.PI * 2)
+  ctx.arc(headR * 0.32, eyeY, eyeW * 0.65, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#1a1008'
+  ctx.beginPath()
+  ctx.arc(-headR * 0.32, eyeY, eyeW * 0.35, 0, Math.PI * 2)
+  ctx.arc(headR * 0.32, eyeY, eyeW * 0.35, 0, Math.PI * 2)
+  ctx.fill()
+}
 
+function drawHairBack(ctx, look, headY, headR, feature) {
+  ctx.fillStyle = look.hair
+  if (feature === 'mikasa') {
+    ctx.beginPath()
+    ctx.arc(0, headY - 1, headR + 1, Math.PI, Math.PI * 2)
+    ctx.fill()
+    ctx.fillRect(-headR - 1, headY - 2, headR * 2 + 2, headR * 0.7)
+  } else if (feature === 'eren') {
+    ctx.beginPath()
+    ctx.arc(0, headY - 2, headR + 2, Math.PI * 0.85, Math.PI * 2.15)
+    ctx.fill()
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath()
+      ctx.moveTo(i * 4, headY - headR)
+      ctx.lineTo(i * 4 + 2, headY - headR - 5)
+      ctx.lineTo(i * 4 + 4, headY - headR + 1)
+      ctx.fill()
+    }
+  } else if (feature === 'armin') {
+    ctx.beginPath()
+    ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
+    ctx.fill()
+    ctx.fillRect(-headR, headY - headR - 2, headR * 2, 6)
+  } else if (feature === 'levi') {
+    ctx.beginPath()
+    ctx.arc(0, headY - 3, headR, Math.PI, Math.PI * 2)
+    ctx.fill()
+    ctx.fillRect(-headR * 0.6, headY - headR - 4, headR * 1.2, 5)
+  } else if (feature === 'hange') {
+    ctx.beginPath()
+    ctx.arc(0, headY - 1, headR + 2, Math.PI, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(headR + 2, headY + 2, 4, 8, 0.3, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (feature === 'jean') {
+    ctx.beginPath()
+    ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
+    ctx.fill()
+    ctx.fillRect(-2, headY - headR - 6, 4, 8)
+  } else if (feature === 'historia') {
+    ctx.beginPath()
+    ctx.arc(0, headY - 2, headR + 2, Math.PI, Math.PI * 2)
+    ctx.fill()
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath()
+      ctx.ellipse(i * 5, headY - headR - 2, 3, 6, i * 0.2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+}
+
+function drawCharacterFace(ctx, look, dir, headY, headR) {
+  const feature = look.feature || 'eren'
+
+  if (dir === 'up') {
+    ctx.fillStyle = look.hair
+    ctx.beginPath()
+    ctx.arc(0, headY, headR * 0.85, 0, Math.PI * 2)
+    ctx.fill()
+    return
+  }
+
+  if (dir === 'left' || dir === 'right') {
+    const flip = dir === 'left' ? -1 : 1
+    ctx.save()
+    ctx.scale(flip, 1)
+    ctx.fillStyle = look.skin
+    ctx.beginPath()
+    ctx.ellipse(5, headY - 2, headR * 0.75, headR * 0.95, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#1a1008'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.fillStyle = look.hair
+    ctx.beginPath()
+    ctx.arc(2, headY - headR * 0.5, headR * 0.7, Math.PI, Math.PI * 2)
+    ctx.fill()
+    if (feature === 'mikasa') {
+      ctx.fillStyle = look.sash
+      ctx.fillRect(-2, headY - headR * 0.8, headR * 1.1, 3)
+    }
+    if (feature === 'hange') {
+      ctx.strokeStyle = '#1a1008'
+      ctx.lineWidth = 1.2
+      ctx.strokeRect(2, headY - 4, 8, 5)
+    }
+    ctx.fillStyle = '#1a1008'
+    ctx.beginPath()
+    ctx.arc(9, headY - 2, 1.4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
+  // facing down — most detail
   ctx.fillStyle = look.skin
   ctx.strokeStyle = '#1a1008'
   ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.arc(0, headY, headR, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
 
-  if (dir === 'down' || dir === 'up') {
+  drawHairBack(ctx, look, headY, headR, feature)
+
+  if (feature === 'mikasa') {
+    ctx.fillStyle = look.sash
+    ctx.fillRect(-headR * 0.85, headY - headR * 0.55, headR * 1.7, 4)
+  }
+
+  if (feature === 'historia') {
+    ctx.fillStyle = '#d4af37'
     ctx.beginPath()
-    ctx.arc(0, headY, headR, 0, Math.PI * 2)
+    ctx.moveTo(-5, headY - headR - 2)
+    ctx.lineTo(0, headY - headR - 7)
+    ctx.lineTo(5, headY - headR - 2)
+    ctx.closePath()
     ctx.fill()
-    ctx.stroke()
+  }
 
-    if (id === 'monk-bald' || id === 'monk-baby' || id === 'monk-male') {
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'
-      ctx.beginPath()
-      ctx.arc(-3, headY - 3, headR * 0.45, 0, Math.PI * 2)
-      ctx.fill()
-    }
+  ctx.strokeStyle = look.brow || look.hair
+  ctx.lineWidth = feature === 'eren' ? 2.2 : 1.6
+  ctx.beginPath()
+  ctx.moveTo(-headR * 0.55, headY - headR * 0.15)
+  ctx.lineTo(-headR * 0.12, headY - headR * 0.22)
+  ctx.moveTo(headR * 0.55, headY - headR * 0.15)
+  ctx.lineTo(headR * 0.12, headY - headR * 0.22)
+  ctx.stroke()
 
-    ctx.fillStyle = look.hair || '#2a1810'
-    if (id === 'monk-female') {
-      ctx.beginPath()
-      ctx.arc(0, headY - 2, headR + 2, Math.PI, Math.PI * 2)
-      ctx.fill()
-      ctx.fillRect(-headR - 2, headY - 2, 4, 12)
-      ctx.fillRect(headR - 2, headY - 2, 4, 12)
-    } else if (id === 'monk-mohawk') {
-      ctx.fillRect(-3, headY - headR - 8, 6, 10)
-      ctx.fillStyle = '#c97830'
-      ctx.fillRect(-2, headY - headR - 10, 4, 4)
-    } else if (id !== 'monk-bald' && id !== 'monk-baby') {
-      ctx.beginPath()
-      ctx.arc(0, headY - 2, headR - 1, Math.PI, Math.PI * 2)
-      ctx.fill()
-    }
+  drawEyes(ctx, look, headY, headR, dir, feature === 'armin' || feature === 'hange')
 
-    if (dir === 'down') {
-      ctx.fillStyle = '#1a1008'
-      ctx.beginPath()
-      ctx.arc(-4, headY - 1, 1.6, 0, Math.PI * 2)
-      ctx.arc(4, headY - 1, 1.6, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = look.skin
-      ctx.beginPath()
-      ctx.arc(0, headY + 2, 2, 0, Math.PI * 2)
-      ctx.fill()
-
-      if (id === 'monk-mustache') {
-        ctx.strokeStyle = '#3a2418'
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.moveTo(-6, headY + 4)
-        ctx.quadraticCurveTo(0, headY + 6, 6, headY + 4)
-        ctx.stroke()
-      }
-      if (id === 'monk-glasses') {
-        ctx.strokeStyle = '#1a1008'
-        ctx.lineWidth = 1.5
-        ctx.strokeRect(-9, headY - 4, 7, 5)
-        ctx.strokeRect(2, headY - 4, 7, 5)
-        ctx.beginPath()
-        ctx.moveTo(-2, headY - 2)
-        ctx.lineTo(2, headY - 2)
-        ctx.stroke()
-      }
-    } else {
-      ctx.fillStyle = look.robe
-      ctx.beginPath()
-      ctx.arc(0, headY + 4, headR * 0.7, 0, Math.PI)
-      ctx.fill()
-    }
-  } else {
-    const flip = dir === 'left' ? -1 : 1
-    ctx.save()
-    ctx.scale(flip, 1)
+  if (feature === 'hange') {
+    ctx.strokeStyle = '#1a1008'
+    ctx.lineWidth = 1.5
+    ctx.strokeRect(-headR * 0.72, headY - headR * 0.08, headR * 0.55, headR * 0.32)
+    ctx.strokeRect(headR * 0.17, headY - headR * 0.08, headR * 0.55, headR * 0.32)
     ctx.beginPath()
-    ctx.ellipse(4, -6, headR * 0.85, headR, 0, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.moveTo(-headR * 0.17, headY - headR * 0.02)
+    ctx.lineTo(headR * 0.17, headY - headR * 0.02)
     ctx.stroke()
+  }
+
+  ctx.fillStyle = look.skin
+  ctx.beginPath()
+  ctx.ellipse(0, headY + headR * 0.28, headR * 0.12, headR * 0.08, 0, 0, Math.PI * 2)
+  ctx.fill()
+
+  if (feature === 'eren') {
+    ctx.strokeStyle = look.skin
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(-headR * 0.2, headY + headR * 0.35)
+    ctx.lineTo(0, headY + headR * 0.42)
+    ctx.lineTo(headR * 0.2, headY + headR * 0.35)
+    ctx.stroke()
+  } else if (feature === 'jean') {
     ctx.fillStyle = look.skin
     ctx.beginPath()
-    ctx.ellipse(-2, -6, 3, 4, 0, 0, Math.PI * 2)
+    ctx.ellipse(0, headY + headR * 0.38, headR * 0.22, headR * 0.14, 0, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = '#1a1008'
+  } else if (feature === 'levi') {
+    ctx.strokeStyle = '#3a3028'
+    ctx.lineWidth = 1.2
     ctx.beginPath()
-    ctx.arc(8, -7, 1.5, 0, Math.PI * 2)
-    ctx.fill()
-    if (id === 'monk-mustache') {
-      ctx.strokeStyle = '#3a2418'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.moveTo(6, -2)
-      ctx.quadraticCurveTo(10, 0, 8, 2)
-      ctx.stroke()
-    }
-    ctx.restore()
+    ctx.moveTo(-headR * 0.15, headY + headR * 0.32)
+    ctx.quadraticCurveTo(0, headY + headR * 0.38, headR * 0.15, headY + headR * 0.32)
+    ctx.stroke()
   }
 }
 
-function drawLegs(ctx, look, dir, walk) {
-  const leg = Math.sin(walk * 14) * 5
+function drawLegs(ctx, look, dir, walk, scale) {
+  const leg = Math.sin(walk * 14) * 4
   ctx.strokeStyle = look.robe
-  ctx.lineWidth = 5
+  ctx.lineWidth = 4
   ctx.lineCap = 'round'
 
   if (dir === 'down') {
     ctx.beginPath()
-    ctx.moveTo(-6, 16)
-    ctx.lineTo(-6 - leg * 0.25, 24)
-    ctx.moveTo(6, 16)
-    ctx.lineTo(6 + leg * 0.25, 24)
+    ctx.moveTo(-5, 14 * scale)
+    ctx.lineTo(-5 - leg * 0.2, 20 * scale)
+    ctx.moveTo(5, 14 * scale)
+    ctx.lineTo(5 + leg * 0.2, 20 * scale)
     ctx.stroke()
   } else if (dir === 'up') {
     ctx.beginPath()
-    ctx.moveTo(-5, 14)
-    ctx.lineTo(-5 + leg * 0.2, 20)
-    ctx.moveTo(5, 14)
-    ctx.lineTo(5 - leg * 0.2, 20)
+    ctx.moveTo(-4, 12 * scale)
+    ctx.lineTo(-4 + leg * 0.15, 17 * scale)
+    ctx.moveTo(4, 12 * scale)
+    ctx.lineTo(4 - leg * 0.15, 17 * scale)
     ctx.stroke()
   } else {
     const flip = dir === 'left' ? -1 : 1
     ctx.save()
     ctx.scale(flip, 1)
     ctx.beginPath()
-    ctx.moveTo(2, 16)
-    ctx.lineTo(8 + leg * 0.3, 24)
+    ctx.moveTo(2, 14 * scale)
+    ctx.lineTo(7 + leg * 0.25, 20 * scale)
     ctx.stroke()
     ctx.restore()
   }
@@ -194,8 +297,8 @@ function drawLegs(ctx, look, dir, walk) {
   ctx.fillStyle = '#3a2414'
   if (dir === 'down' || dir === 'up') {
     ctx.beginPath()
-    ctx.ellipse(-6, 25, 5, 3, 0, 0, Math.PI * 2)
-    ctx.ellipse(6, 25, 5, 3, 0, 0, Math.PI * 2)
+    ctx.ellipse(-5, 21 * scale, 4, 2.5, 0, 0, Math.PI * 2)
+    ctx.ellipse(5, 21 * scale, 4, 2.5, 0, 0, Math.PI * 2)
     ctx.fill()
   }
 }
@@ -207,24 +310,26 @@ function drawPrayerBeads(ctx, look, dir) {
   if (flip) {
     ctx.save()
     ctx.scale(flip, 1)
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       ctx.beginPath()
-      ctx.arc(6, 4 + i * 3, 2, 0, Math.PI * 2)
+      ctx.arc(5, 5 + i * 2.5, 1.8, 0, Math.PI * 2)
       ctx.fill()
     }
     ctx.restore()
   } else {
     ctx.beginPath()
-    ctx.arc(-8, 8, 2, 0, Math.PI * 2)
-    ctx.arc(8, 8, 2, 0, Math.PI * 2)
+    ctx.arc(-7, 9, 1.8, 0, Math.PI * 2)
+    ctx.arc(7, 9, 1.8, 0, Math.PI * 2)
     ctx.fill()
   }
 }
 
 export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX = 1, scaleY = 1) {
-  const bob = Math.sin(walk * 12) * 1.2
-  const id = look.avatarId || 'monk-male'
-  const isBaby = id === 'monk-baby'
+  const bob = Math.sin(walk * 12) * 1
+  const feature = look.feature || 'eren'
+  const scale = bodyScale(feature)
+  const headR = headRadius(feature)
+  const headY = dir === 'up' ? 0 : -10
   const facing = DIRECTIONS.includes(dir) ? dir : 'down'
 
   ctx.save()
@@ -233,24 +338,25 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
 
   ctx.fillStyle = 'rgba(0,0,0,0.32)'
   ctx.beginPath()
-  ctx.ellipse(2, 16, isBaby ? 12 : 16, isBaby ? 6 : 8, 0, 0, Math.PI * 2)
+  ctx.ellipse(2, 14, 12 * scale, 6, 0, 0, Math.PI * 2)
   ctx.fill()
 
   if (facing === 'up') {
-    drawLegs(ctx, look, facing, walk)
-    drawRobeBody(ctx, look, facing, walk, isBaby)
-    drawHead(ctx, look, facing, id)
+    drawLegs(ctx, look, facing, walk, scale)
+    drawRobeBody(ctx, look, facing, walk, scale)
+    drawCharacterFace(ctx, look, facing, headY, headR)
   } else {
-    drawRobeBody(ctx, look, facing, walk, isBaby)
+    drawRobeBody(ctx, look, facing, walk, scale)
     drawPrayerBeads(ctx, look, facing)
-    drawLegs(ctx, look, facing, walk)
-    drawHead(ctx, look, facing, id)
+    drawLegs(ctx, look, facing, walk, scale)
+    drawCharacterFace(ctx, look, facing, headY, headR)
   }
 
   ctx.restore()
 }
 
 export function drawAvatarPreview(ctx, cx, cy, avatarId, paletteIdx = 0) {
-  const look = { avatarId, ...ROBE_PALETTE[paletteIdx % ROBE_PALETTE.length] }
+  const avatar = MONK_AVATARS.find((a) => a.id === avatarId) || MONK_AVATARS[0]
+  const look = { ...avatar, ...ROBE_PALETTE[paletteIdx % ROBE_PALETTE.length], avatarId: avatar.id }
   drawMonkTopDown(ctx, cx, cy, look, 'down', 0)
 }

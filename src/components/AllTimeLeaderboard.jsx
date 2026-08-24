@@ -10,7 +10,7 @@ function PodiumMonk({ entry, size = 88 }) {
     if (!c || !entry) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, size, size)
-    const look = resolvePlayerLook(migrateVibeToAvatar(entry.avatarId || 'monk-male'), entry.id || entry.name, [])
+    const look = resolvePlayerLook(migrateVibeToAvatar(entry.avatarId || 'aot-eren'), entry.id || entry.name, [])
     drawMonkTopDown(ctx, size / 2, size / 2 + (size > 48 ? 10 : 4), look, 'down', 0)
   }, [entry, size])
   return <canvas ref={ref} width={size} height={size} className="drop-shadow-lg" />

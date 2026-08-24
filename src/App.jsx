@@ -16,12 +16,6 @@ import { CinematicOverlay } from './components/CinematicOverlay.jsx'
 import { AllTimeLeaderboardButton } from './components/AllTimeLeaderboard.jsx'
 import { submitScore } from './lib/leaderboard.js'
 
-function parseRoomFromHash() {
-  const h = window.location.hash.replace(/^#/, '')
-  const m = h.match(/(?:room\/)?(\d{4,8})/)
-  return m ? normalizeRoomPin(m[1]) : ''
-}
-
 function useCountdown(endsAt, active) {
   const [left, setLeft] = useState(0)
   useEffect(() => {
@@ -108,9 +102,9 @@ export default function App() {
   const [screen, setScreen] = useState('landing')
   const [name, setName] = useState(() => localStorage.getItem('monk-name') || '')
   const [vibe, setVibe] = useState(() => localStorage.getItem('monk-vibe') || 'saffron')
-  const [avatar, setAvatar] = useState(() => migrateVibeToAvatar(localStorage.getItem('monk-avatar') || localStorage.getItem('monk-vibe') || 'monk-male'))
+  const [avatar, setAvatar] = useState(() => migrateVibeToAvatar(localStorage.getItem('monk-avatar') || localStorage.getItem('monk-vibe') || 'aot-eren'))
   const [cinPhase, setCinPhase] = useState(null)
-  const [joinCode, setJoinCode] = useState(() => parseRoomFromHash())
+  const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [room, setRoom] = useState(null)
@@ -148,11 +142,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!room?.roomCode) return
-    window.location.hash = `room/${room.roomCode}`
-  }, [room?.roomCode])
-
-  // Phase → screen routing. portalHold is intentionally NOT a dependency:
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [room?.chat?.length])
   // putting it in deps re-ran this effect, cleared the enter timeout, and
   // stuck players forever on the cabin (no Street View).
   useEffect(() => {
@@ -380,7 +371,7 @@ export default function App() {
             placeholder="Wanderer"
           />
 
-          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Choose your monk</p>
+          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Choose your scout (monk robes)</p>
           <AvatarPicker
             value={avatar}
             onChange={(id) => {
@@ -388,7 +379,7 @@ export default function App() {
               localStorage.setItem('monk-avatar', id)
             }}
           />
-          <p className="mt-2 text-[10px] text-muted">Same avatar? You get a different robe color in-room.</p>
+          <p className="mt-2 text-[10px] text-muted">Same character? You get a different robe color in-room.</p>
 
           <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
             Create room

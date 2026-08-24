@@ -185,7 +185,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       upsertPlayer({
         id: fromId,
         name: String(msg.name || 'Wanderer').slice(0, 18),
-        avatar: migrateVibeToAvatar(msg.avatar || msg.vibe || 'monk-male'),
+        avatar: migrateVibeToAvatar(msg.avatar || msg.vibe || 'aot-eren'),
         vibe: msg.vibe || 'saffron',
         connected: true,
       })
@@ -411,7 +411,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   async function createRoom({ name, vibe, avatar, code }) {
     destroy()
-    const av = migrateVibeToAvatar(avatar || vibe || 'monk-male')
+    const av = migrateVibeToAvatar(avatar || vibe || 'aot-eren')
     try {
       const opened = await openPeer(`monk-${code}`)
       peer = opened.peer
@@ -443,7 +443,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   async function joinRoom({ name, vibe, avatar, code }) {
     destroy()
-    const av = migrateVibeToAvatar(avatar || vibe || 'monk-male')
+    const av = migrateVibeToAvatar(avatar || vibe || 'aot-eren')
     try {
       const opened = await openPeer()
       peer = opened.peer

@@ -1,22 +1,22 @@
-/** Monk avatar types + robe palette (duplicate avatars get different robe colors). */
+/** AOT scouts in monk robes — character traits + shared robe palette for duplicates. */
 export const MONK_AVATARS = [
-  { id: 'monk-male', label: 'Monk', emoji: '🧘' },
-  { id: 'monk-female', label: 'Nun', emoji: '🙏' },
-  { id: 'monk-baby', label: 'Novice', emoji: '👶' },
-  { id: 'monk-bald', label: 'Shaved', emoji: '🪒' },
-  { id: 'monk-mustache', label: 'Elder', emoji: '👴' },
-  { id: 'monk-mohawk', label: 'Rebel', emoji: '🎸' },
-  { id: 'monk-glasses', label: 'Scholar', emoji: '🤓' },
+  { id: 'aot-eren', label: 'Eren', feature: 'eren', hair: '#5c3d2e', eyes: '#2d6a4f', skin: '#e8b896', brow: '#4a3020' },
+  { id: 'aot-mikasa', label: 'Mikasa', feature: 'mikasa', hair: '#1a1410', eyes: '#5a5a6a', skin: '#f0c8a8', brow: '#1a1410' },
+  { id: 'aot-armin', label: 'Armin', feature: 'armin', hair: '#d4b85a', eyes: '#3a6a9a', skin: '#f5d4b0', brow: '#a89040' },
+  { id: 'aot-levi', label: 'Levi', feature: 'levi', hair: '#2a2420', eyes: '#3a4a5a', skin: '#e0b898', brow: '#1a1814' },
+  { id: 'aot-hange', label: 'Hange', feature: 'hange', hair: '#6a5030', eyes: '#5a4030', skin: '#eecaa0', brow: '#5a4030' },
+  { id: 'aot-jean', label: 'Jean', feature: 'jean', hair: '#7a5a30', eyes: '#5a5040', skin: '#e8c098', brow: '#6a5030' },
+  { id: 'aot-historia', label: 'Historia', feature: 'historia', hair: '#f0e8a8', eyes: '#4a7ab0', skin: '#ffe8d0', brow: '#c0b070' },
 ]
 
 export const ROBE_PALETTE = [
-  { robe: '#e8943a', sash: '#c9a227', skin: '#ddb896', hair: '#2a1810' },
-  { robe: '#c45c4a', sash: '#8b1a1a', skin: '#c9a882', hair: '#1a1008' },
-  { robe: '#4a6741', sash: '#8fbc8f', skin: '#ddb896', hair: '#3a2418' },
-  { robe: '#5a4a8a', sash: '#9b8ec4', skin: '#e0b898', hair: '#2a1810' },
-  { robe: '#8b6914', sash: '#d4af37', skin: '#c9a882', hair: '#1a1008' },
-  { robe: '#2a6a7a', sash: '#5ec4d4', skin: '#ddb896', hair: '#2a1810' },
-  { robe: '#7a3a5a', sash: '#e8a0b0', skin: '#e0b898', hair: '#4a3020' },
+  { robe: '#c87830', sash: '#8b1a1a', hood: '#a86028' },
+  { robe: '#b86828', sash: '#c9a227', hood: '#985020' },
+  { robe: '#a85820', sash: '#6a3020', hood: '#884818' },
+  { robe: '#d08838', sash: '#9b8ec4', hood: '#b07030' },
+  { robe: '#c07028', sash: '#d4af37', hood: '#a05820' },
+  { robe: '#b86024', sash: '#5ec4d4', hood: '#984818' },
+  { robe: '#c87830', sash: '#e8a0b0', hood: '#a86028' },
 ]
 
 export function hashStr(s) {
@@ -32,17 +32,30 @@ export function resolvePlayerLook(avatarId, playerId, players = []) {
   const sameAvatar = players.filter((p) => migrateVibeToAvatar(p.avatar || p.vibe) === id)
   const idxAmong = Math.max(0, sameAvatar.findIndex((p) => p.id === playerId))
   const colorIdx = (hashStr(playerId) + idxAmong) % ROBE_PALETTE.length
-  return { ...avatar, ...ROBE_PALETTE[colorIdx], avatarId: avatar.id }
+  const palette = ROBE_PALETTE[colorIdx]
+  return {
+    ...avatar,
+    ...palette,
+    avatarId: avatar.id,
+    feature: avatar.feature,
+  }
 }
 
 export function migrateVibeToAvatar(vibe) {
   const map = {
-    saffron: 'monk-male',
-    cyan: 'monk-glasses',
-    acid: 'monk-mohawk',
-    ember: 'monk-mustache',
-    violet: 'monk-female',
+    saffron: 'aot-eren',
+    cyan: 'aot-armin',
+    acid: 'aot-hange',
+    ember: 'aot-levi',
+    violet: 'aot-mikasa',
+    'monk-male': 'aot-eren',
+    'monk-female': 'aot-mikasa',
+    'monk-baby': 'aot-armin',
+    'monk-bald': 'aot-levi',
+    'monk-mustache': 'aot-jean',
+    'monk-mohawk': 'aot-hange',
+    'monk-glasses': 'aot-hange',
   }
   if (MONK_AVATARS.some((a) => a.id === vibe)) return vibe
-  return map[vibe] || 'monk-male'
+  return map[vibe] || 'aot-eren'
 }

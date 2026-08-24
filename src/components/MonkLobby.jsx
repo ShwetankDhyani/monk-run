@@ -399,7 +399,7 @@ export function MonkLobby({
 
       for (const { id, pose, isSelf } of list) {
         const pl = playersRef.current.find((x) => x.id === id)
-        const look = resolvePlayerLook(pl?.avatar || pl?.vibe || 'monk-male', id, playersRef.current)
+        const look = resolvePlayerLook(pl?.avatar || pl?.vibe || 'aot-eren', id, playersRef.current)
         const sx = isSelf ? suckLocal.current.stretchX : pose.stretchX || 1
         const sy = isSelf ? suckLocal.current.stretchY : pose.stretchY || 1
         ctx.save()

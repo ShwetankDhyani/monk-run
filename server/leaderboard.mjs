@@ -91,7 +91,7 @@ const server = createServer(async (req, res) => {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name,
         score,
-        avatarId: String(body.avatarId || 'monk-male').slice(0, 32),
+        avatarId: String(body.avatarId || 'aot-eren').slice(0, 32),
         roomCode: String(body.roomCode || '').slice(0, 8),
         at: Date.now(),
       }
