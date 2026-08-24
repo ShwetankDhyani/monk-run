@@ -1,4 +1,4 @@
-import Peer from 'peerjs'
+import { migrateVibeToAvatar } from '../data/avatars.js'
 import { getLocation, pickRoundLocations } from '../data/locations.js'
 import { haversineKm, scoreFromDistanceKm } from './scoring.js'
 
@@ -10,16 +10,17 @@ export const LOBBY_COUNTDOWN_MS = 3_200
 /** Canvas lobby spawn points (must match MonkLobby floor coords). */
 function spawnSlot(index) {
   const spots = [
-    { x: 300, y: 430, facing: 1 },
-    { x: 460, y: 500, facing: -1 },
-    { x: 620, y: 420, facing: 1 },
-    { x: 780, y: 510, facing: -1 },
-    { x: 900, y: 440, facing: 1 },
+    { x: 220, y: 420, angle: 0, facing: 1 },
+    { x: 380, y: 500, angle: 0, facing: 1 },
+    { x: 540, y: 380, angle: 0, facing: 1 },
+    { x: 760, y: 480, angle: 0, facing: 1 },
+    { x: 980, y: 400, angle: 0, facing: 1 },
   ]
   const s = spots[index % spots.length]
   return {
     x: s.x,
     y: s.y,
+    angle: s.angle,
     facing: s.facing,
     emote: null,
     emoteUntil: 0,
@@ -172,6 +173,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       upsertPlayer({
         id: fromId,
         name: String(msg.name || 'Wanderer').slice(0, 18),
+        avatar: migrateVibeToAvatar(msg.avatar || msg.vibe || 'monk-male'),
         vibe: msg.vibe || 'saffron',
         connected: true,
       })
@@ -191,6 +193,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         ...(state.lobby[fromId] || spawnSlot(state.players.findIndex((p) => p.id === fromId))),
         x: msg.x,
         y: msg.y ?? state.lobby[fromId]?.y ?? 430,
+        angle: msg.angle ?? state.lobby[fromId]?.angle ?? 0,
         facing: msg.facing ?? state.lobby[fromId]?.facing ?? 1,
       }
       broadcast(
@@ -199,6 +202,7 @@ export function createRoomController({ onState, onError, onEvent }) {
           id: fromId,
           x: msg.x,
           y: msg.y ?? state.lobby[fromId]?.y ?? 430,
+          angle: msg.angle ?? 0,
           facing: msg.facing ?? 1,
         },
         fromId,
@@ -245,6 +249,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         ...(state.lobby[msg.id] || spawnSlot(0)),
         x: msg.x,
         y: msg.y ?? state.lobby[msg.id]?.y ?? 430,
+        angle: msg.angle ?? state.lobby[msg.id]?.angle ?? 0,
         facing: msg.facing ?? state.lobby[msg.id]?.facing ?? 1,
       }
       emit()
@@ -378,7 +383,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     })
   }
 
-  function bootLocal({ name, vibe, code }) {
+  function bootLocal({ name, vibe, avatar, code }) {
     actingHost = true
     state = blank()
     state.phase = 'lobby'
@@ -388,13 +393,14 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.selfId = `solo-${Math.random().toString(36).slice(2, 9)}`
     state.message = 'Local mode — voice/multiplayer broker offline. Cabin + GeoGuessr still work.'
     state.scores[state.selfId] = 0
-    upsertPlayer({ id: state.selfId, name, vibe, connected: true, isHost: true })
+    upsertPlayer({ id: state.selfId, name, avatar: migrateVibeToAvatar(avatar || vibe), vibe, connected: true, isHost: true })
     state.lobby[state.selfId] = spawnSlot(0)
     emit()
   }
 
-  async function createRoom({ name, vibe, code }) {
+  async function createRoom({ name, vibe, avatar, code }) {
     destroy()
+    const av = migrateVibeToAvatar(avatar || vibe || 'monk-male')
     try {
       const opened = await openPeer(`monk-${code}`)
       peer = opened.peer
@@ -405,7 +411,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.isHost = true
       state.selfId = opened.id
       state.scores[opened.id] = 0
-      upsertPlayer({ id: opened.id, name, vibe, connected: true, isHost: true })
+      upsertPlayer({ id: opened.id, name, avatar: av, vibe, connected: true, isHost: true })
       state.lobby[opened.id] = spawnSlot(0)
       peer.on('connection', (conn) => {
         connections.set(conn.peer, conn)
@@ -419,12 +425,13 @@ export function createRoomController({ onState, onError, onEvent }) {
       })
       emit()
     } catch {
-      bootLocal({ name, vibe, code })
+      bootLocal({ name, vibe, avatar: av, code })
     }
   }
 
-  async function joinRoom({ name, vibe, code }) {
+  async function joinRoom({ name, vibe, avatar, code }) {
     destroy()
+    const av = migrateVibeToAvatar(avatar || vibe || 'monk-male')
     try {
       const opened = await openPeer()
       peer = opened.peer
@@ -453,7 +460,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       })
 
       attach(conn, false)
-      send(conn, { type: 'hello', name, vibe })
+      send(conn, { type: 'hello', name, vibe, avatar: av })
     } catch (err) {
       fail(err?.message || 'Could not join room')
       throw err
@@ -557,6 +564,7 @@ export function createRoomController({ onState, onError, onEvent }) {
           playerId: p.id,
           name: p.name,
           vibe: p.vibe,
+        avatar: p.avatar || p.vibe,
           lat: null,
           lng: null,
           country: '',
@@ -570,6 +578,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         playerId: p.id,
         name: p.name,
         vibe: p.vibe,
+        avatar: p.avatar || p.vibe,
         lat: g.lat,
         lng: g.lng,
         country: g.country,

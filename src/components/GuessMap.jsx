@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker, CircleMarker, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { COUNTRIES, MONK_VIBES } from '../data/locations.js'
+import { COUNTRIES } from '../data/locations.js'
+import { migrateVibeToAvatar, resolvePlayerLook } from '../data/avatars.js'
 import { searchPlace } from '../lib/geocode.js'
 
 const pinIcon = (color) =>
@@ -196,14 +197,14 @@ export default function GuessMap({
               />
               {revealResults.map((r) => {
                 if (r.lat == null) return null
-                const vibe = MONK_VIBES.find((v) => v.id === r.vibe) || MONK_VIBES[0]
+                const look = resolvePlayerLook(r.avatar || r.vibe, r.playerId, revealResults.map((x) => ({ id: x.playerId, avatar: x.avatar, vibe: x.vibe })))
                 return (
-                  <Marker key={`m-${r.playerId}`} position={[r.lat, r.lng]} icon={pinIcon(vibe.color)} />
+                  <Marker key={`m-${r.playerId}`} position={[r.lat, r.lng]} icon={pinIcon(look.robe)} />
                 )
               })}
               {revealResults.map((r) => {
                 if (r.lat == null) return null
-                const vibe = MONK_VIBES.find((v) => v.id === r.vibe) || MONK_VIBES[0]
+                const look = resolvePlayerLook(r.avatar || r.vibe, r.playerId, revealResults.map((x) => ({ id: x.playerId, avatar: x.avatar, vibe: x.vibe })))
                 return (
                   <Polyline
                     key={`l-${r.playerId}`}
@@ -212,7 +213,7 @@ export default function GuessMap({
                       [truth.lat, truth.lng],
                     ]}
                     pathOptions={{
-                      color: vibe.color,
+                      color: look.robe,
                       weight: r.playerId === selfId ? 3 : 1.5,
                       opacity: 0.8,
                       dashArray: r.playerId === selfId ? undefined : '6 8',

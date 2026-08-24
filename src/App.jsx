@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { MONK_VIBES, getLocation } from './data/locations.js'
+import { migrateVibeToAvatar, resolvePlayerLook } from './data/avatars.js'
 import { formatKm, makeRoomCode, normalizeRoomPin } from './lib/scoring.js'
 import {
   createRoomController,
@@ -13,6 +14,8 @@ import { createVoiceChat } from './lib/voiceChat.js'
 import StreetView from './components/StreetView.jsx'
 import GuessMap from './components/GuessMap.jsx'
 import { MonkLobby } from './components/MonkLobby.jsx'
+import { AvatarPicker } from './components/AvatarPicker.jsx'
+import { CinematicOverlay } from './components/CinematicOverlay.jsx'
 
 function parseRoomFromHash() {
   const h = window.location.hash.replace(/^#/, '')
@@ -106,6 +109,8 @@ export default function App() {
   const [screen, setScreen] = useState('landing')
   const [name, setName] = useState(() => localStorage.getItem('monk-name') || '')
   const [vibe, setVibe] = useState(() => localStorage.getItem('monk-vibe') || 'saffron')
+  const [avatar, setAvatar] = useState(() => migrateVibeToAvatar(localStorage.getItem('monk-avatar') || localStorage.getItem('monk-vibe') || 'monk-male'))
+  const [cinPhase, setCinPhase] = useState(null)
   const [joinCode, setJoinCode] = useState(() => parseRoomFromHash())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -161,14 +166,33 @@ export default function App() {
       setCountry('')
     }
 
-    // Countdown just finished → finish black-hole suck, then enter the round
+    // Countdown finished → black-hole finish, flash black, cinematic enter game
     if (prev === 'countdown' && room.phase === 'playing') {
       setPortalHold(true)
       setScreen('cabin')
-      const t = setTimeout(() => {
+      const t1 = setTimeout(() => setCinPhase('bh-flash'), 900)
+      const t2 = setTimeout(() => {
+        setCinPhase('enter-game')
         setPortalHold(false)
         setScreen('game')
-      }, 750)
+      }, 1050)
+      const t3 = setTimeout(() => setCinPhase(null), 2200)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+        clearTimeout(t3)
+      }
+    }
+
+    if (room.phase === 'reveal' && prev === 'playing') {
+      setCinPhase('enter-reveal')
+      const t = setTimeout(() => setCinPhase(null), 1400)
+      return () => clearTimeout(t)
+    }
+
+    if (room.phase === 'podium' && prev !== 'podium') {
+      setCinPhase('enter-podium')
+      const t = setTimeout(() => setCinPhase(null), 1600)
       return () => clearTimeout(t)
     }
 
@@ -230,10 +254,11 @@ export default function App() {
     setBusy(true)
     setScreen('cabin')
     localStorage.setItem('monk-name', name.trim() || 'Wanderer')
-    localStorage.setItem('monk-vibe', vibe)
+    localStorage.setItem('monk-avatar', avatar)
     try {
       await ctrlRef.current.createRoom({
         name: name.trim() || 'Wanderer',
+        avatar,
         vibe,
         code: makeRoomCode(),
       })
@@ -250,10 +275,11 @@ export default function App() {
     setBusy(true)
     setScreen('cabin')
     localStorage.setItem('monk-name', name.trim() || 'Wanderer')
-    localStorage.setItem('monk-vibe', vibe)
+    localStorage.setItem('monk-avatar', avatar)
     try {
       await ctrlRef.current.joinRoom({
         name: name.trim() || 'Wanderer',
+        avatar,
         vibe,
         code: normalizeRoomPin(joinCode),
       })
@@ -334,20 +360,15 @@ export default function App() {
             placeholder="Wanderer"
           />
 
-          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Robe color</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {MONK_VIBES.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => setVibe(v.id)}
-                className={`rounded-full px-3 py-1.5 text-[11px] ${vibe === v.id ? 'ring-2 ring-sky' : 'opacity-70'}`}
-                style={{ background: `${v.color}22`, color: v.color, border: `1px solid ${v.color}55` }}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
+          <p className="mt-4 text-[10px] uppercase tracking-widest text-muted">Choose your monk</p>
+          <AvatarPicker
+            value={avatar}
+            onChange={(id) => {
+              setAvatar(id)
+              localStorage.setItem('monk-avatar', id)
+            }}
+          />
+          <p className="mt-2 text-[10px] text-muted">Same avatar? You get a different robe color in-room.</p>
 
           <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
             Create room
@@ -428,6 +449,7 @@ export default function App() {
   if (inLobby) {
     const inPortal = room.phase === 'countdown' || portalHold
     return (
+      <Fragment>
       <div className="flex h-full min-h-full flex-col bg-ink">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
           <div>
@@ -498,11 +520,11 @@ export default function App() {
             <p className="text-[10px] uppercase tracking-widest text-muted">Players</p>
             <ul className="space-y-2">
               {room.players.map((p) => {
-                const v = MONK_VIBES.find((x) => x.id === p.vibe) || MONK_VIBES[0]
+                const look = resolvePlayerLook(p.avatar || p.vibe, p.id, room.players)
                 return (
                   <li key={p.id} className="flex items-center justify-between rounded-lg bg-black/20 px-2 py-2">
                     <span className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: v.color }} />
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: look.robe }} />
                       <span className="font-display text-sm">{p.name}</span>
                       {p.isHost && <span className="text-[9px] uppercase text-amber">host</span>}
                     </span>
@@ -559,18 +581,21 @@ export default function App() {
           </aside>
         </div>
       </div>
+      <CinematicOverlay phase={cinPhase} />
+      </Fragment>
     )
   }
 
   if (room.phase === 'podium') {
     return (
-      <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
+      <Fragment>
+      <div className="screen-enter flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
         <div className="panel w-full max-w-2xl p-6 md:p-8">
           <h2 className="text-center font-display text-4xl font-extrabold text-mint">Final podium</h2>
           <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">room {room.roomCode}</p>
           <ol className="mt-6 space-y-3">
             {ranked.map((p, i) => {
-              const v = MONK_VIBES.find((x) => x.id === p.vibe) || MONK_VIBES[0]
+              const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
               return (
                 <li
                   key={p.id}
@@ -578,7 +603,7 @@ export default function App() {
                 >
                   <span className="flex items-center gap-3">
                     <span className="font-display text-xl text-amber">{i + 1}</span>
-                    <span className="h-3 w-3 rounded-full" style={{ background: v.color }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: look.robe }} />
                     <span className="font-display">{p.name}</span>
                   </span>
                   <span className="font-mono text-mint">{p.score}</span>
@@ -610,13 +635,16 @@ export default function App() {
           </button>
         </div>
       </div>
+      <CinematicOverlay phase={cinPhase} />
+      </Fragment>
     )
   }
 
   if (room.phase === 'reveal' && room.reveal) {
     const selfResult = room.reveal.results.find((r) => r.playerId === room.selfId)
     return (
-      <div className="flex min-h-full flex-col bg-ink">
+      <Fragment>
+      <div className="screen-enter flex min-h-full flex-col bg-ink">
         <div className="grid flex-1 gap-3 p-3 md:grid-cols-2">
           <div className="panel flex min-h-[280px] flex-col p-3">
             <p className="text-[10px] uppercase tracking-widest text-mint">Reveal</p>
@@ -672,12 +700,15 @@ export default function App() {
           </div>
         </div>
       </div>
+      <CinematicOverlay phase={cinPhase} />
+      </Fragment>
     )
   }
 
   // Playing: Street View + always-visible world map (never hide the map behind a button)
   return (
-    <div className="flex h-full min-h-full flex-col overflow-hidden bg-ink md:flex-row">
+    <Fragment>
+    <div className={`screen-enter flex h-full min-h-full flex-col overflow-hidden bg-ink md:flex-row`}>
       <div className="relative min-h-0 flex-1">
         {location && <StreetView location={location} interactive />}
 
@@ -772,5 +803,7 @@ export default function App() {
         )}
       </aside>
     </div>
+    <CinematicOverlay phase={cinPhase} />
+    </Fragment>
   )
 }
