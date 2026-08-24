@@ -422,44 +422,6 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
-function makeNpcs() {
-  return [
-    { name: 'Ananda', x: 260, y: 490, facing: 1, walk: 0, activity: 'sweep', t: 0, robe: '#6b4423', sash: '#c9a227', skin: '#ddb896' },
-    { name: 'Maya', x: 540, y: 360, facing: -1, walk: 0, activity: 'incense', t: 1.2, robe: '#7a2840', sash: '#d4af37', skin: '#e0b898' },
-    { name: 'Tenzin', x: 680, y: 470, facing: 1, walk: 0, activity: 'meditate', t: 0.5, robe: '#8b6914', sash: '#b8860b', skin: '#c9a882' },
-    { name: 'Lotus', x: 420, y: 560, facing: -1, walk: 0, activity: 'tea', t: 2, robe: '#4a6741', sash: '#8fbc8f', skin: '#ddb896' },
-    { name: 'Jizo', x: 820, y: 380, facing: 1, walk: 0, activity: 'chant', t: 0.8, robe: '#5a4632', sash: '#c97830', skin: '#c9a882' },
-  ]
-}
-
-function updateNpc(npc, dt, t) {
-  if (npc.activity === 'sweep') {
-    const span = 120
-    npc.x = 220 + ((t * 45 + npc.t * 50) % (span * 2))
-    if (npc.x > 220 + span) npc.x = 220 + span * 2 - (npc.x - 220 - span)
-    npc.facing = Math.sin(t * 0.8 + npc.t) > 0 ? 1 : -1
-    npc.walk += dt * 1.4
-  } else if (npc.activity === 'incense') {
-    npc.walk = Math.sin(t * 1.5) * 0.05
-  } else if (npc.activity === 'meditate') {
-    npc.walk = 0
-  } else if (npc.activity === 'tea') {
-    npc.walk = Math.sin(t * 2 + npc.t) * 0.08
-  } else if (npc.activity === 'chant') {
-    npc.walk = Math.sin(t * 3) * 0.12
-    npc.y = 380 + Math.sin(t * 0.6) * 3
-  }
-}
-
-function drawActivityIcon(ctx, npc, t) {
-  const icons = { incense: '🪔', meditate: '🧘', tea: '🍵', chant: '📿', sweep: '🧹' }
-  const icon = icons[npc.activity]
-  if (!icon) return
-  ctx.font = '16px serif'
-  ctx.textAlign = 'center'
-  ctx.fillText(icon, npc.x + (npc.facing > 0 ? 24 : -24), npc.y - 44 + Math.sin(t * 2 + npc.t) * 2)
-}
-
 function canvasFromClient(canvas, clientX, clientY) {
   const rect = canvas.getBoundingClientRect()
   return {
@@ -510,7 +472,6 @@ export function MonkLobby({
   const smackCd = useRef(0)
   const suckLocal = useRef({ active: false, stretchX: 1, stretchY: 1, spin: 0 })
   const portalRef = useRef({ scale: 0, suck: 0, active: false })
-  const npcsRef = useRef(makeNpcs())
   const touchRef = useRef({ active: false, lastX: 0, lastY: 0, longPressTimer: null, moved: false })
   const playersRef = useRef(players)
   const callbacksRef = useRef({ onPose, onSmack, onEmote })
@@ -830,10 +791,6 @@ export function MonkLobby({
       if (bhScale > 0.01) drawBlackHole(ctx, t, bhScale, suck)
       else drawMeditationAlcove(ctx)
 
-      for (const npc of npcsRef.current) {
-        updateNpc(npc, dt, t)
-      }
-
       // Dust streams when sucking
       if (sucking) {
         for (let i = 0; i < 40; i++) {
@@ -899,13 +856,6 @@ export function MonkLobby({
           ctx.fill()
         }
         ctx.restore()
-      }
-
-      // NPC monks
-      for (const npc of npcsRef.current) {
-        softBody(ctx, npc.x, npc.y, npc.robe, npc.sash, npc.skin, npc.facing, npc.walk || 0)
-        drawNameplate(ctx, npc.x, npc.y, npc.name, false)
-        drawActivityIcon(ctx, npc, t)
       }
 
       const list = [...peersRef.current.entries()]

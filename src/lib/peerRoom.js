@@ -61,6 +61,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       selfId: '',
       players: [],
       lobby: {},
+      chat: [],
       countdownEndsAt: 0,
       countdownStartedAt: 0,
       roundIndex: 0,
@@ -133,6 +134,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         roomCode: state.roomCode,
         players: state.players,
         lobby: state.lobby,
+        chat: state.chat,
         countdownEndsAt: state.countdownEndsAt,
         countdownStartedAt: state.countdownStartedAt,
         roundIndex: state.roundIndex,
@@ -212,6 +214,10 @@ export function createRoomController({ onState, onError, onEvent }) {
       applyEmote(fromId, msg.emote)
       return
     }
+    if (msg.type === 'chat') {
+      appendChat(fromId, msg.text)
+      return
+    }
     if (msg.type === 'guess' && state.phase === 'playing') {
       state.guesses = {
         ...state.guesses,
@@ -266,6 +272,20 @@ export function createRoomController({ onState, onError, onEvent }) {
       return
     }
     if (msg.type === 'reject') fail(msg.reason || 'Rejected')
+    if (msg.type === 'chat' && msg.entry) {
+      state.chat = [...(state.chat || []), msg.entry].slice(-60)
+      emit()
+    }
+  }
+
+  function appendChat(fromId, text) {
+    const body = String(text || '').trim().slice(0, 200)
+    if (!body) return
+    const p = state.players.find((x) => x.id === fromId)
+    const entry = { id: fromId, name: p?.name || 'Monk', text: body, at: Date.now() }
+    state.chat = [...(state.chat || []), entry].slice(-60)
+    broadcast({ type: 'chat', entry })
+    emit()
   }
 
   function applySmack(fromId, targetId) {
@@ -323,7 +343,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         )
         pushSync()
       } else if (!actingHost) {
-        fail('Lost connection to the room host.')
+        fail('Host disconnected.')
       }
     })
   }
@@ -470,6 +490,13 @@ export function createRoomController({ onState, onError, onEvent }) {
   function emote(emoteName) {
     if (actingHost) applyEmote(state.selfId, emoteName)
     else send(hostConn, { type: 'emote', emote: emoteName })
+  }
+
+  function sendChat(text) {
+    const body = String(text || '').trim().slice(0, 200)
+    if (!body) return
+    if (actingHost) appendChat(state.selfId, body)
+    else send(hostConn, { type: 'chat', text: body })
   }
 
   /** Host starts synchronized countdown, then jumps into round 1 with a fresh random seed. */
@@ -630,6 +657,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     sendLobbyPose,
     smack,
     emote,
+    sendChat,
     submitGuess,
     tick,
     revealRound,

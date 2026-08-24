@@ -113,6 +113,8 @@ export default function App() {
   const [guess, setGuess] = useState(null)
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
+  const [chatDraft, setChatDraft] = useState('')
+  const chatEndRef = useRef(null)
   const [voice, setVoice] = useState({ muted: true, active: false, peers: [], error: null })
   const [portalHold, setPortalHold] = useState(false)
   const prevPhaseRef = useRef(null)
@@ -182,8 +184,8 @@ export default function App() {
   }, [room?.phase, room?.roundIndex])
 
   useEffect(() => {
-    voiceRef.current?.refresh?.()
-  }, [room?.players?.length])
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [room?.chat?.length])
 
   const location = useMemo(() => {
     if (!room?.currentLocationId) return null
@@ -288,9 +290,23 @@ export default function App() {
     ctrlRef.current?.smack(targetId)
   }, [])
 
+  useEffect(() => {
+    voiceRef.current?.refresh?.()
+  }, [room?.players?.length])
+
+  const sendChat = (e) => {
+    e?.preventDefault?.()
+    const text = chatDraft.trim()
+    if (!text) return
+    ctrlRef.current?.sendChat(text)
+    setChatDraft('')
+  }
+
   const onEmote = useCallback((emoteName) => {
     ctrlRef.current?.emote(emoteName)
   }, [])
+
+  const hostLeft = room?.message === 'Host disconnected.'
 
   const inLobby =
     room &&
@@ -307,10 +323,7 @@ export default function App() {
           <h1 className="mt-2 text-center font-display text-5xl font-extrabold tracking-tight text-fog md:text-6xl">
             monk.run
           </h1>
-          <p className="mt-3 text-center text-sm leading-relaxed text-muted">
-            Meet in the temple as monks, talk on voice, then get pulled into a black hole — and out into 5
-            synchronized Street View rounds.
-          </p>
+          <p className="mt-3 text-center text-sm text-muted">Voice chat + party GeoGuessr.</p>
 
           <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Your monk name</label>
           <input
@@ -391,7 +404,9 @@ export default function App() {
     return (
       <div className="flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
         <div className="panel w-full max-w-md p-6 text-center">
-          <p className="font-display text-2xl font-bold text-coral">Could not connect</p>
+          <p className="font-display text-2xl font-bold text-coral">
+            {hostLeft ? 'Host disconnected' : 'Could not connect'}
+          </p>
           <p className="mt-3 text-sm text-muted">{room.message || error || 'Something went wrong.'}</p>
           <button
             type="button"
@@ -479,8 +494,8 @@ export default function App() {
             portalHold={portalHold}
             focused={!inPortal}
           />
-          <aside className="panel flex flex-col gap-3 p-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted">Sangha</p>
+          <aside className="panel flex min-h-0 flex-col gap-3 p-4">
+            <p className="text-[10px] uppercase tracking-widest text-muted">Players</p>
             <ul className="space-y-2">
               {room.players.map((p) => {
                 const v = MONK_VIBES.find((x) => x.id === p.vibe) || MONK_VIBES[0]
@@ -489,6 +504,7 @@ export default function App() {
                     <span className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: v.color }} />
                       <span className="font-display text-sm">{p.name}</span>
+                      {p.isHost && <span className="text-[9px] uppercase text-amber">host</span>}
                     </span>
                     <span className={`text-[10px] uppercase ${p.connected === false ? 'text-coral' : 'text-mint'}`}>
                       {p.connected === false ? 'away' : 'here'}
@@ -497,7 +513,35 @@ export default function App() {
                 )
               })}
             </ul>
-            <div className="mt-auto space-y-2 text-[11px] leading-relaxed text-muted">
+
+            <p className="text-[10px] uppercase tracking-widest text-muted">Chat</p>
+            <ul className="min-h-[72px] max-h-36 flex-1 space-y-1.5 overflow-y-auto rounded-lg bg-black/25 p-2">
+              {(room.chat || []).length === 0 && (
+                <li className="text-[11px] text-muted">Say hi to the room…</li>
+              )}
+              {(room.chat || []).map((m) => (
+                <li key={m.at + m.id + m.text.slice(0, 8)} className="text-[11px] leading-snug">
+                  <span className="font-display text-amber">{m.name}: </span>
+                  <span className="text-fog/90">{m.text}</span>
+                </li>
+              ))}
+              <li ref={chatEndRef} />
+            </ul>
+            <form className="flex gap-2" onSubmit={sendChat}>
+              <input
+                className="input-clean min-w-0 flex-1 text-sm"
+                value={chatDraft}
+                onChange={(e) => setChatDraft(e.target.value)}
+                placeholder="Message the lobby…"
+                maxLength={200}
+                disabled={inPortal}
+              />
+              <button type="submit" className="btn btn-ghost shrink-0 !px-3" disabled={inPortal || !chatDraft.trim()}>
+                Send
+              </button>
+            </form>
+
+            <div className="space-y-1 text-[10px] leading-relaxed text-muted">
               <p>
                 Voice:{' '}
                 {voice.active
@@ -507,12 +551,8 @@ export default function App() {
                   : 'off'}
               </p>
               {voice.error && <p className="text-coral">{voice.error}</p>}
-              <p>Desktop: WASD move · Space smack · 1–4 emotes</p>
-              <p className="text-amber/80">Mobile: drag to walk · long-press a monk for actions</p>
-              {inPortal ? (
-                <p className="text-amber">Black hole is pulling everyone in…</p>
-              ) : (
-                !room.isHost && room.phase === 'lobby' && <p>Waiting for host to press PLAY…</p>
+              {!room.isHost && room.phase === 'lobby' && !inPortal && (
+                <p>Waiting for host to press PLAY…</p>
               )}
               {error && <p className="text-coral">{error}</p>}
             </div>
