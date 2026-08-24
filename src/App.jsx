@@ -168,17 +168,17 @@ export default function App() {
       setCountry('')
     }
 
-    // Countdown finished → black-hole finish, flash black, cinematic enter game
+    // Countdown finished → quick black-hole finish, flash, enter game
     if (prev === 'countdown' && room.phase === 'playing') {
       setPortalHold(true)
       setScreen('cabin')
-      const t1 = setTimeout(() => setCinPhase('bh-flash'), 1400)
+      const t1 = setTimeout(() => setCinPhase('bh-flash'), 450)
       const t2 = setTimeout(() => {
         setCinPhase('enter-game')
         setPortalHold(false)
         setScreen('game')
-      }, 1650)
-      const t3 = setTimeout(() => setCinPhase(null), 4200)
+      }, 580)
+      const t3 = setTimeout(() => setCinPhase(null), 1600)
       return () => {
         clearTimeout(t1)
         clearTimeout(t2)
@@ -188,14 +188,14 @@ export default function App() {
 
     if (room.phase === 'reveal' && prev === 'playing') {
       setCinPhase('enter-reveal')
-      const t = setTimeout(() => setCinPhase(null), 2200)
+      const t = setTimeout(() => setCinPhase(null), 1100)
       return () => clearTimeout(t)
     }
 
     if (room.phase === 'podium' && prev !== 'podium') {
       setCinPhase('enter-podium')
       scoreSubmittedRef.current = false
-      const t = setTimeout(() => setCinPhase(null), 2400)
+      const t = setTimeout(() => setCinPhase(null), 1200)
       return () => clearTimeout(t)
     }
 
@@ -210,7 +210,7 @@ export default function App() {
       setPortalHold(false)
       if (prev === 'intermission' && room.phase === 'playing') {
         setCinPhase('enter-game')
-        const t = setTimeout(() => setCinPhase(null), 1800)
+        const t = setTimeout(() => setCinPhase(null), 1000)
         setScreen('game')
         return () => clearTimeout(t)
       }

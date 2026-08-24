@@ -7,7 +7,7 @@ import { createGameSession, openRoundView, fetchRoundTruth } from './gameSession
 export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
-export const LOBBY_COUNTDOWN_MS = 6_200
+export const LOBBY_COUNTDOWN_MS = 3_000
 export const INTERMISSION_MS = 4_500
 
 /** Assign a random walkable spawn, spread from existing lobby positions. */

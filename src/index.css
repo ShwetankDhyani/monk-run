@@ -159,19 +159,19 @@
 }
 
 .cinematic-overlay--bh-flash {
-  animation: bh-flash 280ms ease-out forwards;
+  animation: bh-flash 160ms ease-out forwards;
 }
 
 .cinematic-overlay--enter-game {
-  animation: enter-game 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: enter-game 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .cinematic-overlay--enter-reveal {
-  animation: enter-reveal 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: enter-reveal 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .cinematic-overlay--enter-podium {
-  animation: enter-podium 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: enter-podium 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .cinematic-overlay__label {
@@ -218,11 +218,11 @@
 }
 
 .screen-enter {
-  animation: screen-enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: screen-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .screen-enter-slow {
-  animation: screen-enter 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: screen-enter 0.95s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes screen-enter {

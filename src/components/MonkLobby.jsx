@@ -303,15 +303,15 @@ export function MonkLobby({
         const total = Math.max(1, countdownEndsAt - countdownStartedAt)
         const elapsed = Date.now() - countdownStartedAt
         const p = Math.min(1, elapsed / total)
-        // Pop in instantly, then grow slowly; suck starts in the second half
-        if (p < 0.04) {
-          bhScale = 0.14 + (p / 0.04) * 0.1
-        } else if (p < 0.72) {
-          bhScale = 0.24 + ((p - 0.04) / 0.68) ** 0.85 * 0.76
+        // Snap in immediately, grow fast, suck hard — snappy & impressive
+        if (p < 0.08) {
+          bhScale = 0.2 + (p / 0.08) * 0.25
+        } else if (p < 0.45) {
+          bhScale = 0.45 + ((p - 0.08) / 0.37) ** 0.9 * 0.55
         } else {
           bhScale = 1
         }
-        suck = p < 0.58 ? 0 : ((p - 0.58) / 0.42) ** 1.05
+        suck = p < 0.35 ? 0 : ((p - 0.35) / 0.65) ** 0.95
       }
       const birth = portalActive && countdownStartedAt
         ? Math.min(1, (Date.now() - countdownStartedAt) / Math.max(1, countdownEndsAt - countdownStartedAt))
