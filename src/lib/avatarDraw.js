@@ -117,77 +117,137 @@ function drawErenMessyTopHair(ctx, look, headY, headR) {
   }
 }
 
-function drawErenFaceFeatures(ctx, look, headY, headR) {
-  ctx.strokeStyle = look.brow
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(-headR * 0.55, headY - headR * 0.12)
-  ctx.lineTo(-headR * 0.12, headY - headR * 0.2)
-  ctx.moveTo(headR * 0.55, headY - headR * 0.12)
-  ctx.lineTo(headR * 0.12, headY - headR * 0.2)
-  ctx.stroke()
+function drawErenAngryFace(ctx, look, headY, headR, dir = 'down') {
+  if (dir === 'down') {
+    ctx.strokeStyle = look.brow
+    ctx.lineWidth = 2.4
+    ctx.beginPath()
+    ctx.moveTo(-headR * 0.62, headY - headR * 0.08)
+    ctx.lineTo(-headR * 0.18, headY - headR * 0.28)
+    ctx.moveTo(headR * 0.62, headY - headR * 0.08)
+    ctx.lineTo(headR * 0.18, headY - headR * 0.28)
+    ctx.stroke()
 
-  drawEyes(ctx, look, headY, headR, 'down', false)
+    const eyeY = headY + 2
+    const gap = headR * 0.3
+    const eyeW = 1.9
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.ellipse(-gap, eyeY, eyeW + 0.5, eyeW + 0.7, 0, 0, Math.PI * 2)
+    ctx.ellipse(gap, eyeY, eyeW + 0.5, eyeW + 0.7, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = look.eyes
+    ctx.beginPath()
+    ctx.arc(-gap, eyeY, eyeW * 0.62, 0, Math.PI * 2)
+    ctx.arc(gap, eyeY, eyeW * 0.62, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#0a0808'
+    ctx.beginPath()
+    ctx.arc(-gap, eyeY, eyeW * 0.38, 0, Math.PI * 2)
+    ctx.arc(gap, eyeY, eyeW * 0.38, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = look.brow
+    ctx.lineWidth = 1.8
+    ctx.beginPath()
+    ctx.moveTo(-gap - eyeW, eyeY - eyeW - 0.5)
+    ctx.lineTo(-gap + eyeW * 0.5, eyeY - eyeW - 1.5)
+    ctx.moveTo(gap + eyeW, eyeY - eyeW - 0.5)
+    ctx.lineTo(gap - eyeW * 0.5, eyeY - eyeW - 1.5)
+    ctx.stroke()
 
-  ctx.strokeStyle = 'rgba(100,70,50,0.7)'
-  ctx.lineWidth = 1.1
-  ctx.beginPath()
-  ctx.moveTo(-headR * 0.5, headY - headR * 0.02)
-  ctx.lineTo(-headR * 0.34, headY + headR * 0.12)
-  ctx.stroke()
+    ctx.strokeStyle = 'rgba(100,70,50,0.75)'
+    ctx.lineWidth = 1.1
+    ctx.beginPath()
+    ctx.moveTo(-headR * 0.48, headY + headR * 0.02)
+    ctx.lineTo(-headR * 0.32, headY + headR * 0.14)
+    ctx.stroke()
 
-  ctx.fillStyle = look.skin
-  ctx.beginPath()
-  ctx.ellipse(0, headY + headR * 0.32, headR * 0.1, headR * 0.06, 0, 0, Math.PI * 2)
-  ctx.fill()
+    ctx.fillStyle = '#3a1818'
+    ctx.beginPath()
+    ctx.ellipse(0, headY + headR * 0.38, headR * 0.2, headR * 0.1, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#f0e8e0'
+    ctx.fillRect(-headR * 0.12, headY + headR * 0.34, headR * 0.24, headR * 0.06)
+  } else {
+    const flip = dir === 'left' ? -1 : 1
+    ctx.save()
+    ctx.scale(flip, 1)
+    ctx.strokeStyle = look.brow
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(2, headY - headR * 0.2)
+    ctx.lineTo(8, headY - headR * 0.35)
+    ctx.stroke()
+    ctx.fillStyle = look.eyes
+    ctx.beginPath()
+    ctx.arc(8, headY, 2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#0a0808'
+    ctx.beginPath()
+    ctx.arc(8.5, headY, 1, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#3a1818'
+    ctx.beginPath()
+    ctx.ellipse(6, headY + headR * 0.28, 3, 2, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
 }
 
-/** Eren gag: headless body + head cradled in hands out front. */
-function drawErenHeadInHands(ctx, look, scale, walk) {
-  const sway = Math.sin(walk * 12) * 0.4
-  const heldR = 12 * scale
-  const heldY = 7 + sway
-  const heldX = 0
+/** Angry floating head + head-shaped shadow — no body. */
+function drawErenFloatingHead(ctx, look, dir, walk, scale) {
+  const float = Math.sin(walk * 12) * 1.8
+  const headR = 17 * scale
+  const headY = -4 + float
+  const shadowY = headY + headR + 5
 
-  // Neck stump
-  ctx.fillStyle = look.skin
+  ctx.fillStyle = 'rgba(0,0,0,0.14)'
   ctx.beginPath()
-  ctx.ellipse(0, -3 + sway * 0.2, 5.5 * scale, 4 * scale, 0, 0, Math.PI * 2)
+  ctx.ellipse(1, shadowY + 2, headR * 1.08, headR * 0.42, 0, 0, Math.PI * 2)
   ctx.fill()
+  ctx.fillStyle = 'rgba(0,0,0,0.32)'
+  ctx.beginPath()
+  ctx.ellipse(1, shadowY, headR * 0.82, headR * 0.32, 0, 0, Math.PI * 2)
+  ctx.fill()
+
+  if (dir === 'up') {
+    ctx.fillStyle = look.hair
+    ctx.beginPath()
+    ctx.arc(0, headY, headR * 0.9, 0, Math.PI * 2)
+    ctx.fill()
+    drawErenMessyTopHair(ctx, look, headY, headR)
+    return
+  }
+
+  if (dir === 'left' || dir === 'right') {
+    const flip = dir === 'left' ? -1 : 1
+    ctx.save()
+    ctx.scale(flip, 1)
+    ctx.fillStyle = look.skin
+    ctx.beginPath()
+    ctx.ellipse(4, headY, headR * 0.78, headR * 0.98, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#1a1008'
+    ctx.lineWidth = 1.4
+    ctx.stroke()
+    ctx.fillStyle = look.hair
+    ctx.beginPath()
+    ctx.arc(1, headY - headR * 0.45, headR * 0.72, Math.PI, Math.PI * 2)
+    ctx.fill()
+    drawErenAngryFace(ctx, look, headY, headR, dir)
+    ctx.restore()
+    return
+  }
+
+  ctx.fillStyle = look.skin
   ctx.strokeStyle = '#1a1008'
-  ctx.lineWidth = 1.2
-  ctx.stroke()
-  ctx.fillStyle = '#7a2828'
+  ctx.lineWidth = 1.5
   ctx.beginPath()
-  ctx.ellipse(0, -3 + sway * 0.2, 4 * scale, 2.8 * scale, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Arms cradling the head
-  ctx.strokeStyle = look.robe
-  ctx.lineWidth = 4
-  ctx.lineCap = 'round'
-  ctx.beginPath()
-  ctx.moveTo(-9 * scale, 1)
-  ctx.quadraticCurveTo(-heldR - 2, heldY - 2, heldX - heldR + 1, heldY)
-  ctx.moveTo(9 * scale, 1)
-  ctx.quadraticCurveTo(heldR + 2, heldY - 2, heldX + heldR - 1, heldY)
-  ctx.stroke()
-  ctx.fillStyle = look.skin
-  ctx.beginPath()
-  ctx.ellipse(-heldR + 1, heldY + 1, 3.5 * scale, 2.5 * scale, 0, 0, Math.PI * 2)
-  ctx.ellipse(heldR - 1, heldY + 1, 3.5 * scale, 2.5 * scale, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Held head (face visible, messy top only)
-  ctx.fillStyle = look.skin
-  ctx.strokeStyle = '#1a1008'
-  ctx.lineWidth = 1.4
-  ctx.beginPath()
-  ctx.arc(heldX, heldY, heldR, 0, Math.PI * 2)
+  ctx.arc(0, headY, headR, 0, Math.PI * 2)
   ctx.fill()
   ctx.stroke()
-  drawErenMessyTopHair(ctx, look, heldY, heldR)
-  drawErenFaceFeatures(ctx, look, heldY, heldR)
+  drawErenMessyTopHair(ctx, look, headY, headR)
+  drawErenAngryFace(ctx, look, headY, headR, 'down')
 }
 
 function drawMikasaScarfAtNeck(ctx, look, scale) {
@@ -499,6 +559,12 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
   ctx.translate(x, y + bob)
   ctx.scale(scaleX, scaleY)
 
+  if (isEren) {
+    drawErenFloatingHead(ctx, look, facing, walk, scale)
+    ctx.restore()
+    return
+  }
+
   ctx.fillStyle = 'rgba(0,0,0,0.32)'
   ctx.beginPath()
   ctx.ellipse(2, 14 * scale, 11 * scale, 5.5, 0, 0, Math.PI * 2)
@@ -507,22 +573,14 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
   if (facing === 'up') {
     drawLegs(ctx, look, facing, walk, scale)
     drawMonkRobe(ctx, look, facing, walk, scale)
-    if (isEren) drawErenHeadInHands(ctx, look, scale, walk)
-    else drawCharacterFace(ctx, look, facing, headY, headR)
+    drawCharacterFace(ctx, look, facing, headY, headR)
     if (look.feature === 'mikasa') drawMikasaScarfAtNeck(ctx, look, scale)
-  } else if (isEren && (facing === 'down' || facing === 'left' || facing === 'right')) {
-    drawMonkRobe(ctx, look, facing, walk, scale)
-    drawPrayerBeads(ctx, look, facing)
-    drawLegs(ctx, look, facing, walk, scale)
-    drawErenHeadInHands(ctx, look, scale, walk)
   } else {
     drawMonkRobe(ctx, look, facing, walk, scale)
     drawPrayerBeads(ctx, look, facing)
     drawLegs(ctx, look, facing, walk, scale)
     drawCharacterFace(ctx, look, facing, headY, headR)
-    if (look.feature === 'mikasa') {
-      drawMikasaScarfAtNeck(ctx, look, scale)
-    }
+    if (look.feature === 'mikasa') drawMikasaScarfAtNeck(ctx, look, scale)
   }
 
   ctx.restore()
