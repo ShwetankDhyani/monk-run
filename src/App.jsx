@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
-import { getLocation } from './data/locations.js'
 import { migrateVibeToAvatar, resolvePlayerLook } from './data/avatars.js'
 import { formatKm, makeRoomCode, normalizeRoomPin } from './lib/scoring.js'
 import {
@@ -224,11 +223,6 @@ export default function App() {
       setLeaderboardKey((k) => k + 1)
     })
   }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode])
-
-  const location = useMemo(() => {
-    if (!room?.currentLocationId) return null
-    return getLocation(room.currentLocationId)
-  }, [room?.currentLocationId])
 
   const selfGuessed = !!(room && room.guesses?.[room.selfId])
   const lockedCount = room ? Object.keys(room.guesses || {}).length : 0
@@ -723,7 +717,7 @@ export default function App() {
     <Fragment>
     <div className={`screen-enter flex h-full min-h-full flex-col overflow-hidden bg-ink md:flex-row`}>
       <div className="relative min-h-0 flex-1">
-        {location && <StreetView location={location} interactive />}
+        {room.viewToken && <StreetView viewToken={room.viewToken} />}
 
         <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
           <div className="pointer-events-auto panel px-3 py-2">
@@ -775,7 +769,7 @@ export default function App() {
             <div className="mb-2">
               <p className="font-display text-base font-bold text-sky">World map</p>
               <p className="text-[11px] text-muted">
-                Street View is on the left. Tap this map to drop your pin, then lock.
+                Study the locked panorama. Click the world map to guess — no search allowed.
               </p>
             </div>
             <div className="min-h-0 flex-1">

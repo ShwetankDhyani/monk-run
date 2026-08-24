@@ -9,7 +9,7 @@ Multiplayer party GeoGuessr — hang out in a **Buddhist living-room lobby** as 
 - **WebRTC voice chat** — Join voice / mute toggle
 - **Black hole launch** — host hits PLAY; singularity spawns at a random spot, then sucks everyone in
 - **All-time top 10 leaderboard** — click to see podium with monk avatars
-- **Random location seeding** — crypto seed so even the host doesn't know the rounds
+- **Cheat-resistant rounds** — locations live on the game server; clients get one-time panorama tokens only (no satellite toggle, no external Maps links, no place search)
 - **GeoGuessr loop** — Street View, pin guess, auto-reveal when everyone locks, podium + share card
 
 ## Run
@@ -21,7 +21,7 @@ npm run dev:all
 
 Open **http://127.0.0.1:47447**
 
-`dev:all` starts the Vite app and the leaderboard API (port 47448). For frontend only: `npm run dev`. For the API alone: `npm run server`.
+`dev:all` starts the Vite app and the game/leaderboard API (port 47448). **Required for multiplayer** — rounds and Street View are served through it.
 
 ### Optional Google Street View
 

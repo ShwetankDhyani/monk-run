@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker, CircleMarker, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { COUNTRIES } from '../data/locations.js'
+import { COUNTRIES } from '../data/countries.js'
 import { migrateVibeToAvatar, resolvePlayerLook } from '../data/avatars.js'
-import { searchPlace } from '../lib/geocode.js'
 
 const pinIcon = (color) =>
   L.divIcon({
@@ -80,35 +79,12 @@ export default function GuessMap({
   onCountry,
   tall = false,
 }) {
-  const [placeQuery, setPlaceQuery] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [searchHint, setSearchHint] = useState('')
   const [filter, setFilter] = useState('')
   const countries = useMemo(() => {
     const q = filter.trim().toLowerCase()
     if (!q) return COUNTRIES
     return COUNTRIES.filter((c) => c.toLowerCase().includes(q))
   }, [filter])
-
-  const runPlaceSearch = async () => {
-    if (locked || !placeQuery.trim()) return
-    setSearching(true)
-    setSearchHint('')
-    try {
-      const hit = await searchPlace(placeQuery)
-      if (!hit) {
-        setSearchHint('No match — try another spelling')
-        return
-      }
-      onGuess?.({ lat: hit.lat, lng: hit.lng })
-      if (hit.country) onCountry?.(hit.country)
-      setSearchHint(hit.label.split(',').slice(0, 2).join(', '))
-    } catch {
-      setSearchHint('Search unavailable — drop a pin manually')
-    } finally {
-      setSearching(false)
-    }
-  }
 
   const center = guess ? [guess.lat, guess.lng] : [20, 0]
   const mapH = tall ? 'min-h-[220px] flex-1' : 'h-[280px]'
@@ -117,30 +93,9 @@ export default function GuessMap({
     <div className={`flex flex-col gap-2 ${tall ? 'h-full min-h-0' : ''}`}>
       {mode === 'guess' && (
         <div className="flex shrink-0 flex-col gap-2">
-          <div className="flex gap-2">
-            <input
-              value={placeQuery}
-              onChange={(e) => setPlaceQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  runPlaceSearch()
-                }
-              }}
-              placeholder="Search city or country…"
-              className="input-clean min-w-0 flex-1"
-              disabled={locked || searching}
-            />
-            <button
-              type="button"
-              className="btn btn-ghost shrink-0 !px-3"
-              disabled={locked || searching || !placeQuery.trim()}
-              onClick={runPlaceSearch}
-            >
-              {searching ? '…' : 'Go'}
-            </button>
-          </div>
-          {searchHint && <p className="text-[10px] text-sky">{searchHint}</p>}
+          <p className="text-[11px] text-muted">
+            Click the world map to drop your pin — no search, no shortcuts.
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <input
               value={filter}
@@ -168,6 +123,7 @@ export default function GuessMap({
 
       <div
         className={`relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]`}
+        onContextMenu={mode === 'guess' ? (e) => e.preventDefault() : undefined}
       >
         <MapContainer
           center={center}
@@ -227,7 +183,7 @@ export default function GuessMap({
         {mode === 'guess' && !guess && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] text-center">
             <span className="rounded-full bg-sky px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-lg">
-              search above or click the map
+              click the map to guess
             </span>
           </div>
         )}

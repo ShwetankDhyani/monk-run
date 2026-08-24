@@ -1,8 +1,8 @@
 import Peer from 'peerjs'
 import { migrateVibeToAvatar } from '../data/avatars.js'
-import { getLocation, pickRoundLocations } from '../data/locations.js'
 import { randomBlackHolePos, pickRandomSpawn, clampToFloor } from './templeRoom.js'
 import { haversineKm, scoreFromDistanceKm } from './scoring.js'
+import { createGameSession, openRoundView, fetchRoundTruth } from './gameSession.js'
 
 export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
@@ -27,12 +27,6 @@ function assignSpawn(lobby, excludeId = null) {
 
 function clone(s) {
   return JSON.parse(JSON.stringify(s))
-}
-
-function randomSeed() {
-  const buf = new Uint32Array(2)
-  crypto.getRandomValues(buf)
-  return buf[0] * 0x100000000 + (buf[1] >>> 0)
 }
 
 /** Host-authoritative PeerJS room: temple lobby → portal countdown → GeoGuessr. */
@@ -67,17 +61,50 @@ export function createRoomController({ onState, onError, onEvent }) {
       roundIndex: 0,
       totalRounds: DEFAULT_ROUNDS,
       roundEndsAt: 0,
-      locationIds: [],
-      currentLocationId: null,
+      viewToken: '',
       guesses: {},
       reveal: null,
       scores: {},
       roundTimeMs: DEFAULT_ROUND_MS,
       message: '',
-      seed: 0,
       localOnly: false,
     }
   }
+
+  /** Public sync — never includes seeds, location ids, or coordinates. */
+  function publicState() {
+    return {
+      phase: state.phase,
+      roomCode: state.roomCode,
+      players: state.players,
+      lobby: state.lobby,
+      chat: state.chat,
+      countdownEndsAt: state.countdownEndsAt,
+      countdownStartedAt: state.countdownStartedAt,
+      blackHoleX: state.blackHoleX,
+      blackHoleY: state.blackHoleY,
+      roundIndex: state.roundIndex,
+      totalRounds: state.totalRounds,
+      roundEndsAt: state.roundEndsAt,
+      viewToken: state.viewToken,
+      guesses: state.guesses,
+      reveal: state.reveal,
+      scores: state.scores,
+      roundTimeMs: state.roundTimeMs,
+      message: state.message,
+    }
+  }
+
+  function blankSecrets() {
+    return {
+      gameSessionId: '',
+      locationIds: [],
+      currentLocationId: null,
+      seed: 0,
+    }
+  }
+
+  let secrets = blankSecrets()
 
   function emit() {
     onState?.(clone(state))
@@ -127,31 +154,7 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function snapshotMsg() {
-    return {
-      type: 'sync',
-      state: {
-        phase: state.phase,
-        roomCode: state.roomCode,
-        players: state.players,
-        lobby: state.lobby,
-        chat: state.chat,
-        countdownEndsAt: state.countdownEndsAt,
-        countdownStartedAt: state.countdownStartedAt,
-        blackHoleX: state.blackHoleX,
-        blackHoleY: state.blackHoleY,
-        roundIndex: state.roundIndex,
-        totalRounds: state.totalRounds,
-        roundEndsAt: state.roundEndsAt,
-        locationIds: state.locationIds,
-        currentLocationId: state.currentLocationId,
-        guesses: state.guesses,
-        reveal: state.reveal,
-        scores: state.scores,
-        roundTimeMs: state.roundTimeMs,
-        message: state.message,
-        seed: state.seed,
-      },
-    }
+    return { type: 'sync', state: publicState() }
   }
 
   function pushSync() {
@@ -384,6 +387,7 @@ export function createRoomController({ onState, onError, onEvent }) {
   function bootLocal({ name, vibe, avatar, code }) {
     actingHost = true
     state = blank()
+    secrets = blankSecrets()
     state.phase = 'lobby'
     state.roomCode = code
     state.isHost = true
@@ -404,6 +408,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       peer = opened.peer
       actingHost = true
       state = blank()
+      secrets = blankSecrets()
       state.phase = 'lobby'
       state.roomCode = code
       state.isHost = true
@@ -435,6 +440,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       peer = opened.peer
       actingHost = false
       state = blank()
+      secrets = blankSecrets()
       state.selfId = opened.id
       state.roomCode = code
       state.isHost = false
@@ -504,19 +510,32 @@ export function createRoomController({ onState, onError, onEvent }) {
     else send(hostConn, { type: 'chat', text: body })
   }
 
-  /** Host starts synchronized countdown, then jumps into round 1 with a fresh random seed. */
+  /** Host starts countdown; locations are drawn server-side (never synced to clients). */
   function beginCountdown({ rounds = DEFAULT_ROUNDS, roundTimeMs = DEFAULT_ROUND_MS } = {}) {
     if (!actingHost) return
     if (state.phase !== 'lobby') return
-    const seed = randomSeed()
-    const locs = pickRoundLocations(rounds, seed)
-    state.seed = seed
-    state.totalRounds = locs.length
+    void beginCountdownAsync({ rounds, roundTimeMs })
+  }
+
+  async function beginCountdownAsync({ rounds = DEFAULT_ROUNDS, roundTimeMs = DEFAULT_ROUND_MS } = {}) {
+    try {
+      const session = await createGameSession(state.roomCode, rounds)
+      secrets = {
+        gameSessionId: session.sessionId,
+        locationIds: session.locationIds,
+        currentLocationId: null,
+        seed: 0,
+      }
+      state.totalRounds = session.totalRounds
+    } catch {
+      fail('Game server offline — run npm run dev:all so rounds stay cheat-proof.')
+      return
+    }
     state.roundTimeMs = roundTimeMs
-    state.locationIds = locs.map((l) => l.id)
     state.scores = Object.fromEntries(state.players.map((p) => [p.id, 0]))
     state.reveal = null
     state.guesses = {}
+    state.viewToken = ''
     state.phase = 'countdown'
     const bh = randomBlackHolePos()
     state.blackHoleX = bh.x
@@ -528,10 +547,25 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function startRound(index) {
+    void startRoundAsync(index)
+  }
+
+  async function startRoundAsync(index) {
+    if (!actingHost) return
     state.roundIndex = index
-    state.currentLocationId = state.locationIds[index]
     state.guesses = {}
     state.reveal = null
+    state.viewToken = ''
+
+    try {
+      const opened = await openRoundView(secrets.gameSessionId, index)
+      state.viewToken = opened.viewToken
+      secrets.currentLocationId = opened.locationId
+    } catch {
+      fail('Could not load secure round view.')
+      return
+    }
+
     state.phase = 'playing'
     state.roundEndsAt = Date.now() + state.roundTimeMs
     state.message = `Round ${index + 1}/${state.totalRounds}`
@@ -556,8 +590,9 @@ export function createRoomController({ onState, onError, onEvent }) {
     if (live.length > 0 && live.every((p) => state.guesses[p.id])) revealRound()
   }
 
-  function buildReveal() {
-    const truth = getLocation(state.currentLocationId)
+  async function buildRevealAsync() {
+    const truthLoc = await fetchRoundTruth(secrets.gameSessionId, state.roundIndex)
+    if (!truthLoc) return null
     const results = state.players.map((p) => {
       const g = state.guesses[p.id]
       if (!g) {
@@ -574,7 +609,7 @@ export function createRoomController({ onState, onError, onEvent }) {
           missed: true,
         }
       }
-      const km = haversineKm({ lat: g.lat, lng: g.lng }, { lat: truth.lat, lng: truth.lng })
+      const km = haversineKm({ lat: g.lat, lng: g.lng }, { lat: truthLoc.lat, lng: truthLoc.lng })
       return {
         playerId: p.id,
         name: p.name,
@@ -591,21 +626,26 @@ export function createRoomController({ onState, onError, onEvent }) {
     results.sort((a, b) => b.score - a.score)
     return {
       truth: {
-        id: truth.id,
-        lat: truth.lat,
-        lng: truth.lng,
-        country: truth.country,
-        city: truth.city,
-        hint: truth.hint,
+        id: truthLoc.id,
+        lat: truthLoc.lat,
+        lng: truthLoc.lng,
+        country: truthLoc.country,
+        city: truthLoc.city,
       },
       results,
     }
   }
 
   function revealRound() {
+    void revealRoundAsync()
+  }
+
+  async function revealRoundAsync() {
     if (!actingHost || state.phase !== 'playing') return
-    const reveal = buildReveal()
+    const reveal = await buildRevealAsync()
+    if (!reveal) return
     state.reveal = reveal
+    state.viewToken = ''
     for (const r of reveal.results) {
       state.scores[r.playerId] = (state.scores[r.playerId] || 0) + r.score
     }
@@ -657,6 +697,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       peer = null
     }
     actingHost = false
+    secrets = blankSecrets()
   }
 
   return {
