@@ -1,43 +1,37 @@
 export function createAudio() {
   let ctx = null
   let master = null
-  let chantGain = null
-  let droneOsc = []
-  let lfo = null
-  let noiseSrc = null
   let started = false
-  let analyser = null
-  let data = null
+  let beatInterval = 0.75
+  let nextBeat = 0
+  let beatIndex = 0
+  let onBeatCb = null
+  let drones = []
+  let filter = null
 
   function ensure() {
     if (ctx) return
     const AC = window.AudioContext || window.webkitAudioContext
     ctx = new AC()
     master = ctx.createGain()
-    master.gain.value = 0.0
+    master.gain.value = 0.001
     master.connect(ctx.destination)
-
-    chantGain = ctx.createGain()
-    chantGain.gain.value = 0.0
-    chantGain.connect(master)
-
-    analyser = ctx.createAnalyser()
-    analyser.fftSize = 256
-    master.connect(analyser)
-    data = new Uint8Array(analyser.frequencyBinCount)
   }
 
-  function makeDrone(freq, type, gainVal, detune = 0) {
+  function tone(freq, dur, type = 'sine', gain = 0.15, when = 0) {
+    if (!ctx || !started) return
+    const t = ctx.currentTime + when
     const osc = ctx.createOscillator()
     const g = ctx.createGain()
     osc.type = type
-    osc.frequency.value = freq
-    osc.detune.value = detune
-    g.gain.value = gainVal
+    osc.frequency.setValueAtTime(freq, t)
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.02)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
     osc.connect(g)
     g.connect(master)
-    osc.start()
-    return { osc, g }
+    osc.start(t)
+    osc.stop(t + dur + 0.05)
   }
 
   async function start() {
@@ -49,124 +43,128 @@ export function createAudio() {
     started = true
     if (ctx.state === 'suspended') await ctx.resume()
 
-    // Deep ritual drones
-    droneOsc = [
-      makeDrone(55, 'sine', 0.12),
-      makeDrone(82.5, 'triangle', 0.05, 7),
-      makeDrone(110, 'sine', 0.04, -5),
-      makeDrone(165, 'sawtooth', 0.015, 12),
+    filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 900
+    filter.connect(master)
+
+    const specs = [
+      [55, 'sine', 0.1],
+      [82.5, 'triangle', 0.04],
+      [110, 'sine', 0.03],
     ]
+    drones = specs.map(([f, type, g]) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = type
+      osc.frequency.value = f
+      gain.gain.value = g
+      osc.connect(gain)
+      gain.connect(filter)
+      osc.start()
+      return { osc, gain, base: f }
+    })
 
-    // Breathing LFO on drone amplitude
-    lfo = ctx.createOscillator()
-    const lfoGain = ctx.createGain()
-    lfo.frequency.value = 0.12
-    lfoGain.gain.value = 0.04
-    lfo.connect(lfoGain)
-    lfoGain.connect(droneOsc[0].g.gain)
-    lfo.start()
-
-    // Soft noise pad (filtered)
-    const bufferSize = 2 * ctx.sampleRate
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-    const out = buffer.getChannelData(0)
-    for (let i = 0; i < bufferSize; i++) {
-      out[i] = (Math.random() * 2 - 1) * 0.35
-    }
-    noiseSrc = ctx.createBufferSource()
-    noiseSrc.buffer = buffer
-    noiseSrc.loop = true
-    const filter = ctx.createBiquadFilter()
-    filter.type = 'bandpass'
-    filter.frequency.value = 420
-    filter.Q.value = 0.7
-    const noiseGain = ctx.createGain()
-    noiseGain.gain.value = 0.03
-    noiseSrc.connect(filter)
-    filter.connect(noiseGain)
-    noiseGain.connect(master)
-    noiseSrc.start()
-
-    // Fade in
     const now = ctx.currentTime
     master.gain.cancelScheduledValues(now)
     master.gain.setValueAtTime(0.001, now)
-    master.gain.exponentialRampToValueAtTime(0.55, now + 2.2)
+    master.gain.exponentialRampToValueAtTime(0.5, now + 1.2)
+    nextBeat = now + 0.4
   }
 
-  function setChant(amount, lookMag = 0) {
-    if (!ctx || !chantGain) return
-    const now = ctx.currentTime
-    const target = Math.max(0.0001, amount * 0.28 + lookMag * 0.04)
-    chantGain.gain.setTargetAtTime(target, now, 0.08)
+  function setTempo(bpm) {
+    beatInterval = 60 / Math.max(60, bpm)
+  }
 
-    // Modulate drone pitch with look / chant
-    for (let i = 0; i < droneOsc.length; i++) {
-      const base = [55, 82.5, 110, 165][i]
-      const bend = 1 + amount * 0.08 + lookMag * 0.04 * (i + 1) * 0.15
-      droneOsc[i].osc.frequency.setTargetAtTime(base * bend, now, 0.12)
-    }
-    if (lfo) {
-      lfo.frequency.setTargetAtTime(0.12 + amount * 0.35, now, 0.1)
+  function setIntensity(level, chant) {
+    if (!filter || !ctx) return
+    const now = ctx.currentTime
+    filter.frequency.setTargetAtTime(700 + level * 80 + chant * 600, now, 0.15)
+    for (const d of drones) {
+      d.osc.frequency.setTargetAtTime(d.base * (1 + chant * 0.06 + level * 0.01), now, 0.2)
     }
   }
 
-  function pulse(intensity = 1) {
-    if (!ctx || !started) return
+  function tick() {
+    if (!ctx || !started) return { beat: false, phase: 0, inWindow: false }
     const now = ctx.currentTime
-    const osc = ctx.createOscillator()
-    const g = ctx.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(220 + intensity * 180, now)
-    osc.frequency.exponentialRampToValueAtTime(55, now + 0.9)
-    g.gain.setValueAtTime(0.0001, now)
-    g.gain.exponentialRampToValueAtTime(0.2 * intensity, now + 0.04)
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 1.1)
-    osc.connect(g)
-    g.connect(chantGain)
-    osc.start(now)
-    osc.stop(now + 1.2)
-
-    // Harmonic shimmer
-    const o2 = ctx.createOscillator()
-    const g2 = ctx.createGain()
-    o2.type = 'triangle'
-    o2.frequency.value = 440 * (1 + intensity * 0.5)
-    g2.gain.setValueAtTime(0.0001, now)
-    g2.gain.exponentialRampToValueAtTime(0.08 * intensity, now + 0.02)
-    g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.55)
-    o2.connect(g2)
-    g2.connect(master)
-    o2.start(now)
-    o2.stop(now + 0.6)
+    let beat = false
+    while (now >= nextBeat) {
+      beat = true
+      beatIndex++
+      // metronome click — soft, audible for rhythm portal
+      tone(beatIndex % 4 === 0 ? 660 : 440, 0.06, 'sine', beatIndex % 4 === 0 ? 0.09 : 0.045)
+      nextBeat += beatInterval
+      if (onBeatCb) onBeatCb(beatIndex)
+    }
+    const prev = nextBeat - beatInterval
+    const phase = (now - prev) / beatInterval
+    const dist = Math.min(phase, 1 - phase)
+    const inWindow = dist < 0.18
+    return { beat, phase, inWindow, beatIndex }
   }
 
-  function getEnergy() {
-    if (!analyser || !data) return 0
-    analyser.getByteFrequencyData(data)
-    let sum = 0
-    for (let i = 0; i < data.length; i++) sum += data[i]
-    return sum / (data.length * 255)
+  function collect() {
+    tone(523.25, 0.18, 'sine', 0.16)
+    tone(783.99, 0.25, 'triangle', 0.08, 0.04)
   }
 
-  function sutraTone(layer) {
-    if (!ctx || !started) return
-    const now = ctx.currentTime
-    const freqs = [261.63, 329.63, 392.0, 523.25, 659.25, 784.0, 987.77, 1046.5]
-    const f = freqs[layer % freqs.length]
-    const osc = ctx.createOscillator()
-    const g = ctx.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(f, now)
-    osc.frequency.exponentialRampToValueAtTime(f * 2.02, now + 0.35)
-    g.gain.setValueAtTime(0.0001, now)
-    g.gain.exponentialRampToValueAtTime(0.18, now + 0.03)
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 1.4)
-    osc.connect(g)
-    g.connect(master)
-    osc.start(now)
-    osc.stop(now + 1.5)
+  function hurt() {
+    tone(90, 0.35, 'sawtooth', 0.12)
+    tone(60, 0.5, 'sine', 0.1, 0.02)
   }
 
-  return { start, setChant, pulse, getEnergy, sutraTone, get context() { return ctx } }
+  function portalOpen() {
+    tone(220, 0.4, 'sine', 0.12)
+    tone(330, 0.45, 'triangle', 0.1, 0.05)
+    tone(440, 0.5, 'sine', 0.08, 0.1)
+  }
+
+  function levelClear() {
+    ;[261.63, 329.63, 392, 523.25].forEach((f, i) => tone(f, 0.35, 'sine', 0.1, i * 0.08))
+  }
+
+  function gameOver() {
+    tone(200, 0.5, 'sawtooth', 0.1)
+    tone(150, 0.7, 'sine', 0.12, 0.1)
+    tone(80, 1.0, 'triangle', 0.1, 0.2)
+  }
+
+  function win() {
+    ;[261.63, 329.63, 392, 523.25, 659.25, 784].forEach((f, i) =>
+      tone(f, 0.4, 'sine', 0.09, i * 0.1),
+    )
+  }
+
+  function dash() {
+    tone(180, 0.12, 'square', 0.06)
+    tone(360, 0.18, 'sine', 0.07, 0.02)
+  }
+
+  function missBeat() {
+    tone(140, 0.12, 'triangle', 0.05)
+  }
+
+  function onBeat(cb) {
+    onBeatCb = cb
+  }
+
+  return {
+    start,
+    setTempo,
+    setIntensity,
+    tick,
+    collect,
+    hurt,
+    portalOpen,
+    levelClear,
+    gameOver,
+    win,
+    dash,
+    missBeat,
+    onBeat,
+    get context() {
+      return ctx
+    },
+  }
 }

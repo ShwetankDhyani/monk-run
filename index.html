@@ -5,25 +5,31 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#050208" />
-    <meta name="description" content="monk.run — enter the Void Monastery. A psychedelic waking dream for the browser." />
-    <title>monk.run — The Psychedelic Engine</title>
+    <meta name="description" content="monk.run — arcade consciousness drift. Collect nodes, dodge collapsing dimensions, chant on the beat." />
+    <title>monk.run — Consciousness Drift</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="veil">
       <div class="veil-inner">
         <p class="sigil" aria-hidden="true">◎</p>
         <h1 class="brand">monk.run</h1>
-        <p class="mantra">the void monastery awaits</p>
-        <button type="button" id="awaken" class="awaken">AWAKEN</button>
-        <p class="hint">click · move · hold space to chant</p>
+        <p class="mantra">consciousness drift</p>
+        <ul class="rules">
+          <li><span>WASD</span> thrust through the void</li>
+          <li><span>CLICK / SHIFT</span> dash (brief shield)</li>
+          <li><span>COLLECT</span> all glowing nodes</li>
+          <li><span>AVOID</span> red collapsing dimensions</li>
+          <li><span>SPACE ON BEAT</span> unlocks the portal</li>
+        </ul>
+        <button type="button" id="awaken" class="awaken">PLAY</button>
+        <p class="hint">8 realms · 3 lives · score &amp; combo · don’t dissolve</p>
       </div>
     </div>
     <canvas id="gl"></canvas>
     <canvas id="hud"></canvas>
-    <div id="toast" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

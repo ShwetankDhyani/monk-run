@@ -1,18 +1,21 @@
 # monk.run
 
-> the void monastery does not load. it remembers you.
+> collect the light. dodge the collapse. chant on the pulse. leave the ego at the portal.
 
-**monk.run** is a browser-playable waking dream — *LSD Dream Emulator* crossed with an ancient high-tech hippie ritual adrift in deep space. There is no score that matters. There is only gaze, chant, and the mandala that opens when you stop pretending you are separate from the screen.
+**monk.run** is a browser arcade game wrapped in an acid-trip space ritual — not a screensaver. You pilot a consciousness mote through eight psychedelic realms with score, lives, combos, and a hard fail state.
 
-## The Ritual
+## How to play
 
-1. Open the page.
-2. Press **AWAKEN** (audio needs your blessing).
-3. In the first breath the chromatic mandala blooms — record that, or dissolve into it.
-4. **Move** the pointer to bend gravity. **WASD / arrows** drift the dream.
-5. **Hold click or Space** to chant. Sutras spiral toward your gaze. Absorb three to climb a layer.
+1. Hit **PLAY** (audio needs a gesture).
+2. **WASD / arrows** — thrust (momentum physics).
+3. **Click or Shift** — dash with a brief shield.
+4. **Collect** every saffron consciousness node.
+5. **Avoid** red collapsing dimensions (they pull you in; contact costs a life).
+6. When nodes are cleared, **press Space on the beat** (top pulse ring) to stabilize the portal, then fly through it.
+7. Clear all **8 realms** to awaken. Hit 0 lives or run out of time to dissolve.
+8. **R / Enter** reincarnates after game over or victory.
 
-Eight layers. Infinite return. The ego is optional DLC.
+Scoring: node value × combo, beat-accurate portal opens, realm clear bonuses, leftover time.
 
 ## Run locally
 
@@ -21,7 +24,7 @@ npm install
 npm run dev
 ```
 
-Then open the printed local URL (default port **47391**).
+Dev server defaults to port **47391**.
 
 ```bash
 npm run build
@@ -30,14 +33,6 @@ npm run preview
 
 ## Stack
 
-Vanilla JS · WebGL2 fragment altar · Canvas particle sangha · Web Audio mantra engine · Vite
+Vanilla JS · WebGL2 backdrop · Canvas gameplay · Web Audio beat clock · Vite
 
-No accounts. No backend. No corporate UI. Only the trip.
-
-## Domain
-
-Built as the living surface of **[monk.run](https://monk.run)** — a digital canvas for consciousness that forgot it was code.
-
----
-
-*◎ may your shaders compile and your drones stay in tune*
+Built for **[monk.run](https://monk.run)**.

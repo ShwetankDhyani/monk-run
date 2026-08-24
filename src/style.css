@@ -105,6 +105,30 @@ body {
   color: rgba(245, 240, 255, 0.55);
 }
 
+.rules {
+  list-style: none;
+  margin: 1.5rem auto 0;
+  padding: 0;
+  text-align: left;
+  max-width: 22rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.rules li {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: rgba(245, 240, 255, 0.62);
+  line-height: 1.35;
+}
+
+.rules span {
+  color: var(--saffron);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-right: 0.35rem;
+}
+
 .awaken {
   margin-top: 2.25rem;
   appearance: none;
