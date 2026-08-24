@@ -2,54 +2,195 @@
 
 export const ROOM = { x: 80, y: 100, w: 1120, h: 560 }
 
-/** Static furniture / wall colliders (circle-rect separation in lobby). */
+/** Inner hardwood floor — players walk here (matches drawLivingRoom inset). */
+export const FLOOR = { x: 108, y: 146, w: 1064, h: 458 }
+
+const RX = ROOM.x
+const RY = ROOM.y
+
+/**
+ * Colliders aligned to drawn furniture (absolute canvas coords).
+ * Only solid geometry — no invisible glow/light volumes.
+ */
 export const STATIC_COLLIDERS = [
-  { x: 80, y: 100, w: 1120, h: 24 },
-  { x: 80, y: 636, w: 1120, h: 24 },
-  { x: 80, y: 100, w: 24, h: 560 },
-  { x: 1176, y: 100, w: 24, h: 560 },
-  // Back sofa bench
-  { x: 480, y: 148, w: 320, h: 52 },
-  // Left bookshelf
-  { x: 118, y: 168, w: 88, h: 148 },
-  // Right sideboard
-  { x: 1060, y: 168, w: 88, h: 120 },
-  // Coffee table
-  { x: 520, y: 300, w: 240, h: 72 },
-  // Left armchair
-  { x: 168, y: 420, w: 96, h: 88 },
-  // Right armchair
-  { x: 1016, y: 420, w: 96, h: 88 },
-  // Altar table (back center)
-  { x: 560, y: 208, w: 160, h: 36 },
-  // Floor lamp left
-  { x: 248, y: 260, w: 36, h: 36 },
-  // Plant right
-  { x: 980, y: 280, w: 44, h: 44 },
+  { x: FLOOR.x, y: FLOOR.y - 18, w: FLOOR.w, h: 18 },
+  { x: FLOOR.x, y: FLOOR.y + FLOOR.h, w: FLOOR.w, h: 18 },
+  { x: FLOOR.x - 18, y: FLOOR.y, w: 18, h: FLOOR.h },
+  { x: FLOOR.x + FLOOR.w, y: FLOOR.y, w: 18, h: FLOOR.h },
+  { x: RX + 480, y: RY + 148, w: 320, h: 52 },
+  { x: RX + 118, y: RY + 168, w: 88, h: 148 },
+  { x: RX + 1060, y: RY + 168, w: 88, h: 120 },
+  { x: RX + 520, y: RY + 300, w: 240, h: 72 },
+  { x: RX + 168, y: RY + 420, w: 96, h: 88 },
+  { x: RX + 1016, y: RY + 420, w: 96, h: 88 },
+  { x: RX + 560, y: RY + 208, w: 160, h: 36 },
+  { x: RX + 256, y: RY + 266, w: 22, h: 22 },
+  { x: RX + 988, y: RY + 292, w: 30, h: 22 },
+  { x: RX + 312, y: RY + 500, w: 56, h: 40 },
+  { x: RX + 392, y: RY + 520, w: 56, h: 40 },
+  { x: RX + 832, y: RY + 500, w: 56, h: 40 },
+  { x: RX + 912, y: RY + 520, w: 56, h: 40 },
 ]
 
-export function randomBlackHolePos() {
-  const pad = 100
-  const minX = ROOM.x + pad
-  const maxX = ROOM.x + ROOM.w - pad
-  const minY = ROOM.y + pad + 40
-  const maxY = ROOM.y + ROOM.h - pad - 40
-  for (let i = 0; i < 40; i++) {
-    const x = minX + Math.random() * (maxX - minX)
-    const y = minY + Math.random() * (maxY - minY)
-    const r = 28
-    let ok = true
-    for (const c of STATIC_COLLIDERS) {
-      const nx = Math.max(c.x, Math.min(x, c.x + c.w))
-      const ny = Math.max(c.y, Math.min(y, c.y + c.h))
-      if ((x - nx) ** 2 + (y - ny) ** 2 < r * r) {
-        ok = false
-        break
-      }
+export const PLAYER_R = 17
+
+function circleRectHit(cx, cy, r, rect) {
+  const nx = Math.max(rect.x, Math.min(cx, rect.x + rect.w))
+  const ny = Math.max(rect.y, Math.min(cy, rect.y + rect.h))
+  return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r
+}
+
+export function isWalkable(x, y, radius = PLAYER_R) {
+  if (x < FLOOR.x + radius || x > FLOOR.x + FLOOR.w - radius) return false
+  if (y < FLOOR.y + radius || y > FLOOR.y + FLOOR.h - radius) return false
+  for (const c of STATIC_COLLIDERS) {
+    if (circleRectHit(x, y, radius, c)) return false
+  }
+  return true
+}
+
+/** Random spawn away from furniture and other players. */
+export function pickRandomSpawn(existing = [], minDist = 58) {
+  for (let i = 0; i < 120; i++) {
+    const x = FLOOR.x + PLAYER_R + 8 + Math.random() * (FLOOR.w - 2 * (PLAYER_R + 8))
+    const y = FLOOR.y + PLAYER_R + 8 + Math.random() * (FLOOR.h - 2 * (PLAYER_R + 8))
+    if (!isWalkable(x, y)) continue
+    if (existing.some((p) => Math.hypot(p.x - x, p.y - y) < minDist)) continue
+    return { x: Math.round(x), y: Math.round(y), dir: 'down' }
+  }
+  const grid = [
+    { x: 280, y: 520 }, { x: 480, y: 540 }, { x: 780, y: 520 }, { x: 980, y: 540 }, { x: 640, y: 480 },
+  ]
+  for (const g of grid) {
+    if (isWalkable(g.x, g.y) && !existing.some((p) => Math.hypot(p.x - g.x, p.y - g.y) < minDist)) {
+      return { ...g, dir: 'down' }
     }
-    if (ok) return { x: Math.round(x), y: Math.round(y) }
+  }
+  return { x: 640, y: 520, dir: 'down' }
+}
+
+export function clampToFloor(x, y, radius = PLAYER_R) {
+  return {
+    x: Math.max(FLOOR.x + radius, Math.min(FLOOR.x + FLOOR.w - radius, x)),
+    y: Math.max(FLOOR.y + radius, Math.min(FLOOR.y + FLOOR.h - radius, y)),
+  }
+}
+
+export function randomBlackHolePos() {
+  for (let i = 0; i < 60; i++) {
+    const x = FLOOR.x + 80 + Math.random() * (FLOOR.w - 160)
+    const y = FLOOR.y + 80 + Math.random() * (FLOOR.h - 160)
+    if (isWalkable(x, y, 24)) return { x: Math.round(x), y: Math.round(y) }
   }
   return { x: 640, y: 380 }
+}
+
+/** Volatile wobbly black hole — deformed circle that grows and churns. */
+export function drawBlackHole(ctx, t, cx, cy, scale, suck, birth = 0) {
+  if (scale <= 0.002) return
+
+  const wild = 1.4 + (1 - suck) * 1.2 + birth * 0.6
+  const baseR = 2 + scale * 88
+
+  function wobbleR(a, r, phase, layers = 1) {
+    let out = r
+    out += Math.sin(a * 3 + t * 11 + phase) * (5 + scale * 10) * wild * layers
+    out += Math.sin(a * 5 - t * 15 + phase * 1.7) * (3 + scale * 7) * wild * layers
+    out += Math.sin(a * 8 + t * 19 - phase) * (2 + scale * 4) * wild
+    out += Math.sin(a * 13 + t * 23) * scale * 2.5 * wild
+    out *= 1 + Math.sin(t * 27 + phase * 2 + a * 2) * 0.045 * wild
+    return Math.max(1.5, out)
+  }
+
+  function traceBlob(radius, squish, phase, alpha, stroke) {
+    const n = 56
+    ctx.beginPath()
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2
+      const r = wobbleR(a, radius, phase)
+      const px = cx + Math.cos(a) * r
+      const py = cy + Math.sin(a) * r * squish
+      if (i === 0) ctx.moveTo(px, py)
+      else ctx.lineTo(px, py)
+    }
+    ctx.closePath()
+    if (stroke) {
+      ctx.strokeStyle = stroke
+      ctx.lineWidth = 1.2 + scale * 2
+      ctx.stroke()
+    }
+    if (alpha != null) {
+      ctx.fillStyle = alpha
+      ctx.fill()
+    }
+  }
+
+  ctx.save()
+
+  // Outer heat shimmer
+  for (let ring = 5; ring >= 1; ring--) {
+    const rr = baseR * (1 + ring * 0.14 + Math.sin(t * 8 + ring) * 0.03)
+    traceBlob(
+      rr,
+      0.82 + Math.sin(t * 4 + ring) * 0.12,
+      ring * 1.3,
+      `rgba(255,${120 + ring * 20},${40 + ring * 10},${(0.04 + suck * 0.08) / ring})`,
+    )
+  }
+
+  // Spinning accretion arcs
+  for (let arc = 0; arc < 6; arc++) {
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(t * (2.2 + arc * 0.35) + arc * 1.1)
+    ctx.scale(1.25, 0.42 + Math.sin(t * 6 + arc) * 0.08)
+    ctx.beginPath()
+    ctx.arc(0, 0, baseR * (0.9 + arc * 0.08), 0, Math.PI * 1.35)
+    ctx.strokeStyle = `rgba(255,180,80,${0.08 + suck * 0.12})`
+    ctx.lineWidth = 2 + arc * 0.5
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  // Photon ring — bright volatile outline
+  traceBlob(
+    baseR * 0.72,
+    0.88 + Math.sin(t * 9) * 0.1,
+    t * 2,
+    null,
+    `rgba(255,220,140,${0.35 + Math.sin(t * 18) * 0.12 + suck * 0.2})`,
+  )
+
+  // Event horizon fill
+  traceBlob(baseR * 0.58, 0.86 + Math.sin(t * 7) * 0.08, t * 3, '#030008')
+  traceBlob(baseR * 0.42, 0.9 + Math.sin(t * 11) * 0.06, t * 4, '#000')
+
+  // Inner singularity flicker
+  const flicker = 0.7 + Math.sin(t * 31) * 0.15 + Math.sin(t * 47) * 0.1
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.35 * flicker)
+  core.addColorStop(0, '#000')
+  core.addColorStop(0.6, '#050010')
+  core.addColorStop(1, 'rgba(80,20,120,0.15)')
+  ctx.fillStyle = core
+  ctx.beginPath()
+  ctx.arc(cx, cy, baseR * 0.35 * flicker, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Sparks / debris when growing
+  if (scale < 0.95 || suck < 0.5) {
+    for (let i = 0; i < 14; i++) {
+      const a = t * 3.5 + i * 0.9
+      const dist = baseR * (0.7 + (i % 5) * 0.08 + Math.sin(t * 12 + i) * 0.06)
+      const sx = cx + Math.cos(a) * dist
+      const sy = cy + Math.sin(a) * dist * 0.75
+      ctx.fillStyle = `rgba(255,200,120,${0.15 + Math.sin(t * 20 + i) * 0.1})`
+      ctx.beginPath()
+      ctx.arc(sx, sy, 1 + (i % 3), 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  ctx.restore()
 }
 
 export function makeLivingRoomProps(bhX = 640, bhY = 380) {

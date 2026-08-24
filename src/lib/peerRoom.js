@@ -1,7 +1,7 @@
 import Peer from 'peerjs'
 import { migrateVibeToAvatar } from '../data/avatars.js'
 import { getLocation, pickRoundLocations } from '../data/locations.js'
-import { randomBlackHolePos } from './templeRoom.js'
+import { randomBlackHolePos, pickRandomSpawn, clampToFloor } from './templeRoom.js'
 import { haversineKm, scoreFromDistanceKm } from './scoring.js'
 
 export const MAX_PLAYERS = 5
@@ -9,20 +9,16 @@ export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
 export const LOBBY_COUNTDOWN_MS = 3_200
 
-/** Canvas lobby spawn points (must match MonkLobby floor coords). */
-function spawnSlot(index) {
-  const spots = [
-    { x: 220, y: 420, dir: 'down' },
-    { x: 380, y: 500, dir: 'down' },
-    { x: 540, y: 380, dir: 'down' },
-    { x: 760, y: 480, dir: 'down' },
-    { x: 980, y: 400, dir: 'down' },
-  ]
-  const s = spots[index % spots.length]
+/** Assign a random walkable spawn, spread from existing lobby positions. */
+function assignSpawn(lobby, excludeId = null) {
+  const existing = Object.entries(lobby || {})
+    .filter(([id, p]) => id !== excludeId && p?.x != null)
+    .map(([, p]) => ({ x: p.x, y: p.y }))
+  const spot = pickRandomSpawn(existing)
   return {
-    x: s.x,
-    y: s.y,
-    dir: s.dir,
+    x: spot.x,
+    y: spot.y,
+    dir: spot.dir,
     emote: null,
     emoteUntil: 0,
     hitFlash: 0,
@@ -104,7 +100,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     else {
       state.players.push({ ready: false, connected: true, ...p })
       if (!state.lobby[p.id]) {
-        state.lobby[p.id] = spawnSlot(state.players.length - 1)
+        state.lobby[p.id] = assignSpawn(state.lobby, p.id)
       }
     }
   }
@@ -183,7 +179,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         connected: true,
       })
       const idx = state.players.findIndex((p) => p.id === fromId)
-      state.lobby[fromId] = spawnSlot(Math.max(0, idx))
+      state.lobby[fromId] = assignSpawn(state.lobby, fromId)
       if (state.scores[fromId] == null) state.scores[fromId] = 0
       pushSync()
       return
@@ -195,7 +191,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (msg.type === 'lobby-pose' && (state.phase === 'lobby' || state.phase === 'countdown')) {
       state.lobby[fromId] = {
-        ...(state.lobby[fromId] || spawnSlot(state.players.findIndex((p) => p.id === fromId))),
+        ...(state.lobby[fromId] || assignSpawn(state.lobby, fromId)),
         x: msg.x,
         y: msg.y ?? state.lobby[fromId]?.y ?? 430,
         dir: msg.dir ?? state.lobby[fromId]?.dir ?? 'down',
@@ -249,7 +245,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (msg.type === 'lobby-pose') {
       state.lobby[msg.id] = {
-        ...(state.lobby[msg.id] || spawnSlot(0)),
+        ...(state.lobby[msg.id] || assignSpawn(state.lobby, msg.id)),
         x: msg.x,
         y: msg.y ?? state.lobby[msg.id]?.y ?? 430,
         dir: msg.dir ?? state.lobby[msg.id]?.dir ?? 'down',
@@ -259,7 +255,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (msg.type === 'smack') {
       state.lobby[msg.targetId] = {
-        ...(state.lobby[msg.targetId] || spawnSlot(0)),
+        ...(state.lobby[msg.targetId] || assignSpawn(state.lobby, msg.targetId)),
         hitFlash: Date.now() + 400,
         x: msg.tx,
         y: msg.ty,
@@ -270,7 +266,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (msg.type === 'emote') {
       state.lobby[msg.id] = {
-        ...(state.lobby[msg.id] || spawnSlot(0)),
+        ...(state.lobby[msg.id] || assignSpawn(state.lobby, msg.id)),
         emote: msg.emote,
         emoteUntil: Date.now() + 2500,
       }
@@ -306,8 +302,8 @@ export function createRoomController({ onState, onError, onEvent }) {
     if (d > 95) return
     const nx = dx / d
     const ny = dy / d
-    const tx = clamp(b.x + nx * 42, 120, 1160)
-    const ty = clamp(b.y + ny * 42, 250, 620)
+    const tx = clampToFloor(b.x + nx * 42, b.y + ny * 42).x
+    const ty = clampToFloor(b.x + nx * 42, b.y + ny * 42).y
     state.lobby[targetId] = { ...b, x: tx, y: ty, hitFlash: Date.now() + 400 }
     const payload = { type: 'smack', fromId, targetId, tx, ty }
     broadcast(payload)
@@ -321,7 +317,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   function applyEmote(id, emote) {
     state.lobby[id] = {
-      ...(state.lobby[id] || spawnSlot(0)),
+      ...(state.lobby[id] || assignSpawn(state.lobby, id)),
       emote,
       emoteUntil: Date.now() + 2500,
     }
@@ -396,7 +392,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.message = 'Local mode — voice/multiplayer broker offline. Cabin + GeoGuessr still work.'
     state.scores[state.selfId] = 0
     upsertPlayer({ id: state.selfId, name, avatar: migrateVibeToAvatar(avatar || vibe), vibe, connected: true, isHost: true })
-    state.lobby[state.selfId] = spawnSlot(0)
+    state.lobby[state.selfId] = assignSpawn(state.lobby, state.selfId)
     emit()
   }
 
@@ -414,7 +410,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.selfId = opened.id
       state.scores[opened.id] = 0
       upsertPlayer({ id: opened.id, name, avatar: av, vibe, connected: true, isHost: true })
-      state.lobby[opened.id] = spawnSlot(0)
+      state.lobby[opened.id] = assignSpawn(state.lobby, opened.id)
       peer.on('connection', (conn) => {
         connections.set(conn.peer, conn)
         conn.on('open', () => {
@@ -480,7 +476,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   function sendLobbyPose(pose) {
     state.lobby[state.selfId] = {
-      ...(state.lobby[state.selfId] || spawnSlot(0)),
+      ...(state.lobby[state.selfId] || assignSpawn(state.lobby, state.selfId)),
       ...pose,
     }
     if (actingHost) {

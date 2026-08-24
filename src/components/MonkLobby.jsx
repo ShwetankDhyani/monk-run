@@ -2,24 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { dirFromDelta, drawMonkTopDown } from '../lib/avatarDraw.js'
 import {
-  ROOM,
   STATIC_COLLIDERS,
+  FLOOR,
+  PLAYER_R,
   drawLivingRoom,
   drawLivingProp,
+  drawBlackHole,
   makeLivingRoomProps,
 } from '../lib/templeRoom.js'
 
 const WORLD = { w: 1280, h: 720 }
-const PLAYER_R = 17
 const SPEED = 185
-
-const SPAWN_SPOTS = [
-  { x: 220, y: 420, dir: 'down' },
-  { x: 380, y: 500, dir: 'down' },
-  { x: 540, y: 380, dir: 'down' },
-  { x: 760, y: 480, dir: 'down' },
-  { x: 980, y: 400, dir: 'down' },
-]
 
 const KEY = {
   ArrowUp: { x: 0, y: -1 },
@@ -77,40 +70,12 @@ function moveEntity(ent, dx, dy, colliders, radius = PLAYER_R) {
       y = s.y
     }
   }
-  ent.x = clamp(x, ROOM.x + radius + 8, ROOM.x + ROOM.w - radius - 8)
-  ent.y = clamp(y, ROOM.y + radius + 8, ROOM.y + ROOM.h - radius - 8)
+  ent.x = clamp(x, FLOOR.x + radius, FLOOR.x + FLOOR.w - radius)
+  ent.y = clamp(y, FLOOR.y + radius, FLOOR.y + FLOOR.h - radius)
 }
 
 function propColliders(props) {
   return props.map((p) => ({ x: p.x - p.r, y: p.y - p.r, w: p.r * 2, h: p.r * 2 }))
-}
-
-function drawBlackHole(ctx, t, cx, cy, scale, suck) {
-  if (scale <= 0.005) return
-  const R = Math.max(3, 62 * scale)
-  for (let i = 6; i >= 1; i--) {
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.rotate(t * (1.5 + i * 0.2))
-    ctx.scale(1.4, 0.38)
-    const ag = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * (1 + i * 0.15))
-    ag.addColorStop(0, `rgba(255,200,120,${0.06 * suck + 0.02})`)
-    ag.addColorStop(0.5, `rgba(255,100,40,${0.15 * suck})`)
-    ag.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.fillStyle = ag
-    ctx.beginPath()
-    ctx.arc(0, 0, R * (1 + i * 0.12), 0, Math.PI * 2)
-    ctx.fill()
-    ctx.restore()
-  }
-  const eg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R)
-  eg.addColorStop(0, '#000')
-  eg.addColorStop(0.75, '#080810')
-  eg.addColorStop(1, 'rgba(30,10,40,0.4)')
-  ctx.fillStyle = eg
-  ctx.beginPath()
-  ctx.arc(cx, cy, R, 0, Math.PI * 2)
-  ctx.fill()
 }
 
 function drawNameplate(ctx, x, y, name, isSelf) {
@@ -169,7 +134,8 @@ export function MonkLobby({
 }) {
   const canvasRef = useRef(null)
   const keysRef = useRef(new Set())
-  const selfRef = useRef({ x: SPAWN_SPOTS[0].x, y: SPAWN_SPOTS[0].y, dir: 'down', walk: 0 })
+  const selfRef = useRef({ x: 640, y: 520, dir: 'down', walk: 0 })
+  const spawnedRef = useRef(false)
   const peersRef = useRef(new Map())
   const propsRef = useRef(makeLivingRoomProps(blackHoleX, blackHoleY))
   const lastSend = useRef(0)
@@ -188,23 +154,33 @@ export function MonkLobby({
   bhRef.current = { x: blackHoleX, y: blackHoleY }
 
   useEffect(() => {
+    const pose = lobby?.[selfId]
+    if (pose?.x == null || pose?.y == null) return
+    const me = selfRef.current
+    if (!spawnedRef.current) {
+      me.x = pose.x
+      me.y = pose.y
+      me.dir = pose.dir || 'down'
+      spawnedRef.current = true
+      callbacksRef.current.onPose?.({ x: me.x, y: me.y, dir: me.dir })
+    }
+  }, [lobby, selfId])
+
+  useEffect(() => {
     const map = peersRef.current
     const alive = new Set()
     for (const p of players) {
       if (p.id === selfId) continue
       alive.add(p.id)
       const pose = lobby?.[p.id] || {}
-      const idx = Math.max(0, players.findIndex((x) => x.id === p.id))
-      const spot = SPAWN_SPOTS[idx % SPAWN_SPOTS.length]
-      const cur = map.get(p.id) || { x: pose.x ?? spot.x, y: pose.y ?? spot.y, dir: pose.dir ?? spot.dir, walk: 0, stretchX: 1, stretchY: 1, spin: 0 }
-      if (pose.x != null) cur.tx = pose.x
-      if (pose.y != null) cur.ty = pose.y
+      if (pose.x == null || pose.y == null) continue
+      const cur = map.get(p.id) || { x: pose.x, y: pose.y, dir: pose.dir ?? 'down', walk: 0, stretchX: 1, stretchY: 1, spin: 0 }
+      cur.tx = pose.x
+      cur.ty = pose.y
       if (pose.dir != null) cur.tDir = pose.dir
-      if (cur.tx == null) {
-        cur.tx = spot.x
-        cur.ty = spot.y
-        cur.x = spot.x
-        cur.y = spot.y
+      if (cur.x == null) {
+        cur.x = pose.x
+        cur.y = pose.y
       }
       cur.emote = pose.emote
       cur.emoteUntil = pose.emoteUntil
@@ -216,7 +192,9 @@ export function MonkLobby({
 
   useEffect(() => {
     const me = selfRef.current
-    callbacksRef.current.onPose?.({ x: me.x, y: me.y, dir: me.dir })
+    if (spawnedRef.current) {
+      callbacksRef.current.onPose?.({ x: me.x, y: me.y, dir: me.dir })
+    }
   }, [])
 
   useEffect(() => {
@@ -325,9 +303,12 @@ export function MonkLobby({
         const total = Math.max(1, countdownEndsAt - countdownStartedAt)
         const elapsed = Date.now() - countdownStartedAt
         const p = Math.min(1, elapsed / total)
-        bhScale = p < 0.35 ? (p / 0.35) ** 2 : 1
-        suck = p < 0.5 ? 0 : ((p - 0.5) / 0.5) ** 1.3
+        bhScale = p < 0.6 ? (p / 0.6) ** 1.15 : 1
+        suck = p < 0.42 ? 0 : ((p - 0.42) / 0.58) ** 1.15
       }
+      const birth = portalActive && countdownStartedAt
+        ? Math.min(1, (Date.now() - countdownStartedAt) / Math.max(1, countdownEndsAt - countdownStartedAt))
+        : 0
       const sucking = suck > 0.06
       const me = selfRef.current
       const props = propsRef.current
@@ -409,7 +390,7 @@ export function MonkLobby({
       ctx.fillRect(0, 0, WORLD.w, WORLD.h)
       drawLivingRoom(ctx, t)
       for (const p of props) drawLivingProp(ctx, p, t)
-      if (bhScale > 0.005) drawBlackHole(ctx, t, BH.x, BH.y, bhScale, suck)
+      if (bhScale > 0.002) drawBlackHole(ctx, t, BH.x, BH.y, bhScale, suck, birth)
 
       const list = [...peersRef.current.entries()]
         .map(([id, pose]) => ({ id, pose, isSelf: false }))
