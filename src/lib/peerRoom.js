@@ -8,6 +8,7 @@ export const MAX_PLAYERS = 5
 export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
 export const LOBBY_COUNTDOWN_MS = 3_200
+export const INTERMISSION_MS = 4_500
 
 /** Assign a random walkable spawn, spread from existing lobby positions. */
 function assignSpawn(lobby, excludeId = null) {
@@ -37,6 +38,8 @@ export function createRoomController({ onState, onError, onEvent }) {
   const connections = new Map()
   let state = blank()
   let lastLobbyEmit = 0
+  let roundLoadGen = 0
+  let pendingRoundIndex = 0
 
   function emitLobbyPoses() {
     const now = Date.now()
@@ -61,6 +64,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       roundIndex: 0,
       totalRounds: DEFAULT_ROUNDS,
       roundEndsAt: 0,
+      intermissionEndsAt: 0,
       viewToken: '',
       guesses: {},
       reveal: null,
@@ -86,6 +90,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       roundIndex: state.roundIndex,
       totalRounds: state.totalRounds,
       roundEndsAt: state.roundEndsAt,
+      intermissionEndsAt: state.intermissionEndsAt,
       viewToken: state.viewToken,
       guesses: state.guesses,
       reveal: state.reveal,
@@ -549,30 +554,64 @@ export function createRoomController({ onState, onError, onEvent }) {
     pushSync()
   }
 
-  function startRound(index) {
-    void startRoundAsync(index)
+  function startRound(index, { skipFetch = false } = {}) {
+    void startRoundAsync(index, { skipFetch })
   }
 
-  async function startRoundAsync(index) {
+  async function startRoundAsync(index, { skipFetch = false } = {}) {
     if (!actingHost) return
+    const gen = ++roundLoadGen
+
     state.roundIndex = index
     state.guesses = {}
     state.reveal = null
-    state.viewToken = ''
+    state.intermissionEndsAt = 0
+    state.roundEndsAt = 0
 
-    try {
-      const opened = await openRoundView(secrets.gameSessionId, index)
-      state.viewToken = opened.viewToken
-      secrets.currentLocationId = opened.locationId
-    } catch {
-      fail('Could not load secure round view.')
-      return
+    if (!skipFetch || !state.viewToken) {
+      state.phase = 'loading-round'
+      state.viewToken = ''
+      pushSync()
+
+      try {
+        const opened = await openRoundView(secrets.gameSessionId, index)
+        if (gen !== roundLoadGen) return
+        state.viewToken = opened.viewToken
+        secrets.currentLocationId = opened.locationId
+      } catch {
+        if (gen !== roundLoadGen) return
+        fail('Could not load secure round view.')
+        return
+      }
     }
 
+    if (gen !== roundLoadGen) return
     state.phase = 'playing'
     state.roundEndsAt = Date.now() + state.roundTimeMs
     state.message = `Round ${index + 1}/${state.totalRounds}`
     pushSync()
+  }
+
+  async function beginIntermissionAsync(nextIndex) {
+    if (!actingHost) return
+    pendingRoundIndex = nextIndex
+    state.phase = 'intermission'
+    state.intermissionEndsAt = Date.now() + INTERMISSION_MS
+    state.roundEndsAt = 0
+    state.guesses = {}
+    state.viewToken = ''
+    state.message = `Round ${nextIndex + 1} loading…`
+    pushSync()
+
+    try {
+      const opened = await openRoundView(secrets.gameSessionId, nextIndex)
+      state.viewToken = opened.viewToken
+      secrets.currentLocationId = opened.locationId
+      state.message = `Round ${nextIndex + 1} in ${Math.ceil(INTERMISSION_MS / 1000)}s`
+      pushSync()
+    } catch {
+      fail('Could not load next round.')
+    }
   }
 
   function submitGuess({ lat, lng, country }) {
@@ -645,6 +684,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   async function revealRoundAsync() {
     if (!actingHost || state.phase !== 'playing') return
+    state.roundEndsAt = 0
     const reveal = await buildRevealAsync()
     if (!reveal) return
     state.reveal = reveal
@@ -660,25 +700,36 @@ export function createRoomController({ onState, onError, onEvent }) {
   function tick() {
     if (!actingHost) return
     if (state.phase === 'countdown' && Date.now() >= state.countdownEndsAt) {
+      state.phase = 'loading-round'
+      state.countdownEndsAt = 0
+      pushSync()
       startRound(0)
       return
     }
+    if (state.phase === 'intermission' && Date.now() >= state.intermissionEndsAt) {
+      state.intermissionEndsAt = 0
+      startRound(pendingRoundIndex, { skipFetch: true })
+      return
+    }
     if (state.phase === 'playing') {
-      // Don't wait out the clock if everyone already locked
       autoRevealIfReady()
-      if (state.phase === 'playing' && Date.now() >= state.roundEndsAt) revealRound()
+      if (state.phase === 'playing' && state.roundEndsAt > 0 && Date.now() >= state.roundEndsAt) {
+        revealRound()
+      }
     }
   }
 
   function nextRound() {
-    if (!actingHost) return
+    if (!actingHost || state.phase !== 'reveal') return
     if (state.roundIndex + 1 >= state.totalRounds) {
       state.phase = 'podium'
       state.message = 'Final podium'
+      state.viewToken = ''
+      state.intermissionEndsAt = 0
       pushSync()
       return
     }
-    startRound(state.roundIndex + 1)
+    void beginIntermissionAsync(state.roundIndex + 1)
   }
 
   function destroy() {

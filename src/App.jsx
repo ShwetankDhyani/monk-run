@@ -130,6 +130,7 @@ export default function App() {
 
   const roundLeft = useCountdown(room?.roundEndsAt, room?.phase === 'playing')
   const lobbyLeft = useCountdown(room?.countdownEndsAt, room?.phase === 'countdown')
+  const intermissionLeft = useCountdown(room?.intermissionEndsAt, room?.phase === 'intermission')
 
   useEffect(() => {
     const ctrl = createRoomController({
@@ -199,7 +200,11 @@ export default function App() {
     }
 
     if (
-      (room.phase === 'playing' || room.phase === 'reveal' || room.phase === 'podium') &&
+      (room.phase === 'playing' ||
+        room.phase === 'reveal' ||
+        room.phase === 'intermission' ||
+        room.phase === 'loading-round' ||
+        room.phase === 'podium') &&
       prev !== 'countdown'
     ) {
       setPortalHold(false)
@@ -647,12 +652,18 @@ export default function App() {
     )
   }
 
-  if (room.phase === 'reveal' && room.reveal) {
+  if ((room.phase === 'reveal' || room.phase === 'intermission') && room.reveal) {
     const selfResult = room.reveal.results.find((r) => r.playerId === room.selfId)
+    const isIntermission = room.phase === 'intermission'
     return (
       <Fragment>
       <div className="screen-enter flex min-h-full flex-col bg-ink">
-        <div className="grid flex-1 gap-3 p-3 md:grid-cols-2">
+        {isIntermission && room.viewToken && (
+          <div className="pointer-events-none absolute inset-0 z-0 opacity-0" aria-hidden>
+            <StreetView viewToken={room.viewToken} />
+          </div>
+        )}
+        <div className="relative z-10 grid flex-1 gap-3 p-3 md:grid-cols-2">
           <div className="panel flex min-h-[280px] flex-col p-3">
             <p className="text-[10px] uppercase tracking-widest text-mint">Reveal</p>
             <h3 className="font-display text-2xl text-fog">
@@ -692,7 +703,15 @@ export default function App() {
                   <span className="text-sky">{p.score}</span>
                 </div>
               ))}
-              {room.isHost ? (
+              {isIntermission ? (
+                <div className="mt-4 rounded-xl border border-sky/30 bg-black/30 px-4 py-5 text-center">
+                  <p className="text-[10px] uppercase tracking-widest text-muted">Next round</p>
+                  <p className="font-display text-4xl font-bold text-sky">{intermissionLeft || 1}s</p>
+                  <p className="mt-2 text-xs text-muted">
+                    {room.viewToken ? 'Panorama preloading…' : 'Fetching location…'}
+                  </p>
+                </div>
+              ) : room.isHost ? (
                 <button
                   type="button"
                   className="btn btn-primary mt-4 w-full"
@@ -706,6 +725,26 @@ export default function App() {
             </div>
           </div>
         </div>
+      </div>
+      <CinematicOverlay phase={cinPhase} />
+      </Fragment>
+    )
+  }
+
+  if (room.phase === 'loading-round') {
+    return (
+      <Fragment>
+      <div className="screen-enter flex min-h-full flex-col items-center justify-center bg-ink p-6">
+        <div className="panel max-w-md p-8 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-muted">Round {room.roundIndex + 1}</p>
+          <p className="mt-2 font-display text-2xl text-sky">Loading panorama…</p>
+          <p className="mt-3 animate-pulse font-mono text-xs text-muted">SECURE VIEW TOKEN · STAY READY</p>
+        </div>
+        {room.viewToken && (
+          <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>
+            <StreetView viewToken={room.viewToken} />
+          </div>
+        )}
       </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>

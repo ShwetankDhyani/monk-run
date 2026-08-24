@@ -20,20 +20,37 @@ function purgeExpired() {
   }
 }
 
+function mintViewToken(loc) {
+  const viewToken = randomBytes(24).toString('hex')
+  viewTokens.set(viewToken, {
+    lat: loc.lat,
+    lng: loc.lng,
+    expiresAt: Date.now() + VIEW_TTL_MS,
+    used: false,
+  })
+  return viewToken
+}
+
 export function createGameSession(roomCode, rounds = 5) {
   purgeExpired()
   const seed = randomInt(1, 2147483646)
   const picks = pickRoundLocations(rounds, seed)
   const sessionId = randomBytes(16).toString('hex')
+  const locationIds = picks.map((l) => l.id)
+  const roundTokens = locationIds.map((locId) => {
+    const loc = LOCATIONS.find((l) => l.id === locId)
+    return loc ? mintViewToken(loc) : null
+  })
   sessions.set(sessionId, {
     roomCode: String(roomCode || '').slice(0, 8),
-    locationIds: picks.map((l) => l.id),
+    locationIds,
+    roundTokens,
     createdAt: Date.now(),
   })
   return {
     sessionId,
     totalRounds: picks.length,
-    locationIds: picks.map((l) => l.id),
+    locationIds,
   }
 }
 
@@ -45,13 +62,12 @@ export function openRoundView(sessionId, roundIndex) {
   const loc = LOCATIONS.find((l) => l.id === locId)
   if (!loc) return null
 
-  const viewToken = randomBytes(24).toString('hex')
-  viewTokens.set(viewToken, {
-    lat: loc.lat,
-    lng: loc.lng,
-    expiresAt: Date.now() + VIEW_TTL_MS,
-    used: false,
-  })
+  let viewToken = session.roundTokens?.[roundIndex]
+  if (!viewToken || !viewTokens.has(viewToken)) {
+    viewToken = mintViewToken(loc)
+    if (!session.roundTokens) session.roundTokens = []
+    session.roundTokens[roundIndex] = viewToken
+  }
   return { viewToken, locationId: locId }
 }
 
