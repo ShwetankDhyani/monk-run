@@ -589,7 +589,13 @@ export default function App() {
             {mapOpen ? 'Hide map' : 'Guess'}
           </button>
         )}
-        {selfGuessed && <div className="panel px-4 py-2 text-xs text-mint">Guess locked — waiting</div>}
+        {selfGuessed && (
+          <div className="panel px-4 py-2 text-xs text-mint">
+            {lockedCount >= room.players.filter((p) => p.connected !== false).length
+              ? 'All locked — revealing…'
+              : `Guess locked · ${lockedCount}/${room.players.length} in`}
+          </div>
+        )}
         {room.isHost && (
           <button type="button" className="btn btn-ghost" onClick={() => ctrlRef.current.revealRound()}>
             Force reveal

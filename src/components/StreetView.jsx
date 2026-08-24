@@ -1,159 +1,171 @@
-import { useEffect, useRef, useState } from 'react'
-import { biomeColors, getMapsApiKey, loadGoogleMaps } from '../lib/maps.js'
+import { useEffect, useMemo, useState } from 'react'
+import { getMapsApiKey, loadGoogleMaps } from '../lib/maps.js'
 
 /**
- * Street View when VITE_GOOGLE_MAPS_API_KEY is set.
- * Otherwise: immersive biome panorama fallback (still fully playable).
+ * Street panorama:
+ * 1) Official Google Street View JS API when VITE_GOOGLE_MAPS_API_KEY is set
+ * 2) Otherwise Google Maps svembed iframe (no key required in most browsers)
+ * 3) Last resort: satellite + place card (still shows the real location context)
  */
 export default function StreetView({ location, interactive = true }) {
-  const hostRef = useRef(null)
-  const panoRef = useRef(null)
-  const [mode, setMode] = useState('loading') // loading | google | fallback
+  const [mode, setMode] = useState('loading') // loading | api | embed | fallback
   const [error, setError] = useState('')
-  const [yaw, setYaw] = useState(20)
-  const drag = useRef(null)
+  const key = getMapsApiKey()
+
+  const embedSrc = useMemo(() => {
+    if (!location) return ''
+    const { lat, lng } = location
+    return `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=12,0,0,0,0&hl=en&output=svembed`
+  }, [location?.lat, location?.lng])
+
+  const mapsLink = useMemo(() => {
+    if (!location) return ''
+    return `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${location.lat},${location.lng}`
+  }, [location?.lat, location?.lng])
+
+  const satSrc = useMemo(() => {
+    if (!location) return ''
+    // Esri world imagery via OSM-static-style bbox approx using Google maps satellite embed-ish
+    return `https://maps.google.com/maps?q=${location.lat},${location.lng}&z=16&t=k&output=embed`
+  }, [location?.lat, location?.lng])
 
   useEffect(() => {
     let cancelled = false
-    const key = getMapsApiKey()
+    let pano = null
+    let host = null
+
+    if (!location) return undefined
+
     if (!key) {
-      setMode('fallback')
+      setMode('embed')
+      setError('')
       return undefined
     }
+
     setMode('loading')
+    host = document.getElementById('sv-api-host')
+
     loadGoogleMaps(key)
       .then((maps) => {
-        if (cancelled || !hostRef.current || !location) return
-        hostRef.current.innerHTML = ''
+        if (cancelled || !host) return
+        host.innerHTML = ''
         const el = document.createElement('div')
         el.style.cssText = 'width:100%;height:100%'
-        hostRef.current.appendChild(el)
-        const pano = new maps.StreetViewPanorama(el, {
+        host.appendChild(el)
+        pano = new maps.StreetViewPanorama(el, {
           position: { lat: location.lat, lng: location.lng },
-          pov: { heading: 30, pitch: 0 },
+          pov: { heading: 20, pitch: 0 },
           zoom: 1,
           addressControl: false,
           linksControl: true,
-          panControl: false,
+          panControl: true,
           enableCloseButton: false,
           fullscreenControl: false,
           motionTracking: false,
           showRoadLabels: false,
-          disableDefaultUI: true,
+          disableDefaultUI: false,
         })
-        panoRef.current = pano
         const svc = new maps.StreetViewService()
-        svc.getPanorama({ location: { lat: location.lat, lng: location.lng }, radius: 1200 }, (data, status) => {
+        svc.getPanorama({ location: { lat: location.lat, lng: location.lng }, radius: 1500 }, (data, status) => {
           if (cancelled) return
-          if (status === maps.StreetViewStatus.OK && data?.location?.latLng) {
+          if (status === maps.StreetViewStatus.OK && data?.location?.pano) {
             pano.setPano(data.location.pano)
             pano.setVisible(true)
-            setMode('google')
+            setMode('api')
             setError('')
           } else {
-            setError('No Street View coverage — astral fallback engaged.')
-            setMode('fallback')
+            setError('No coverage here — using map embed.')
+            setMode('embed')
           }
         })
       })
       .catch((err) => {
         if (cancelled) return
-        setError(err.message || 'Maps unavailable')
-        setMode('fallback')
+        setError(err.message || 'Maps API failed')
+        setMode('embed')
       })
+
     return () => {
       cancelled = true
-      panoRef.current = null
-      if (hostRef.current) hostRef.current.innerHTML = ''
+      if (host) host.innerHTML = ''
+      pano = null
     }
-  }, [location?.id, location?.lat, location?.lng])
+  }, [location?.id, location?.lat, location?.lng, key])
 
-  useEffect(() => {
-    if (mode !== 'fallback' || !interactive) return undefined
-    const onMove = (e) => {
-      if (!drag.current) return
-      const x = e.touches ? e.touches[0].clientX : e.clientX
-      const dx = x - drag.current.x
-      drag.current.x = x
-      setYaw((y) => y + dx * 0.25)
-    }
-    const onUp = () => {
-      drag.current = null
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('touchmove', onMove, { passive: true })
-    window.addEventListener('touchend', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('touchmove', onMove)
-      window.removeEventListener('touchend', onUp)
-    }
-  }, [mode, interactive])
-
-  const colors = biomeColors(location?.biome)
+  if (!location) return null
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-void">
+    <div className="absolute inset-0 overflow-hidden bg-ink">
+      {/* Official API mount */}
       <div
-        ref={hostRef}
-        className={`absolute inset-0 ${mode === 'google' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        id="sv-api-host"
+        className={`absolute inset-0 ${mode === 'api' ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       />
 
-      {mode !== 'google' && location && (
-        <div
-          className="absolute inset-0 cursor-grab active:cursor-grabbing"
-          onPointerDown={(e) => {
-            if (!interactive) return
-            drag.current = { x: e.clientX }
-          }}
-          style={{
-            background: `
-              radial-gradient(ellipse 80% 55% at ${50 + Math.sin(yaw / 40) * 12}% 42%, ${colors[2]}55, transparent 55%),
-              radial-gradient(ellipse 60% 40% at ${40 + Math.cos(yaw / 35) * 15}% 70%, ${colors[3]}40, transparent 50%),
-              linear-gradient(${120 + yaw * 0.15}deg, ${colors[0]}, ${colors[1]}33 40%, ${colors[0]})
-            `,
-          }}
-        >
-          <div
-            className="absolute inset-0 opacity-70"
-            style={{
-              transform: `translateX(${-yaw}px)`,
-              backgroundImage: `
-                repeating-linear-gradient(90deg, transparent 0 48px, ${colors[2]}14 48px 50px),
-                repeating-linear-gradient(0deg, transparent 0 64px, ${colors[3]}10 64px 66px)
-              `,
-              width: '200%',
-              left: '-20%',
-            }}
-          />
-          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute left-1/2 top-[38%] -translate-x-1/2 text-center pointer-events-none">
-            <p className="font-display text-4xl md:text-6xl text-saffron/90 drop-shadow-[0_0_30px_rgba(244,162,97,0.45)]">
-              ◎
-            </p>
-            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.35em] text-fog/70">
-              astral projection · drag to look
-            </p>
-            <p className="mt-2 max-w-md px-4 font-mono text-xs text-cyan/80">{location.hint}</p>
-            <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-fog/40">
-              biome: {location.biome}
-              {error ? ` · ${error}` : ' · offline street-view fallback'}
-            </p>
-          </div>
-          {/* Fake horizon silhouettes */}
-          <svg className="absolute bottom-[18%] left-0 w-[200%] h-32 opacity-40" style={{ transform: `translateX(${-yaw * 0.4}px)` }} viewBox="0 0 1200 120" preserveAspectRatio="none">
-            <path fill={colors[1]} fillOpacity="0.35" d="M0,80 L40,70 L80,85 L140,50 L200,75 L280,40 L360,70 L450,55 L520,80 L600,45 L700,70 L780,50 L860,75 L940,40 L1020,65 L1100,55 L1200,70 L1200,120 L0,120 Z" />
-          </svg>
+      {/* Keyless Street View embed */}
+      {mode === 'embed' && (
+        <iframe
+          title="Street View"
+          src={embedSrc}
+          className="absolute inset-0 h-full w-full border-0"
+          allow="accelerometer; gyroscope; fullscreen"
+          referrerPolicy="no-referrer-when-downgrade"
+          onError={() => setMode('fallback')}
+        />
+      )}
+
+      {/* Loading */}
+      {mode === 'loading' && (
+        <div className="absolute inset-0 grid place-items-center bg-ink">
+          <p className="animate-pulse font-mono text-xs tracking-widest text-sky">LOADING STREET VIEW…</p>
         </div>
       )}
 
-      {mode === 'loading' && (
-        <div className="absolute inset-0 grid place-items-center bg-void/80">
-          <p className="font-mono text-xs tracking-[0.3em] uppercase text-cyan animate-pulse">aligning street mantra…</p>
+      {/* Soft fallback if embed blocked */}
+      {mode === 'fallback' && (
+        <div className="absolute inset-0 flex flex-col">
+          <iframe title="Map" src={satSrc} className="h-full w-full flex-1 border-0" />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-16">
+            <p className="font-display text-lg text-fog">Street View blocked by the browser</p>
+            <p className="mt-1 text-sm text-muted">
+              Open the panorama in a new tab, or add <code className="text-sky">VITE_GOOGLE_MAPS_API_KEY</code> for
+              in-app Street View.
+            </p>
+            <a
+              href={mapsLink}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary mt-3 inline-flex"
+            >
+              Open Street View ↗
+            </a>
+          </div>
         </div>
       )}
+
+      {/* Embed chrome: if iframe shows a gray error page, user can bail out */}
+      {mode === 'embed' && (
+        <div className="pointer-events-none absolute left-3 top-3 z-10 flex gap-2">
+          <span className="rounded-full bg-black/55 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-white/80">
+            Street View
+          </span>
+          {error && (
+            <span className="rounded-full bg-black/55 px-3 py-1 font-mono text-[10px] text-amber">{error}</span>
+          )}
+        </div>
+      )}
+
+      {mode === 'embed' && (
+        <button
+          type="button"
+          className="btn btn-ghost pointer-events-auto absolute bottom-3 left-3 z-10 !bg-black/60"
+          onClick={() => setMode('fallback')}
+        >
+          Map not loading? Try satellite
+        </button>
+      )}
+
+      {!interactive && <div className="absolute inset-0 z-[5]" />}
     </div>
   )
 }

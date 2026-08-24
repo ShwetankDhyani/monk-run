@@ -549,7 +549,11 @@ export function createRoomController({ onState, onError, onEvent }) {
       startRound(0)
       return
     }
-    if (state.phase === 'playing' && Date.now() >= state.roundEndsAt) revealRound()
+    if (state.phase === 'playing') {
+      // Don't wait out the clock if everyone already locked
+      autoRevealIfReady()
+      if (state.phase === 'playing' && Date.now() >= state.roundEndsAt) revealRound()
+    }
   }
 
   function nextRound() {
