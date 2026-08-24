@@ -305,46 +305,80 @@ function drawErenFloatingHead(ctx, look, dir, walk, scale) {
   drawErenTitanFace(ctx, look, headY, headR, 'down')
 }
 
+/** Ultra-hard steel blade — thin flat sword with trigger grip (not a bandaged stub). */
+/** Ultra-hard steel blade — thin flat sword with trigger grip (not a bandaged stub). */
 function drawLeviBladeUnit(ctx, angle, mirrored = false) {
   ctx.save()
   ctx.rotate(angle)
   if (mirrored) ctx.scale(-1, 1)
 
-  ctx.fillStyle = '#2a2018'
-  ctx.fillRect(-1.6, -2.5, 3.2, 5.5)
+  // Trigger-style handle (ODM grip)
+  ctx.fillStyle = '#1a1410'
+  ctx.fillRect(-1.4, -1.5, 2.8, 5)
   ctx.fillStyle = '#3a3028'
   ctx.beginPath()
-  ctx.moveTo(-2.2, 2.5)
-  ctx.lineTo(2.2, 2.5)
-  ctx.lineTo(1.6, 5.5)
-  ctx.lineTo(-1.6, 5.5)
+  ctx.moveTo(-2.4, 2.2)
+  ctx.lineTo(-0.2, 2.2)
+  ctx.lineTo(-0.6, 5.8)
+  ctx.lineTo(-2.8, 5.2)
+  ctx.closePath()
+  ctx.fill()
+  // Guard / collar
+  ctx.fillStyle = '#c9a227'
+  ctx.fillRect(-2.2, 3.4, 4.4, 1.2)
+
+  // Long flat steel blade — continuous plate, not segmented wraps
+  const bladeLen = 18
+  const bladeW = 2.1
+  const tipY = 5 + bladeLen
+
+  const steel = ctx.createLinearGradient(-bladeW, 5, bladeW, 5)
+  steel.addColorStop(0, '#8a96a4')
+  steel.addColorStop(0.35, '#e8eef4')
+  steel.addColorStop(0.55, '#c8d0d8')
+  steel.addColorStop(1, '#6a7888')
+  ctx.fillStyle = steel
+  ctx.beginPath()
+  ctx.moveTo(-bladeW, 4.8)
+  ctx.lineTo(bladeW, 4.8)
+  ctx.lineTo(bladeW * 0.85, tipY - 3)
+  ctx.lineTo(0, tipY)
+  ctx.lineTo(-bladeW * 0.85, tipY - 3)
   ctx.closePath()
   ctx.fill()
 
-  ctx.fillStyle = '#c0c8d0'
-  ctx.strokeStyle = '#687888'
-  ctx.lineWidth = 0.55
-  for (let i = 0; i < 4; i++) {
-    const by = 6 + i * 3.2
-    ctx.fillRect(-2.6, by, 5.2, 2.8)
-    ctx.strokeRect(-2.6, by, 5.2, 2.8)
-  }
-  ctx.fillRect(-1.8, 6 + 4 * 3.2, 3.6, 2)
-  ctx.strokeRect(-1.8, 6 + 4 * 3.2, 3.6, 2)
+  // Edge outline
+  ctx.strokeStyle = '#4a5868'
+  ctx.lineWidth = 0.6
+  ctx.stroke()
 
-  ctx.fillStyle = 'rgba(255,255,255,0.35)'
-  ctx.fillRect(-1.2, 7, 1, 8)
+  // Center ridge (reads as a sword, not bandage rings)
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+  ctx.lineWidth = 0.7
+  ctx.beginPath()
+  ctx.moveTo(0, 5.2)
+  ctx.lineTo(0, tipY - 2.5)
+  ctx.stroke()
+
+  // Thin fuller line
+  ctx.strokeStyle = 'rgba(40,50,60,0.35)'
+  ctx.lineWidth = 0.5
+  ctx.beginPath()
+  ctx.moveTo(-0.7, 6)
+  ctx.lineTo(-0.5, tipY - 4)
+  ctx.stroke()
 
   ctx.restore()
 }
 
 function drawLeviBlades(ctx, dir, walk, scale) {
-  const sway = Math.sin(walk * 12) * 0.8
+  const sway = Math.sin(walk * 12) * 0.6
 
   if (dir === 'down') {
+    // Dual blades angled out from the hips — clear sword silhouette
     for (const [hx, hy, ang, mir] of [
-      [-11 * scale, 5 + sway, 0.55, false],
-      [11 * scale, 5 + sway, -0.55, true],
+      [-10 * scale, 2 + sway, 0.42, false],
+      [10 * scale, 2 + sway, -0.42, true],
     ]) {
       ctx.save()
       ctx.translate(hx, hy)
@@ -356,8 +390,8 @@ function drawLeviBlades(ctx, dir, walk, scale) {
 
   if (dir === 'up') {
     for (const [hx, hy, ang] of [
-      [-9 * scale, 6, -0.25],
-      [9 * scale, 6, 0.25],
+      [-8 * scale, 3, -0.2],
+      [8 * scale, 3, 0.2],
     ]) {
       ctx.save()
       ctx.translate(hx, hy)
@@ -370,10 +404,11 @@ function drawLeviBlades(ctx, dir, walk, scale) {
   const flip = dir === 'left' ? -1 : 1
   ctx.save()
   ctx.scale(flip, 1)
-  ctx.translate(10 * scale, 4 + sway)
-  drawLeviBladeUnit(ctx, 0.35, false)
-  ctx.translate(-4, 3)
-  drawLeviBladeUnit(ctx, -0.15, true)
+  // Lead blade forward, second slightly back
+  ctx.translate(9 * scale, 1 + sway)
+  drawLeviBladeUnit(ctx, 0.25, false)
+  ctx.translate(-5, 2)
+  drawLeviBladeUnit(ctx, -0.1, true)
   ctx.restore()
 }
 
