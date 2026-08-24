@@ -5,11 +5,11 @@ Multiplayer party GeoGuessr — hang out in a **3D chopper lobby**, talk on **li
 ## Features
 
 - **Private rooms** (up to 5 players) via PeerJS
-- **3D aircraft cabin lobby** (Three.js) — WASD move, click/Space smack, 1–4 emotes
+- **2D chopper lounge lobby** (Among Us vibes) — WASD move, smack, emotes 1–4
 - **WebRTC voice chat** — Join voice / mute toggle (room-wide)
 - **Synced countdown** then simultaneous jump into Round 1
 - **Random location seeding** — crypto seed so even the host doesn't know the rounds
-- **GeoGuessr loop** — Street View (or astral fallback), pin guess, reveal, podium + share card
+- **GeoGuessr loop** — Street View embed (or Maps API if keyed), pin guess, **auto-reveal when everyone locks**, podium + share card
 
 ## Run
 
@@ -39,7 +39,7 @@ Without a key, the astral panorama fallback is fully playable.
 
 ## Stack
 
-Vite · React 19 · Tailwind CSS 4 · Three.js · PeerJS (data + voice) · Leaflet · optional Google Maps Street View
+Vite · React 19 · Tailwind CSS 4 · Canvas 2D lobby · PeerJS (data + voice) · Leaflet · Google Street View (API or embed)
 
 ---
 
