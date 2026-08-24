@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react'
-import { migrateVibeToAvatar } from '../data/avatars.js'
-import { AvatarPortrait } from './AvatarPicker.jsx'
+import { useEffect, useRef, useState } from 'react'
+import { resolvePlayerLook, migrateVibeToAvatar } from '../data/avatars.js'
+import { drawMonkTopDown } from '../lib/avatarDraw.js'
 import { fetchLeaderboard } from '../lib/leaderboard.js'
 
-function PodiumPortrait({ entry, size = 88 }) {
-  if (!entry) return null
-  const avatarId = migrateVibeToAvatar(entry.avatarId || 'aot-eren')
-  return (
-    <AvatarPortrait
-      avatarId={avatarId}
-      size={size}
-      className="drop-shadow-lg shadow-black/50"
-    />
-  )
+function PodiumMonk({ entry, size = 88 }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const c = ref.current
+    if (!c || !entry) return
+    const ctx = c.getContext('2d')
+    ctx.clearRect(0, 0, size, size)
+    const look = resolvePlayerLook(migrateVibeToAvatar(entry.avatarId || 'aot-eren'), entry.id || entry.name, [])
+    drawMonkTopDown(ctx, size / 2, size / 2 + (size > 48 ? 10 : 4), look, 'down', 0)
+  }, [entry, size])
+  return <canvas ref={ref} width={size} height={size} className="drop-shadow-lg" />
 }
 
 const PODIUM_ORDER = [
@@ -78,7 +79,6 @@ function LeaderboardModal({ onClose, refreshKey }) {
             <p className="py-12 text-center text-sm text-muted">No scores yet — finish a game to claim the podium.</p>
           ) : (
             <>
-              {/* Podium — top 3 with avatars */}
               <div className="flex items-end justify-center gap-2 sm:gap-4">
                 {PODIUM_ORDER.map(({ rank, height, medal }) => {
                   const entry = top3[rank - 1]
@@ -92,7 +92,7 @@ function LeaderboardModal({ onClose, refreshKey }) {
                   }
                   return (
                     <div key={rank} className="flex w-[30%] max-w-[120px] flex-col items-center">
-                      <PodiumPortrait entry={entry} size={rank === 1 ? 96 : 80} />
+                      <PodiumMonk entry={entry} size={rank === 1 ? 96 : 80} />
                       <p className="mt-1 max-w-full truncate text-center font-display text-sm font-bold text-fog">
                         {entry.name}
                       </p>
@@ -108,7 +108,6 @@ function LeaderboardModal({ onClose, refreshKey }) {
                 })}
               </div>
 
-              {/* Ranks 4–10 */}
               {rest.length > 0 && (
                 <ol className="mt-8 space-y-2 border-t border-white/10 pt-6">
                   {rest.map((e, i) => {
@@ -121,7 +120,7 @@ function LeaderboardModal({ onClose, refreshKey }) {
                         <span className="flex min-w-0 items-center gap-3">
                           <span className="w-6 shrink-0 font-display text-sm text-muted">{rank}</span>
                           <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-white/10 bg-black/40">
-                            <PodiumPortrait entry={e} size={32} />
+                            <PodiumMonk entry={e} size={32} />
                           </span>
                           <span className="truncate font-display text-sm text-fog">{e.name}</span>
                         </span>
@@ -139,7 +138,6 @@ function LeaderboardModal({ onClose, refreshKey }) {
   )
 }
 
-/** Small footer link — opens the all-time top 10 podium view. */
 export function AllTimeLeaderboardButton({ refreshKey = 0, className = '' }) {
   const [open, setOpen] = useState(false)
 

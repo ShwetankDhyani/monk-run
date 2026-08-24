@@ -381,7 +381,7 @@ export default function App() {
               localStorage.setItem('monk-avatar', id)
             }}
           />
-          <p className="mt-2 text-[10px] text-muted">Cinematic scout portraits · duplicate picks get alternate jacket tones in-room.</p>
+          <p className="mt-2 text-[10px] text-muted">Same character? You get a different robe color in-room.</p>
 
           <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
             Create room
