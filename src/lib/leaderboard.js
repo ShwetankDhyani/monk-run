@@ -11,12 +11,12 @@ export async function fetchLeaderboard() {
   }
 }
 
-export async function submitScore({ name, score, roomCode }) {
+export async function submitScore({ name, score, roomCode, avatarId }) {
   try {
     const res = await fetch('/api/leaderboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, score, roomCode }),
+      body: JSON.stringify({ name, score, roomCode, avatarId }),
     })
     if (!res.ok) return null
     return res.json()

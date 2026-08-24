@@ -8,7 +8,7 @@ Multiplayer party GeoGuessr — hang out in a **Buddhist living-room lobby** as 
 - **Living-room lobby** — walk as monks with names above heads, smack friends, emotes 1–4
 - **WebRTC voice chat** — Join voice / mute toggle
 - **Black hole launch** — host hits PLAY; singularity spawns at a random spot, then sucks everyone in
-- **All-time top 25 leaderboard** — scores persist on a small Node API
+- **All-time top 10 leaderboard** — click to see podium with monk avatars
 - **Random location seeding** — crypto seed so even the host doesn't know the rounds
 - **GeoGuessr loop** — Street View, pin guess, auto-reveal when everyone locks, podium + share card
 

@@ -8,14 +8,13 @@ import {
   DEFAULT_ROUND_MS,
   MAX_PLAYERS,
 } from './lib/peerRoom.js'
-import { getMapsApiKey } from './lib/maps.js'
 import { createVoiceChat } from './lib/voiceChat.js'
 import StreetView from './components/StreetView.jsx'
 import GuessMap from './components/GuessMap.jsx'
 import { MonkLobby } from './components/MonkLobby.jsx'
 import { AvatarPicker } from './components/AvatarPicker.jsx'
 import { CinematicOverlay } from './components/CinematicOverlay.jsx'
-import { LeaderboardPanel } from './components/LeaderboardPanel.jsx'
+import { AllTimeLeaderboardButton } from './components/AllTimeLeaderboard.jsx'
 import { submitScore } from './lib/leaderboard.js'
 
 function parseRoomFromHash() {
@@ -221,7 +220,7 @@ export default function App() {
     const score = room.scores?.[room.selfId] || 0
     if (!me || score <= 0) return
     scoreSubmittedRef.current = true
-    submitScore({ name: me.name, score, roomCode: room.roomCode }).then(() => {
+    submitScore({ name: me.name, score, roomCode: room.roomCode, avatarId: me.avatar || me.vibe }).then(() => {
       setLeaderboardKey((k) => k + 1)
     })
   }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode])
@@ -418,12 +417,7 @@ export default function App() {
             Join room
           </button>
           {error && <p className="mt-3 text-center text-xs text-coral">{error}</p>}
-          <LeaderboardPanel compact refreshKey={leaderboardKey} />
-          <p className="mt-5 text-center text-[10px] text-muted">
-            {getMapsApiKey()
-              ? 'Google Street View ready'
-              : 'No Maps key — playable astral panorama fallback'}
-          </p>
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4" />
         </div>
       </div>
     )
@@ -632,7 +626,7 @@ export default function App() {
           <div className="mt-8">
             <ShareCard players={room.players} scores={room.scores} roomCode={room.roomCode} />
           </div>
-          <LeaderboardPanel refreshKey={leaderboardKey} />
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4" />
           <button
             type="button"
             className="btn btn-primary mt-6 w-full"

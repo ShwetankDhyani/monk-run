@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = join(__dirname, '..', 'data')
 const DATA_FILE = join(DATA_DIR, 'leaderboard.json')
 const PORT = Number(process.env.LEADERBOARD_PORT || 47448)
-const MAX_ENTRIES = 25
+const MAX_ENTRIES = 10
 
 async function loadEntries() {
   try {
@@ -26,7 +26,7 @@ async function saveEntries(entries) {
   await writeFile(DATA_FILE, JSON.stringify(entries, null, 2))
 }
 
-function top25(entries) {
+function topEntries(entries) {
   return [...entries]
     .sort((a, b) => b.score - a.score || b.at - a.at)
     .slice(0, MAX_ENTRIES)
@@ -64,7 +64,7 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'GET' && url === '/api/leaderboard') {
     const entries = await loadEntries()
-    sendJson(res, 200, { entries: top25(entries) })
+    sendJson(res, 200, { entries: topEntries(entries) })
     return
   }
 
@@ -82,12 +82,13 @@ const server = createServer(async (req, res) => {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name,
         score,
+        avatarId: String(body.avatarId || 'monk-male').slice(0, 32),
         roomCode: String(body.roomCode || '').slice(0, 8),
         at: Date.now(),
       }
       const entries = await loadEntries()
       entries.push(entry)
-      const trimmed = top25(entries)
+      const trimmed = topEntries(entries)
       await saveEntries(trimmed)
       sendJson(res, 201, { entry, entries: trimmed })
     } catch {
