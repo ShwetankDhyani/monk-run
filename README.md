@@ -16,12 +16,12 @@ Multiplayer party GeoGuessr — hang out in a **Buddhist living-room lobby** as 
 
 ```bash
 npm install
-npm run dev:all
+npm run dev
 ```
 
 Open **http://127.0.0.1:47447**
 
-`dev:all` starts the Vite app and the game/leaderboard API (port 47448). **Required for multiplayer** — rounds and Street View are served through it.
+`npm run dev` starts both the Vite app and the game/leaderboard API (port 47448). **Required for PLAY** — rounds and Street View are served through it.
 
 ### Optional Google Street View
 
