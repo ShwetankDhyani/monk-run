@@ -23,14 +23,17 @@ Open **http://127.0.0.1:47447**
 
 `npm run dev` starts both the Vite app and the game/leaderboard API (port 47448). **Required for PLAY** — rounds and Street View are served through it.
 
-### Optional Google Street View
+### Google Street View
+
+Rounds are **fully random worldwide** — each panorama is snapped via the Street View Metadata API (never a fixed place list).
 
 ```bash
 cp .env.example .env
-# set VITE_GOOGLE_MAPS_API_KEY / GOOGLE_MAPS_API_KEY
+# optional but recommended:
+# GOOGLE_MAPS_API_KEY=...   or   VITE_GOOGLE_MAPS_API_KEY=...
 ```
 
-Without a key, rounds use a large pool of **verified Street View coordinates** (Google Maps embed). With a key, the server jitters near world cities and **snaps each pick to a real panorama** via the Street View Metadata API so empty “No Street View available” rounds don’t appear.
+With your own Maps key, panoramas render via the JS API. Without one, the server still finds random covered locations (metadata) and serves the public Street View embed at those exact coords.
 
 ## How to play
 
