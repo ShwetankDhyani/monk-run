@@ -363,7 +363,10 @@ export default function App() {
           <h1 className="mt-2 text-center font-display text-5xl font-extrabold tracking-tight text-fog md:text-6xl">
             monk.run
           </h1>
-          <p className="mt-3 text-center text-sm text-muted">Voice chat + party GeoGuessr.</p>
+          <p className="mt-3 text-center text-sm text-muted">
+            Voice chat + party GeoGuessr.{' '}
+            <AllTimeLeaderboardButton refreshKey={leaderboardKey} />
+          </p>
 
           <label className="mt-6 block text-[10px] uppercase tracking-widest text-muted">Your monk name</label>
           <input
@@ -417,7 +420,6 @@ export default function App() {
             Join room
           </button>
           {error && <p className="mt-3 text-center text-xs text-coral">{error}</p>}
-          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4" />
         </div>
       </div>
     )
@@ -604,7 +606,9 @@ export default function App() {
       <div className="screen-enter flex min-h-full items-center justify-center overflow-auto bg-ink p-4">
         <div className="panel w-full max-w-2xl p-6 md:p-8">
           <h2 className="text-center font-display text-4xl font-extrabold text-mint">Final podium</h2>
-          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">room {room.roomCode}</p>
+          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">
+            room {room.roomCode} · <AllTimeLeaderboardButton refreshKey={leaderboardKey} />
+          </p>
           <ol className="mt-6 space-y-3">
             {ranked.map((p, i) => {
               const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
@@ -626,7 +630,6 @@ export default function App() {
           <div className="mt-8">
             <ShareCard players={room.players} scores={room.scores} roomCode={room.roomCode} />
           </div>
-          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4" />
           <button
             type="button"
             className="btn btn-primary mt-6 w-full"

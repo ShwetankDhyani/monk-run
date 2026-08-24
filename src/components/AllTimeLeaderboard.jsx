@@ -140,7 +140,7 @@ function LeaderboardModal({ onClose, refreshKey }) {
   )
 }
 
-/** Clickable button that opens the all-time top 10 podium view. */
+/** Clickable text link that opens the all-time top 10 podium view. */
 export function AllTimeLeaderboardButton({ refreshKey = 0, className = '' }) {
   const [open, setOpen] = useState(false)
 
@@ -148,7 +148,7 @@ export function AllTimeLeaderboardButton({ refreshKey = 0, className = '' }) {
     <>
       <button
         type="button"
-        className={`btn btn-ghost w-full border border-white/10 ${className}`}
+        className={`inline text-[11px] font-display font-semibold uppercase tracking-[0.22em] text-amber/85 transition hover:text-amber hover:underline ${className}`}
         onClick={() => setOpen(true)}
       >
         All Time Leaderboard
