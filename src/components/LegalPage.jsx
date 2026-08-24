@@ -1,52 +1,53 @@
+import { COPY } from '../copy.js'
+
 export function LegalPage({ kind, onBack }) {
-  const title = kind === 'privacy' ? 'Privacy' : 'Terms of Use'
+  const title = kind === 'privacy' ? COPY.legal.privacyTitle : COPY.legal.termsTitle
   return (
     <div className="flex min-h-full flex-col items-center overflow-auto bg-ink p-4 pb-10">
       <div className="panel mt-6 w-full max-w-2xl p-6 md:p-8">
         <button type="button" className="btn btn-ghost mb-4 !px-3 text-sm" onClick={onBack}>
-          ← Back
+          {COPY.legal.back}
         </button>
-        <h1 className="font-display text-3xl font-extrabold text-fog">{title}</h1>
-        <p className="mt-2 text-xs uppercase tracking-widest text-muted">monk.run · effective launch build</p>
+        <h1 className="font-display text-3xl font-medium text-fog">{title}</h1>
+        <p className="mt-2 text-xs uppercase tracking-widest text-muted">{COPY.legal.effective}</p>
 
         {kind === 'privacy' ? (
           <div className="prose-invert mt-6 space-y-4 text-sm leading-relaxed text-muted">
             <p>
-              monk.run is a party geography game. We collect the minimum data needed to run rooms and the all-time
-              leaderboard: display name, avatar choice, room PIN, and scores you submit after a verified match.
+              monk.run is a party geography game. We keep only what the temple needs: your display name,
+              scout choice, room PIN, and scores submitted after a verified match.
             </p>
             <p>
-              Voice chat uses peer-to-peer WebRTC. Microphone audio is not uploaded to monk.run servers; it flows
-              between players after you explicitly join voice.
+              Voice is peer-to-peer. Mic audio never uploads to monk.run — it only flows between players
+              after you join voice yourself.
             </p>
             <p>
-              Map search may query OpenStreetMap Nominatim. Street View is provided by Google Maps Platform when a
-              server API key is configured. Their privacy policies apply to those services.
+              Place search may use OpenStreetMap Nominatim. Street View comes from Google Maps Platform
+              when a server key is set. Those services follow their own privacy policies.
             </p>
             <p>
-              Peer connections may use a public PeerJS broker and STUN/TURN servers you configure. Do not share
-              personal data in lobby chat that you would not say in a public party.
+              Peers may connect through a public broker and STUN/TURN you configure. Treat lobby chat
+              like a public party — share nothing you would not say aloud.
             </p>
-            <p>Leaderboard entries can be removed on request by contacting the operator of your deployment.</p>
+            <p>Ask your deployment’s operator to remove a leaderboard entry if you need it gone.</p>
           </div>
         ) : (
           <div className="prose-invert mt-6 space-y-4 text-sm leading-relaxed text-muted">
             <p>
-              By playing monk.run you agree to use the game for fun, respectful party play. Harassment, hate speech,
-              cheating via coordinate leaks, or abuse of shared infrastructure may result in removal from rooms or
-              leaderboards.
+              Play for fun and respect. Harassment, hate, coordinate leaks, or abuse of shared
+              infrastructure can mean removal from rooms or the board.
             </p>
             <p>
-              You must comply with Google Maps Platform Terms when Street View is enabled, and with OpenStreetMap
-              usage policies for geocoding. Do not scrape, redistribute, or reverse-engineer panorama feeds.
+              When Street View is on, Google Maps Platform Terms apply. Geocoding follows OpenStreetMap
+              policies. Do not scrape, redistribute, or reverse-engineer panoramas.
             </p>
             <p>
-              monk.run characters, temple lobby, and branding are original. The game is an independent geography party
-              experience — not affiliated with any third-party geography-game trademarks.
+              Scouts, the temple lobby, and the monk.run mark are original. This is an independent
+              party geography game — not affiliated with any third-party geography trademarks.
             </p>
             <p>
-              The software is provided as-is for entertainment. Operators who deploy monk.run are responsible for
-              their API keys, TURN servers, moderation, and regional compliance (including age-appropriate use).
+              Provided as entertainment. Operators who host monk.run own their keys, TURN setup,
+              moderation, and regional rules (including age-appropriate use).
             </p>
           </div>
         )}

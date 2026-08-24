@@ -21,6 +21,7 @@ import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
 import { sfx } from './lib/sfx.js'
+import { COPY, lobbyFlavor } from './copy.js'
 
 function useCountdown(endsAt, active) {
   const [left, setLeft] = useState(0)
@@ -66,7 +67,7 @@ function ShareCard({ players, scores, roomCode }) {
     ctx.fillText('monk.run', 80, 150)
     ctx.fillStyle = 'rgba(230,235,232,0.65)'
     ctx.font = '400 26px Outfit, sans-serif'
-    ctx.fillText(`ROOM ${roomCode} · FINAL PODIUM`, 80, 210)
+    ctx.fillText(COPY.podium.shareHeader(roomCode), 80, 210)
     ranked.slice(0, 5).forEach((p, i) => {
       const y = 320 + i * 140
       const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
@@ -83,7 +84,7 @@ function ShareCard({ players, scores, roomCode }) {
     })
     ctx.fillStyle = 'rgba(212,165,116,0.85)'
     ctx.font = '400 24px Outfit, sans-serif'
-    ctx.fillText('temple lobby · black hole · world guess', 80, 1260)
+    ctx.fillText(COPY.podium.shareFooter, 80, 1260)
   }, [ranked, roomCode])
 
   return (
@@ -99,7 +100,7 @@ function ShareCard({ players, scores, roomCode }) {
           a.click()
         }}
       >
-        Download podium card
+        {COPY.podium.download}
       </button>
     </div>
   )
@@ -306,18 +307,18 @@ export default function App() {
     setError('')
     setBusy(true)
     setScreen('cabin')
-    localStorage.setItem('monk-name', name.trim() || 'Wanderer')
+    localStorage.setItem('monk-name', name.trim() || COPY.landing.namePlaceholder)
     localStorage.setItem('monk-avatar', avatar)
     try {
       await ctrlRef.current.createRoom({
-        name: name.trim() || 'Wanderer',
+        name: name.trim() || COPY.landing.namePlaceholder,
         avatar,
         vibe,
         code: makeRoomCode(),
       })
     } catch (err) {
       setScreen('landing')
-      setError(playerError(err, 'Couldn’t create room. Try again.'))
+      setError(playerError(err, COPY.errors.create))
     } finally {
       setBusy(false)
     }
@@ -327,18 +328,18 @@ export default function App() {
     setError('')
     setBusy(true)
     setScreen('cabin')
-    localStorage.setItem('monk-name', name.trim() || 'Wanderer')
+    localStorage.setItem('monk-name', name.trim() || COPY.landing.namePlaceholder)
     localStorage.setItem('monk-avatar', avatar)
     try {
       await ctrlRef.current.joinRoom({
-        name: name.trim() || 'Wanderer',
+        name: name.trim() || COPY.landing.namePlaceholder,
         avatar,
         vibe,
         code: normalizeRoomPin(joinCode),
       })
     } catch (err) {
       setScreen('landing')
-      setError(playerError(err, 'Couldn’t join — check the PIN and try again.'))
+      setError(playerError(err, COPY.errors.join))
     } finally {
       setBusy(false)
     }
@@ -350,7 +351,7 @@ export default function App() {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      setError('Could not copy PIN')
+      setError(COPY.errors.copy)
     }
   }
 
@@ -403,17 +404,17 @@ export default function App() {
         <div className="landing-stage">
           <div className="landing-brand">
             <BrandMark className="landing-mark" />
-            <h1 className="landing-title">monk.run</h1>
-            <p className="landing-tag">Temple lobby. Black hole jump. Guess the world with your party.</p>
+            <h1 className="landing-title">{COPY.brand}</h1>
+            <p className="landing-tag">{COPY.landing.tag}</p>
           </div>
 
           {!gateMode && (
             <div className="landing-ctas">
               <button type="button" className="btn btn-primary" onClick={() => setGateMode('create')}>
-                Create room
+                {COPY.landing.create}
               </button>
               <button type="button" className="btn btn-ghost" onClick={() => setGateMode('join')}>
-                Enter with PIN
+                {COPY.landing.join}
               </button>
             </div>
           )}
@@ -425,22 +426,22 @@ export default function App() {
                 className="mb-4 text-[10px] uppercase tracking-[0.2em] text-muted hover:text-brass-bright"
                 onClick={() => setGateMode(null)}
               >
-                ← Back
+                {COPY.landing.back}
               </button>
 
-              <label className="landing-label">Your monk name</label>
+              <label className="landing-label">{COPY.landing.nameLabel}</label>
               <input
                 className="input-clean mt-1"
                 maxLength={18}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Wanderer"
+                placeholder={COPY.landing.namePlaceholder}
                 autoFocus
               />
 
               {gateMode === 'create' && (
                 <>
-                  <p className="landing-label mt-6">Choose your scout</p>
+                  <p className="landing-label mt-6">{COPY.landing.scoutLabel}</p>
                   <AvatarPicker
                     value={avatar}
                     onChange={(id) => {
@@ -448,17 +449,16 @@ export default function App() {
                       localStorage.setItem('monk-avatar', id)
                     }}
                   />
-                  <p className="landing-hint">Same scout? You get a different robe in-room.</p>
+                  <p className="landing-hint">{COPY.landing.scoutHint}</p>
                   <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
-                    Open the temple
+                    {COPY.landing.openTemple}
                   </button>
-                  <p className="landing-hint">Host gets a 6-digit PIN to share</p>
                 </>
               )}
 
               {gateMode === 'join' && (
                 <>
-                  <p className="landing-label mt-5">Choose your scout</p>
+                  <p className="landing-label mt-5">{COPY.landing.scoutLabel}</p>
                   <AvatarPicker
                     value={avatar}
                     onChange={(id) => {
@@ -466,7 +466,7 @@ export default function App() {
                       localStorage.setItem('monk-avatar', id)
                     }}
                   />
-                  <label className="landing-label mt-6">Room PIN</label>
+                  <label className="landing-label mt-6">{COPY.landing.pinLabel}</label>
                   <input
                     className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
                     inputMode="numeric"
@@ -485,7 +485,7 @@ export default function App() {
                     disabled={busy || !pinReady}
                     onClick={join}
                   >
-                    Step inside
+                    {COPY.landing.stepInside}
                   </button>
                 </>
               )}
@@ -498,7 +498,7 @@ export default function App() {
                     className="mt-2 text-[10px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
                     onClick={() => setError('')}
                   >
-                    Dismiss
+                    {COPY.landing.dismiss}
                   </button>
                 </div>
               )}
@@ -506,10 +506,10 @@ export default function App() {
           )}
 
           <div className="landing-foot">
-            <button type="button" onClick={() => setShowHowTo(true)}>How to play</button>
-            <button type="button" onClick={() => setShowSettings(true)}>Settings</button>
-            <button type="button" onClick={() => setLegal('privacy')}>Privacy</button>
-            <button type="button" onClick={() => setLegal('terms')}>Terms</button>
+            <button type="button" onClick={() => setShowHowTo(true)}>{COPY.landing.howTo}</button>
+            <button type="button" onClick={() => setShowSettings(true)}>{COPY.landing.settings}</button>
+            <button type="button" onClick={() => setLegal('privacy')}>{COPY.landing.privacy}</button>
+            <button type="button" onClick={() => setLegal('terms')}>{COPY.landing.terms}</button>
           </div>
           <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4 shrink-0 self-center" />
         </div>
@@ -524,7 +524,7 @@ export default function App() {
     return (
       <div className="relative grid min-h-full place-items-center overflow-hidden">
         <Atmosphere intensity="soft" />
-        <p className="relative z-10 animate-pulse font-display text-sm tracking-[0.35em] text-brass">CONNECTING…</p>
+        <p className="relative z-10 animate-pulse font-display text-sm tracking-[0.35em] text-brass">{COPY.connecting}</p>
       </div>
     )
   }
@@ -536,10 +536,10 @@ export default function App() {
         <div className="relative z-10 w-full max-w-md text-center">
           <BrandMark className="mx-auto mb-4 h-12 w-12 text-brass opacity-80" />
           <p className="font-display text-3xl font-medium text-fog">
-            {hostLeft ? 'Host left the room' : 'Connection lost'}
+            {hostLeft ? COPY.error.hostLeft : COPY.error.connectionLost}
           </p>
           <p className="mt-3 text-sm text-muted">
-            {playerError(room.message || error, 'Something went wrong. You can head back and try again.')}
+            {playerError(room.message || error, COPY.error.fallback)}
           </p>
           <button
             type="button"
@@ -553,7 +553,7 @@ export default function App() {
               window.location.hash = ''
             }}
           >
-            Back to temple
+            {COPY.error.back}
           </button>
         </div>
       </div>
@@ -570,8 +570,7 @@ export default function App() {
           <div>
             <p className="font-display text-2xl font-medium tracking-tight text-fog">monk.run</p>
             <p className="text-[10px] uppercase tracking-[0.22em] text-muted">
-              Temple lobby · {room.players.length}/{MAX_PLAYERS}
-              {room.localOnly ? ' · local' : ''}
+              {COPY.lobby.subtitle(room.players.length, MAX_PLAYERS, room.localOnly)}
             </p>
           </div>
           <button
@@ -581,11 +580,11 @@ export default function App() {
             disabled={inPortal}
             title="Copy PIN"
           >
-            <p className="text-[9px] uppercase tracking-[0.25em] text-muted">Room PIN</p>
+            <p className="text-[9px] uppercase tracking-[0.25em] text-muted">{COPY.lobby.pinLabel}</p>
             <p className="font-mono text-2xl font-bold tracking-[0.2em] text-amber">
               {room.roomCode}
             </p>
-            <p className="text-[10px] text-jade-bright">{copied ? 'Copied!' : 'Tap to copy'}</p>
+            <p className="text-[10px] text-jade-bright">{copied ? COPY.lobby.copied : COPY.lobby.tapCopy}</p>
           </button>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -597,7 +596,7 @@ export default function App() {
                 else voiceRef.current?.toggleMute()
               }}
             >
-              {!voice.active ? 'Join voice' : voice.muted ? 'Unmute' : 'Mute mic'}
+              {!voice.active ? COPY.lobby.joinVoice : voice.muted ? COPY.lobby.unmute : COPY.lobby.muteMic}
             </button>
             {room.isHost && room.phase === 'lobby' && (
               <button
@@ -610,7 +609,7 @@ export default function App() {
                   })
                 }
               >
-                PLAY
+                {COPY.lobby.play}
               </button>
             )}
           </div>
@@ -634,7 +633,7 @@ export default function App() {
             focused={!inPortal}
           />
           <aside className="panel flex min-h-0 flex-col gap-3 p-4">
-            <p className="landing-label">Players</p>
+            <p className="landing-label">{COPY.lobby.players}</p>
             <ul className="space-y-2">
               {room.players.map((p) => {
                 const look = resolvePlayerLook(p.avatar || p.vibe, p.id, room.players)
@@ -643,20 +642,20 @@ export default function App() {
                     <span className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: look.robe }} />
                       <span className="font-display text-sm">{p.name}</span>
-                      {p.isHost && <span className="text-[9px] uppercase text-amber">host</span>}
+                      {p.isHost && <span className="text-[9px] uppercase text-amber">{COPY.lobby.host}</span>}
                     </span>
                     <span className={`text-[10px] uppercase ${p.connected === false ? 'text-coral' : 'text-mint'}`}>
-                      {p.connected === false ? 'away' : 'here'}
+                      {p.connected === false ? COPY.lobby.away : COPY.lobby.here}
                     </span>
                   </li>
                 )
               })}
             </ul>
 
-            <p className="landing-label mt-1">Chat</p>
+            <p className="landing-label mt-1">{COPY.lobby.chat}</p>
             <ul className="min-h-[72px] max-h-36 flex-1 space-y-1.5 overflow-y-auto border border-brass/10 bg-black/25 p-2">
               {(room.chat || []).length === 0 && (
-                <li className="text-[11px] text-muted">Say hi to the room…</li>
+                <li className="text-[11px] text-muted">{COPY.lobby.chatEmpty}</li>
               )}
               {(room.chat || []).map((m) => (
                 <li key={m.at + m.id + m.text.slice(0, 8)} className="text-[11px] leading-snug">
@@ -671,31 +670,31 @@ export default function App() {
                 className="input-clean min-w-0 flex-1 text-sm"
                 value={chatDraft}
                 onChange={(e) => setChatDraft(e.target.value)}
-                placeholder="Message the lobby…"
+                placeholder={COPY.lobby.chatPlaceholder}
                 maxLength={200}
                 disabled={inPortal}
               />
               <button type="submit" className="btn btn-ghost shrink-0 !px-3" disabled={inPortal || !chatDraft.trim()}>
-                Send
+                {COPY.lobby.send}
               </button>
             </form>
 
             <div className="space-y-1 text-[10px] leading-relaxed text-muted">
               <p>
-                Voice:{' '}
                 {voice.active
                   ? voice.muted
-                    ? 'muted'
-                    : `live (${voice.peers.length} linked)`
-                  : 'off'}
+                    ? COPY.lobby.voiceMuted
+                    : COPY.lobby.voiceLive(voice.peers.length)
+                  : COPY.lobby.voiceOff}
               </p>
+              <p className="text-brass/70">{lobbyFlavor(room.roomCode)}</p>
               {voice.error && (
                 <p className="notice-soft !mt-2 text-left text-amber">
-                  {playerError(voice.error, 'Voice unavailable right now.')}
+                  {playerError(voice.error, COPY.errors.voice)}
                 </p>
               )}
               {!room.isHost && room.phase === 'lobby' && !inPortal && (
-                <p>Waiting for host to press PLAY…</p>
+                <p>{COPY.lobby.waitingHost}</p>
               )}
               {(error || (room.message && /couldn|try again|didn.t load|hiccup|reach the game/i.test(room.message))) && (
                 <div className="notice-soft !mt-2 text-left" role="status">
@@ -706,7 +705,7 @@ export default function App() {
                       className="mt-0.5 text-[9px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
                       onClick={() => setError('')}
                     >
-                      Dismiss
+                      {COPY.landing.dismiss}
                     </button>
                   )}
                 </div>
@@ -727,8 +726,8 @@ export default function App() {
         <Atmosphere />
         <div className="relative z-10 w-full max-w-2xl px-2 md:px-4">
           <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
-          <h2 className="text-center font-display text-4xl font-medium text-brass-bright md:text-5xl">Final podium</h2>
-          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">room {room.roomCode}</p>
+          <h2 className="text-center font-display text-4xl font-medium text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
+          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">{COPY.podium.room(room.roomCode)}</p>
           <ol className="mt-8 space-y-1">
             {ranked.map((p, i) => {
               const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
@@ -769,7 +768,7 @@ export default function App() {
               setError('')
             }}
           >
-            New party
+            {COPY.podium.newParty}
           </button>
         </div>
         <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="relative z-10 mt-5 shrink-0" />
@@ -793,7 +792,7 @@ export default function App() {
         )}
         <div className="relative z-10 grid flex-1 gap-3 p-3 md:grid-cols-2">
           <div className="flex min-h-[280px] flex-col border border-brass/15 bg-black/30 p-3 backdrop-blur-md">
-            <p className="landing-label text-jade-bright">Reveal</p>
+            <p className="landing-label text-jade-bright">{COPY.reveal.eyebrow}</p>
             <h3 className="reveal-place mt-1 text-fog">
               {room.reveal.truth.city}, {room.reveal.truth.country}
             </h3>
@@ -809,7 +808,7 @@ export default function App() {
           <div className="flex flex-col gap-3 border border-brass/15 bg-black/30 p-4 backdrop-blur-md">
             <p className="font-display text-lg">
               You:{' '}
-              <span className="text-mint">{selfResult?.missed ? 'missed' : formatKm(selfResult?.km)}</span>
+              <span className="text-mint">{selfResult?.PLACEHOLDER_MISSED ? 'missed' : formatKm(selfResult?.km)}</span>
               {' · '}
               <span className="text-brass-bright">+{selfResult?.score || 0}</span>
             </p>
@@ -824,7 +823,7 @@ export default function App() {
               ))}
             </ul>
             <div className="mt-auto">
-              <p className="mb-2 landing-label">Totals</p>
+              <p className="mb-2 landing-label">{COPY.reveal.totals}</p>
               {ranked.map((p) => (
                 <div key={p.id} className="flex justify-between text-xs text-fog/80">
                   <span>{p.name}</span>
@@ -833,18 +832,18 @@ export default function App() {
               ))}
               {isIntermission ? (
                 <div className="mt-4 border border-brass/25 bg-black/40 px-4 py-5 text-center">
-                  <p className="landing-label">Next round</p>
+                  <p className="landing-label">{COPY.reveal.next}</p>
                   {room.intermissionEndsAt > 0 ? (
                     <>
                       <p className="font-display text-4xl font-medium text-brass-bright">{intermissionLeft || 1}s</p>
                       <p className="mt-2 text-xs text-muted">
-                        {room.viewToken ? 'Panorama preloading…' : 'Fetching location…'}
+                        {room.viewToken ? COPY.reveal.opening : COPY.reveal.seeking}
                       </p>
                     </>
                   ) : (
                     <>
-                      <p className="mt-2 animate-pulse font-display text-xl text-brass">Loading location…</p>
-                      <p className="mt-2 text-xs text-muted">Hang tight — the next panorama is on its way.</p>
+                      <p className="mt-2 animate-pulse font-display text-xl text-brass">{COPY.reveal.seeking}</p>
+                      <p className="mt-2 text-xs text-muted">{COPY.reveal.hang}</p>
                     </>
                   )}
                 </div>
@@ -854,10 +853,10 @@ export default function App() {
                   className="btn btn-primary mt-4 w-full"
                   onClick={() => ctrlRef.current.nextRound()}
                 >
-                  {room.roundIndex + 1 >= room.totalRounds ? 'Podium' : 'Next round'}
+                  {room.roundIndex + 1 >= room.totalRounds ? COPY.reveal.podium : COPY.reveal.nextRound}
                 </button>
               ) : (
-                <p className="mt-4 text-center text-xs text-muted">Waiting for host…</p>
+                <p className="mt-4 text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
               )}
             </div>
           </div>
@@ -875,9 +874,8 @@ export default function App() {
         <Atmosphere />
         <div className="relative z-10 max-w-md text-center">
           <BrandMark className="mx-auto mb-4 h-12 w-12 animate-pulse text-brass" />
-          <p className="landing-label">Round {room.roundIndex + 1}</p>
-          <p className="mt-2 font-display text-3xl text-brass-bright">Loading panorama…</p>
-          <p className="mt-3 font-mono text-xs tracking-widest text-muted">SECURE VIEW · STAY READY</p>
+          <p className="landing-label">{COPY.loading.round(room.roundIndex + 1)}</p>
+          <p className="mt-2 font-display text-3xl text-brass-bright">{COPY.loading.title}</p>
         </div>
         {room.viewToken && (
           <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>
@@ -901,11 +899,11 @@ export default function App() {
           <div className="pointer-events-auto hud-chip px-3 py-2">
             <p className="font-display text-lg font-medium">monk.run</p>
             <p className="text-[10px] text-muted">
-              Round {room.roundIndex + 1}/{room.totalRounds} · locked {lockedCount}/{room.players.length}
+              {COPY.play.round(room.roundIndex + 1, room.totalRounds, lockedCount, room.players.length)}
             </p>
           </div>
           <div className="pointer-events-auto hud-chip px-4 py-2 text-center">
-            <p className="landing-label">Time</p>
+            <p className="landing-label">{COPY.play.time}</p>
             <p className={`font-display text-2xl font-medium ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
               {roundLeft}s
             </p>
@@ -925,7 +923,7 @@ export default function App() {
                 else voiceRef.current?.toggleMute()
               }}
             >
-              {!voice.active ? 'Voice' : voice.muted ? 'Unmute' : 'Mute'}
+              {!voice.active ? COPY.play.voice : voice.muted ? COPY.play.unmute : COPY.play.mute}
             </button>
           </div>
         </header>
@@ -936,7 +934,7 @@ export default function App() {
             className="btn btn-ghost absolute bottom-3 left-3 z-20"
             onClick={() => ctrlRef.current.revealRound()}
           >
-            Force reveal
+            {COPY.play.endRound}
           </button>
         )}
       </div>
@@ -945,9 +943,9 @@ export default function App() {
         {!selfGuessed ? (
           <>
             <div className="mb-2">
-              <p className="font-display text-base font-medium text-brass-bright">World map</p>
+              <p className="font-display text-base font-medium text-brass-bright">{COPY.play.mapTitle}</p>
               <p className="text-[11px] text-muted">
-                Search a city to drop a pin, or click the world map directly.
+                {COPY.play.mapHint}
               </p>
             </div>
             <div className="min-h-0 flex-1">
@@ -967,20 +965,20 @@ export default function App() {
               disabled={!guess}
               onClick={lockGuess}
             >
-              {guess ? 'Lock guess' : 'Drop a pin on the world map first'}
+              {guess ? COPY.play.lock : COPY.play.needPin}
             </button>
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <p className="font-display text-xl text-mint">Guess locked</p>
+            <p className="font-display text-xl text-mint">{COPY.play.locked}</p>
             <p className="text-sm text-muted">
               {lockedCount >= room.players.filter((p) => p.connected !== false).length
-                ? 'Everyone in — revealing…'
-                : `Waiting · ${lockedCount}/${room.players.length} locked`}
+                ? COPY.play.allIn
+                : COPY.play.waiting(lockedCount, room.players.length)}
             </p>
             {guess && (
               <p className="font-mono text-xs text-brass">
-                Your pin · {guess.lat.toFixed(2)}, {guess.lng.toFixed(2)}
+                {COPY.play.yourPin} · {guess.lat.toFixed(2)}, {guess.lng.toFixed(2)}
                 {country ? ` · ${country}` : ''}
               </p>
             )}

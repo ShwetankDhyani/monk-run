@@ -1,3 +1,4 @@
+import { COPY } from '../copy.js'
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker, CircleMarker, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -100,14 +101,14 @@ export default function GuessMap({
     try {
       const hit = await searchPlace(q)
       if (!hit) {
-        setSearchError('No place found — try a city or country name.')
+        setSearchError(COPY.map.noPlace)
         return
       }
       onGuess?.({ lat: hit.lat, lng: hit.lng })
       const matched = normalizeCountryName(hit.country, COUNTRIES)
       if (matched) onCountry?.(matched)
     } catch (err) {
-      setSearchError(err?.message || 'Search failed')
+      setSearchError(err?.message || COPY.map.searchFailed)
     } finally {
       setSearching(false)
     }
@@ -127,7 +128,7 @@ export default function GuessMap({
                 setPlaceQuery(e.target.value)
                 setSearchError('')
               }}
-              placeholder="City or place name…"
+              placeholder={COPY.map.searchPlaceholder}
               className="input-clean min-w-[120px] flex-[2]"
               disabled={locked || searching}
             />
@@ -144,7 +145,7 @@ export default function GuessMap({
             <input
               value={countryFilter}
               onChange={(e) => setCountryFilter(e.target.value)}
-              placeholder="Filter countries…"
+              placeholder={COPY.map.filterCountries}
               className="input-clean min-w-[100px] flex-1"
               disabled={locked}
             />
@@ -154,7 +155,7 @@ export default function GuessMap({
               disabled={locked}
               onChange={(e) => onCountry?.(e.target.value)}
             >
-              <option value="">Country (optional)</option>
+              <option value="">{COPY.map.countryOptional}</option>
               {filteredCountries.length === 0 ? (
                 <option value="" disabled>
                   No countries match

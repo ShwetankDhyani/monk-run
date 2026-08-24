@@ -1,11 +1,5 @@
 import { useEffect } from 'react'
-
-const STEPS = [
-  { title: 'Gather in the temple', body: 'Create a room or join with a 6-digit PIN. Walk around, smack friends, and hop on voice when you’re ready.' },
-  { title: 'Enter the black hole', body: 'The host presses PLAY. A singularity forms in the lobby and pulls everyone into five synchronized rounds.' },
-  { title: 'Read the world', body: 'Explore Street View. Look for signs, flora, driving side, architecture — then drop a pin on the world map.' },
-  { title: 'Lock & reveal', body: 'Lock your guess. When everyone’s locked (or time runs out), distances and scores appear. Closest monk wins the round.' },
-]
+import { COPY } from '../copy.js'
 
 export function HowToPlayModal({ open, onClose }) {
   useEffect(() => {
@@ -33,14 +27,14 @@ export function HowToPlayModal({ open, onClose }) {
       >
         <div className="flex items-center justify-between border-b border-brass/15 px-5 py-4">
           <h2 id="howto-title" className="font-display text-xl font-medium text-fog">
-            How to play
+            {COPY.howTo.title}
           </h2>
           <button type="button" className="btn btn-ghost px-3 py-1 text-sm" onClick={onClose}>
-            Close
+            {COPY.howTo.close}
           </button>
         </div>
         <ol className="space-y-4 px-5 py-5">
-          {STEPS.map((s, i) => (
+          {COPY.howTo.steps.map((s, i) => (
             <li key={s.title} className="flex gap-3">
               <span className="font-display text-lg text-amber">{i + 1}</span>
               <div>
@@ -51,7 +45,7 @@ export function HowToPlayModal({ open, onClose }) {
           ))}
         </ol>
         <p className="border-t border-brass/15 px-5 py-3 text-[11px] text-muted">
-          Controls in lobby: WASD / arrows move · Space smack · 1–4 emotes · voice is opt-in
+          {COPY.howTo.controls}
         </p>
       </div>
     </div>

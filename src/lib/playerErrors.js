@@ -1,29 +1,29 @@
 /**
- * Map technical/internal failures to short player-facing copy.
- * Never surface npm, stack traces, or infra instructions in the game UI.
+ * Map technical failures to short player-facing copy.
+ * Never surface npm, stacks, or infra instructions in the game UI.
  */
+import { COPY } from '../copy.js'
 
 const RULES = [
-  [/npm run|vite|localhost|ECONNREFUSED|Failed to fetch|NetworkError|fetch/i, 'Connection hiccup — try again in a moment.'],
-  [/Game server|server offline|server unavailable|API/i, 'Couldn’t reach the game service. Try again.'],
-  [/Could not (find|load).*(Street View|panorama|round)/i, 'That round didn’t load. Trying again…'],
-  [/Host not found|Check the room PIN|Host disconnected/i, null], // keep as-is when already friendly
-  [/PIN already in use/i, 'That PIN is taken — create a new room.'],
-  [/Mic|permission|NotAllowedError/i, 'Microphone blocked — allow access to use voice.'],
-  [/Peer|broker|WebRTC|ice/i, 'Multiplayer link dropped. Rejoin with the PIN.'],
+  [/npm run|vite|localhost|ECONNREFUSED|Failed to fetch|NetworkError|fetch/i, () => COPY.errors.network],
+  [/Game server|server offline|server unavailable|API/i, () => COPY.errors.service],
+  [/Could not (find|load).*(Street View|panorama|round)/i, () => COPY.errors.panorama],
+  [/Host not found|Check the room PIN|Host disconnected/i, null],
+  [/PIN already in use/i, () => COPY.errors.pinTaken],
+  [/Mic|permission|NotAllowedError/i, () => COPY.errors.mic],
+  [/Peer|broker|WebRTC|ice/i, () => COPY.errors.peer],
 ]
 
 /**
  * @param {unknown} err
  * @param {string} [fallback]
  */
-export function playerError(err, fallback = 'Something went wrong — try again.') {
+export function playerError(err, fallback = COPY.errors.default) {
   const raw = typeof err === 'string' ? err : err?.message || ''
   if (!raw) return fallback
   for (const [re, msg] of RULES) {
-    if (re.test(raw)) return msg === null ? raw : msg
+    if (re.test(raw)) return msg === null ? raw : msg()
   }
-  // Strip anything that looks like a shell/dev instruction
   if (/npm |node |restart with|API automatically/i.test(raw)) return fallback
   if (raw.length > 120) return fallback
   return raw
@@ -31,9 +31,6 @@ export function playerError(err, fallback = 'Something went wrong — try again.
 
 /**
  * fetch with short retries for flaky local/proxy blips.
- * @param {string} url
- * @param {RequestInit} [init]
- * @param {{ retries?: number, delayMs?: number }} [opts]
  */
 export async function fetchRetry(url, init = {}, opts = {}) {
   const retries = opts.retries ?? 3

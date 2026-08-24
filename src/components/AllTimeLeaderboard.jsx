@@ -1,3 +1,4 @@
+import { COPY } from '../copy.js'
 import { useEffect, useRef, useState } from 'react'
 import { resolvePlayerLook, migrateVibeToAvatar } from '../data/avatars.js'
 import { drawMonkTopDown } from '../lib/avatarDraw.js'
@@ -64,9 +65,7 @@ function LeaderboardModal({ onClose, refreshKey }) {
         aria-labelledby="lb-title"
       >
         <div className="flex items-center justify-between border-b border-brass/15 px-5 py-4">
-          <h2 id="lb-title" className="font-display text-xl font-medium text-fog">
-            All Time Leaderboard
-          </h2>
+          <h2 id="lb-title" className="font-display text-xl font-medium text-fog">{COPY.leaderboard.title}</h2>
           <button type="button" className="btn btn-ghost px-3 py-1 text-sm" onClick={onClose}>
             Close
           </button>
@@ -74,9 +73,9 @@ function LeaderboardModal({ onClose, refreshKey }) {
 
         <div className="px-5 py-6">
           {loading ? (
-            <p className="py-12 text-center text-sm text-muted animate-pulse">Loading scores…</p>
+            <p className="py-12 text-center text-sm text-muted animate-pulse">{COPY.leaderboard.loading}</p>
           ) : entries.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted">No scores yet — finish a game to claim the podium.</p>
+            <p className="py-12 text-center text-sm text-muted">{COPY.leaderboard.empty}</p>
           ) : (
             <>
               <div className="flex items-end justify-center gap-2 sm:gap-4">
