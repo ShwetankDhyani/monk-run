@@ -115,12 +115,12 @@ export default function GuessMap({
   }
 
   const center = guess ? [guess.lat, guess.lng] : [20, 0]
-  const mapH = tall ? 'min-h-[220px] flex-1' : 'h-[280px]'
+  const mapH = tall ? 'min-h-[120px] flex-1' : 'h-[280px]'
 
   return (
-    <div className={`flex flex-col gap-2 ${tall ? 'h-full min-h-0' : ''}`}>
+    <div className={`guess-map flex flex-col gap-2 ${tall ? 'h-full min-h-0' : ''}`}>
       {mode === 'guess' && (
-        <div className="flex shrink-0 flex-col gap-2">
+        <div className="guess-map-controls flex shrink-0 flex-col gap-2">
           <form className="flex flex-wrap items-center gap-2" onSubmit={runPlaceSearch}>
             <input
               value={placeQuery}
@@ -169,7 +169,7 @@ export default function GuessMap({
               )}
             </select>
           </div>
-          <p className="text-[11px] text-muted">
+          <p className="guess-map-hint text-[11px] text-muted">
             Search a city to drop a pin, or click the map directly.
             {countryFilter.trim() && filteredCountries.length > 0 && (
               <span className="text-sky"> · {filteredCountries.length} countries</span>

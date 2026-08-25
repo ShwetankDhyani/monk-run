@@ -1024,7 +1024,7 @@ export default function App() {
                 {COPY.play.mapHint}
               </p>
             </div>
-            <div className="min-h-0 flex-1">
+            <div className="play-map-body min-h-0 flex-1 overflow-hidden">
               <GuessMap
                 mode="guess"
                 guess={guess}
@@ -1037,7 +1037,7 @@ export default function App() {
             </div>
             <button
               type="button"
-              className="btn btn-primary mt-3 w-full shrink-0"
+              className="btn btn-primary play-lock-btn mt-3 w-full shrink-0"
               disabled={!guess}
               onClick={lockGuess}
             >
