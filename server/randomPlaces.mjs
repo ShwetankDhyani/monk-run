@@ -93,6 +93,14 @@ function randomGlobePoint() {
   return { lat, lng }
 }
 
+/** Thrown when Google rejects the configured Maps key (fail fast — don't spin 200 misses). */
+export class MapsKeyError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'MapsKeyError'
+  }
+}
+
 async function streetViewMeta(lat, lng, apiKey, radius) {
   const url = new URL('https://maps.googleapis.com/maps/api/streetview/metadata')
   url.searchParams.set('location', `${lat},${lng}`)
@@ -102,6 +110,12 @@ async function streetViewMeta(lat, lng, apiKey, radius) {
   const res = await fetch(url)
   if (!res.ok) return null
   const data = await res.json()
+  if (data.status === 'REQUEST_DENIED' || data.status === 'INVALID_REQUEST') {
+    const detail = String(data.error_message || data.status || 'REQUEST_DENIED').trim()
+    throw new MapsKeyError(
+      `Google Maps key rejected (${detail}). Enable Street View Static API, turn on billing, and set Application restriction to None (server keys cannot use HTTP-referrer locks).`,
+    )
+  }
   if (data.status !== 'OK' || !data.location) return null
   return {
     lat: data.location.lat,
@@ -163,7 +177,8 @@ async function pickOneRandom(apiKey, sessionKeys) {
     let meta
     try {
       meta = await streetViewMeta(seed.lat, seed.lng, apiKey, radius)
-    } catch {
+    } catch (err) {
+      if (err instanceof MapsKeyError) throw err
       continue
     }
     if (!meta) continue

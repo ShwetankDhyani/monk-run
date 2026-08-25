@@ -17,10 +17,22 @@ export async function createGameSession(roomCode, rounds = 5) {
   } catch (err) {
     throw new Error(playerError(err, 'Couldn’t start the match. Try again.'))
   }
-  if (res.status === 503) {
-    throw new Error('Street View isn’t configured on this server yet. Try again soon.')
+  if (!res.ok) {
+    let detail = ''
+    try {
+      const body = await res.json()
+      detail = String(body?.error || '')
+    } catch {
+      /* ignore */
+    }
+    if (res.status === 503 || /Maps key|Street View|API key/i.test(detail)) {
+      throw new Error(
+        detail ||
+          'Street View isn’t configured. Add a valid GOOGLE_MAPS_API_KEY on Vercel (Street View Static API + billing).',
+      )
+    }
+    throw new Error(detail || 'Couldn’t start the match. Try again.')
   }
-  if (!res.ok) throw new Error('Couldn’t start the match. Try again.')
   return res.json()
 }
 

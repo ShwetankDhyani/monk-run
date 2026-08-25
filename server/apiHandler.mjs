@@ -207,7 +207,9 @@ export async function handleApi(req, res) {
       sendJson(res, 201, session)
     } catch (err) {
       console.error('[game/session]', err)
-      sendJson(res, 500, { error: err?.message || 'Could not create game session' })
+      const msg = err?.message || 'Could not create game session'
+      const denied = /Maps key rejected|REQUEST_DENIED|API key is invalid/i.test(msg)
+      sendJson(res, denied ? 503 : 500, { error: msg })
     }
     return
   }
