@@ -1,5 +1,3 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadEnvFile } from './loadEnv.mjs'
@@ -14,60 +12,17 @@ import {
   consumeLeaderboardCommit,
 } from './game.mjs'
 import { probeConfiguredMapsKey } from './randomPlaces.mjs'
+import {
+  loadHalls,
+  updateHalls,
+  getLeaderboardStoreInfo,
+  HALL_SIZE,
+} from './hallStore.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 loadEnvFile(join(__dirname, '..', '.env'))
 
-// On Vercel the deploy FS is read-only — persist board under /tmp when needed.
-const DATA_DIR = process.env.VERCEL
-  ? join('/tmp', 'monk-run-data')
-  : join(__dirname, '..', 'data')
-const DATA_FILE = join(DATA_DIR, 'leaderboard.json')
 const MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ''
-const HALL_SIZE = 5
-
-function emptyHalls() {
-  return {
-    highestScore: [],
-    lowestScore: [],
-    closestGuess: [],
-    farthestGuess: [],
-  }
-}
-
-function normalizeHalls(raw) {
-  if (Array.isArray(raw)) {
-    // Legacy flat top-score list → Hall of Fame highest score
-    return {
-      ...emptyHalls(),
-      highestScore: [...raw]
-        .sort((a, b) => b.score - a.score || (b.at || 0) - (a.at || 0))
-        .slice(0, HALL_SIZE),
-    }
-  }
-  if (!raw || typeof raw !== 'object') return emptyHalls()
-  return {
-    highestScore: Array.isArray(raw.highestScore) ? raw.highestScore : [],
-    lowestScore: Array.isArray(raw.lowestScore) ? raw.lowestScore : [],
-    closestGuess: Array.isArray(raw.closestGuess) ? raw.closestGuess : [],
-    farthestGuess: Array.isArray(raw.farthestGuess) ? raw.farthestGuess : [],
-  }
-}
-
-async function loadHalls() {
-  try {
-    if (!existsSync(DATA_FILE)) return emptyHalls()
-    const raw = await readFile(DATA_FILE, 'utf8')
-    return normalizeHalls(JSON.parse(raw))
-  } catch {
-    return emptyHalls()
-  }
-}
-
-async function saveHalls(halls) {
-  if (!existsSync(DATA_DIR)) await mkdir(DATA_DIR, { recursive: true })
-  await writeFile(DATA_FILE, JSON.stringify(halls, null, 2))
-}
 
 function trimHall(list, compare) {
   return [...list].sort(compare).slice(0, HALL_SIZE)
@@ -114,11 +69,13 @@ export async function handleApi(req, res) {
 
   if (req.method === 'GET' && url === '/api/health') {
     const mapsKey = await probeConfiguredMapsKey()
+    const leaderboard = getLeaderboardStoreInfo()
     sendJson(res, 200, {
       ok: true,
       service: 'monk.run',
       mapsConfigured: mapsConfigured(),
       mapsKey,
+      leaderboard,
       uptimeSec: Math.round(process.uptime()),
     })
     return
@@ -168,30 +125,30 @@ export async function handleApi(req, res) {
         roomCode: String(body.roomCode || '').slice(0, 8),
         at: Date.now(),
       }
-      const halls = await loadHalls()
 
-      halls.highestScore = trimHall(
-        [...halls.highestScore, { ...base }],
-        (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0),
-      )
-      halls.lowestScore = trimHall(
-        [...halls.lowestScore, { ...base }],
-        (a, b) => a.score - b.score || (a.at || 0) - (b.at || 0),
-      )
-      if (Number.isFinite(verified.closestKm)) {
-        halls.closestGuess = trimHall(
-          [...halls.closestGuess, { ...base, km: verified.closestKm }],
-          (a, b) => a.km - b.km || (a.at || 0) - (b.at || 0),
+      const halls = await updateHalls((current) => {
+        current.highestScore = trimHall(
+          [...current.highestScore, { ...base }],
+          (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0),
         )
-      }
-      if (Number.isFinite(verified.farthestKm)) {
-        halls.farthestGuess = trimHall(
-          [...halls.farthestGuess, { ...base, km: verified.farthestKm }],
-          (a, b) => b.km - a.km || (a.at || 0) - (b.at || 0),
+        current.lowestScore = trimHall(
+          [...current.lowestScore, { ...base }],
+          (a, b) => a.score - b.score || (a.at || 0) - (b.at || 0),
         )
-      }
-
-      await saveHalls(halls)
+        if (Number.isFinite(verified.closestKm)) {
+          current.closestGuess = trimHall(
+            [...current.closestGuess, { ...base, km: verified.closestKm }],
+            (a, b) => a.km - b.km || (a.at || 0) - (b.at || 0),
+          )
+        }
+        if (Number.isFinite(verified.farthestKm)) {
+          current.farthestGuess = trimHall(
+            [...current.farthestGuess, { ...base, km: verified.farthestKm }],
+            (a, b) => b.km - a.km || (a.at || 0) - (b.at || 0),
+          )
+        }
+        return current
+      })
       sendJson(res, 201, {
         entry: base,
         halls: {

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "monk.run \u2014 temple lobby party geography with voice and worldwide Street View",
+  "description": "monk.run — temple lobby party geography with voice and worldwide Street View",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:vite": "vite --host 0.0.0.0 --port 47447",
@@ -12,9 +12,11 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 47447",
     "lint": "oxlint",
-    "start": "NODE_ENV=production STATIC_DIR=dist node server/leaderboard.mjs"
+    "start": "NODE_ENV=production STATIC_DIR=dist node server/leaderboard.mjs",
+    "seed:halls-kv": "node scripts/seed-halls-kv.mjs"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.2",
     "leaflet": "^1.9.4",
     "peerjs": "^1.5.5",
     "react": "^19.2.8",
