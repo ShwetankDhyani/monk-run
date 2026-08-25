@@ -21,6 +21,7 @@ import { HowToPlayModal } from './components/HowToPlayModal.jsx'
 import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
+import { TempleGlobe } from './components/TempleGlobe.jsx'
 
 import { sfx } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
@@ -439,7 +440,7 @@ export default function App() {
         <div className="landing-stage">
           <div className="landing-hero">
             <div className="landing-brand">
-              <BrandMark className="landing-mark" />
+              <TempleGlobe className="landing-globe" />
               <h1 className="landing-title">{COPY.brand}</h1>
               <p className="landing-tag">{COPY.landing.tag}</p>
             </div>

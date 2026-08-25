@@ -181,7 +181,9 @@
   .atmosphere-rift,
   .atmosphere-aurora,
   .atmosphere-rays,
-  .landing-mark {
+  .landing-mark,
+  .temple-globe-spin,
+  .temple-globe-ticks {
     animation: none !important;
   }
 
@@ -289,20 +291,17 @@
   .atmosphere-rift {
     position: absolute;
     left: 50%;
-    top: 62%;
-    width: min(58vw, 26rem);
-    height: min(58vw, 26rem);
-    transform: translate(-50%, -42%);
+    top: 58%;
+    width: min(34vw, 13rem);
+    height: min(34vw, 13rem);
+    transform: translate(-50%, -36%);
     border-radius: 50%;
     background:
-      radial-gradient(circle at 50% 46%, #000 0%, #000 18%, rgba(0,0,0,0.85) 32%, transparent 64%),
-      radial-gradient(circle at 50% 50%, rgba(61, 155, 143, 0.28) 0%, transparent 52%),
-      radial-gradient(circle at 50% 52%, rgba(212, 165, 116, 0.12) 0%, transparent 48%);
-    box-shadow:
-      0 0 60px 12px rgba(61, 155, 143, 0.14),
-      0 0 120px 36px rgba(0, 0, 0, 0.55),
-      inset 0 0 40px rgba(61, 155, 143, 0.08);
+      radial-gradient(circle at 50% 46%, #000 0%, #000 22%, rgba(0, 0, 0, 0.7) 40%, transparent 68%),
+      radial-gradient(circle at 50% 50%, rgba(61, 155, 143, 0.14) 0%, transparent 55%);
+    box-shadow: 0 0 40px 10px rgba(61, 155, 143, 0.07), 0 0 90px 28px rgba(0, 0, 0, 0.4);
     animation: rift-pulse 6.5s ease-in-out infinite;
+    opacity: 0.5;
   }
   .atmosphere[data-intensity='soft'] .atmosphere-rift {
     opacity: 0.35;
@@ -382,6 +381,31 @@
     margin-bottom: 1.35rem;
     filter: drop-shadow(0 0 28px rgba(212, 165, 116, 0.28));
     animation: mark-spin 28s linear infinite;
+  }
+  .landing-globe {
+    width: clamp(7.5rem, 28vw, 12.5rem);
+    height: clamp(7.5rem, 28vw, 12.5rem);
+    margin-bottom: 1.1rem;
+    filter: drop-shadow(0 0 36px rgba(94, 196, 182, 0.16))
+      drop-shadow(0 0 28px rgba(212, 165, 116, 0.22));
+  }
+  .temple-globe {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+  }
+  .temple-globe-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .temple-globe-spin {
+    transform-origin: 100px 100px;
+    animation: globe-spin 48s linear infinite;
+  }
+  .temple-globe-ticks {
+    transform-origin: 100px 100px;
+    animation: mark-spin 80s linear infinite reverse;
   }
   .landing-title {
     font-family: var(--font-display);
@@ -702,12 +726,26 @@
   }
 }
 
+@keyframes globe-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-160px); }
+}
+
 @keyframes mark-spin {
   from {
     transform: rotate(0deg);
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes globe-spin {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-160px);
   }
 }
 
