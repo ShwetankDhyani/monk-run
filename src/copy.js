@@ -162,7 +162,6 @@ export const COPY = {
     title: 'A place takes shape…',
     scoring: 'Scoring the round…',
     scoringTitle: 'Fair reckoning',
-    retryScore: 'Retry scoring',
   },
 
   play: {

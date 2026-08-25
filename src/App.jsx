@@ -1149,15 +1149,6 @@ export default function App() {
           {room.message && room.message !== 'Scoring…' && room.message !== 'Results' && (
             <p className="mt-4 text-sm text-coral">{playerError(room.message)}</p>
           )}
-          {room.phase === 'revealing' && room.isHost && (
-            <button
-              type="button"
-              className="btn btn-primary mt-6 min-h-12 w-full max-w-xs"
-              onClick={() => ctrlRef.current.revealRound()}
-            >
-              {COPY.loading.retryScore}
-            </button>
-          )}
           <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-6" />
         </div>
         {room.viewToken && room.phase === 'loading-round' && (
