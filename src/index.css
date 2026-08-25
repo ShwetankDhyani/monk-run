@@ -135,6 +135,54 @@
     color: #e07a5f;
   }
 
+  /* Mic level meter on mute — shade rises with outbound voice */
+  .voice-mute-btn {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    min-width: 6.5rem;
+  }
+  .voice-mute-btn--compact {
+    min-width: 0;
+    width: 100%;
+  }
+  .voice-mute-fill {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: var(--voice-level, 0%);
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(
+      to top,
+      rgba(94, 184, 148, 0.55) 0%,
+      rgba(94, 184, 148, 0.18) 100%
+    );
+    transition: height 60ms linear;
+  }
+  .voice-mute-btn.btn-primary .voice-mute-fill {
+    background: linear-gradient(
+      to top,
+      rgba(26, 18, 8, 0.38) 0%,
+      rgba(26, 18, 8, 0.1) 100%
+    );
+  }
+  .voice-mute-btn.is-speaking {
+    box-shadow: 0 0 0 1px rgba(94, 184, 148, 0.35);
+  }
+  .voice-mute-btn.btn-primary.is-speaking {
+    box-shadow: 0 0 0 1px rgba(26, 18, 8, 0.28);
+  }
+  .voice-mute-label {
+    position: relative;
+    z-index: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .voice-mute-fill {
+      transition: none;
+    }
+  }
+
   .avatar-label .avatar-name {
     display: block;
     font-family: var(--font-display);

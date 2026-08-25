@@ -7,6 +7,7 @@
  * - Retry outbound calls with short backoff
  * - Drop calls when peers leave; surface link state via onStatus
  * - Mute toggles track.enabled (does not tear down the call)
+ * - Local mic level (0–1) so the mute control can show when you are being heard
  */
 
 function resolveSelfId(selfId) {
@@ -22,6 +23,17 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
   /** @type {ReturnType<typeof setTimeout> | null} */
   let retryTimer = null
   let link = 'idle' // idle | live | reconnecting | blocked
+  let level = 0
+  /** @type {AudioContext | null} */
+  let audioCtx = null
+  /** @type {AnalyserNode | null} */
+  let analyser = null
+  let meterRaf = 0
+  let lastLevelEmit = 0
+
+  function emitLevel() {
+    return muted || !localStream ? 0 : level
+  }
 
   function status(partial) {
     onStatus?.({
@@ -29,8 +41,75 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
       active: !!localStream,
       peers: [...remoteAudio.keys()],
       link,
+      level: emitLevel(),
       ...partial,
     })
+  }
+
+  function stopMeter() {
+    if (meterRaf) {
+      cancelAnimationFrame(meterRaf)
+      meterRaf = 0
+    }
+    if (audioCtx) {
+      try {
+        audioCtx.close()
+      } catch {
+        /* */
+      }
+      audioCtx = null
+    }
+    analyser = null
+    level = 0
+  }
+
+  function startMeter() {
+    if (!localStream || meterRaf) return
+    const AC = window.AudioContext || window.webkitAudioContext
+    if (!AC) return
+    try {
+      audioCtx = new AC()
+      const source = audioCtx.createMediaStreamSource(localStream)
+      analyser = audioCtx.createAnalyser()
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.72
+      source.connect(analyser)
+      audioCtx.resume?.().catch(() => {})
+    } catch {
+      stopMeter()
+      return
+    }
+
+    const data = new Uint8Array(analyser.fftSize)
+    const tick = () => {
+      meterRaf = requestAnimationFrame(tick)
+      if (!analyser) return
+
+      // Muted → decay to 0 (you are not being heard).
+      if (muted || !localStream) {
+        level *= 0.78
+        if (level < 0.01) level = 0
+      } else {
+        analyser.getByteTimeDomainData(data)
+        let sum = 0
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128
+          sum += v * v
+        }
+        const rms = Math.sqrt(sum / data.length)
+        // Gate room noise, then expand into a readable 0–1 meter.
+        const gated = Math.max(0, rms - 0.018)
+        const next = Math.min(1, gated * 4.2)
+        level = level * 0.55 + next * 0.45
+      }
+
+      const now = performance.now()
+      if (now - lastLevelEmit >= 48) {
+        lastLevelEmit = now
+        status({ level: emitLevel() })
+      }
+    }
+    tick()
   }
 
   function shouldInitiate(remoteId) {
@@ -64,7 +143,8 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
       t.enabled = true
     })
     link = 'live'
-    status({ error: null })
+    status({ error: null, level: 0 })
+    startMeter()
     wireIncoming()
     connectToPeers()
     scheduleRetry()
@@ -78,7 +158,8 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
         t.enabled = !muted
       })
     }
-    status()
+    if (muted) level = 0
+    status({ level: emitLevel() })
   }
 
   function toggleMute() {
@@ -241,6 +322,7 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
       clearTimeout(retryTimer)
       retryTimer = null
     }
+    stopMeter()
     for (const id of [...calls.keys()]) hangUp(id)
     if (localStream) {
       localStream.getTracks().forEach((t) => t.stop())
@@ -249,7 +331,8 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     answering = false
     muted = true
     link = 'idle'
-    status({ active: false, peers: [], error: null })
+    level = 0
+    status({ active: false, peers: [], error: null, level: 0 })
   }
 
   return {
@@ -260,5 +343,6 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     destroy,
     isMuted: () => muted,
     hasMic: () => !!localStream,
+    getLevel: () => emitLevel(),
   }
 }

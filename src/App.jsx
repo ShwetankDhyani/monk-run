@@ -8,6 +8,7 @@ import {
   MAX_PLAYERS,
 } from './lib/peerRoom.js'
 import { createVoiceChat } from './lib/voiceChat.js'
+import { VoiceMuteButton } from './components/VoiceMuteButton.jsx'
 import StreetView from './components/StreetView.jsx'
 import GuessMap from './components/GuessMap.jsx'
 import { MonkLobby } from './components/MonkLobby.jsx'
@@ -132,6 +133,7 @@ export default function App() {
     peers: [],
     error: null,
     link: 'idle',
+    level: 0,
   })
   const [portalHold, setPortalHold] = useState(false)
   const prevPhaseRef = useRef(null)
@@ -317,6 +319,7 @@ export default function App() {
             peers: s.peers || [],
             error: s.error || null,
             link: s.link || 'idle',
+            level: typeof s.level === 'number' ? s.level : 0,
           }),
       })
     }
@@ -329,6 +332,7 @@ export default function App() {
         ...v,
         error: err?.message || 'Mic permission denied',
         link: 'blocked',
+        level: 0,
       }))
     }
   }
@@ -617,17 +621,19 @@ export default function App() {
             <p className="text-[10px] text-jade-bright">{copied ? COPY.lobby.copied : COPY.lobby.tapCopy}</p>
           </button>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={`btn ${voice.active && !voice.muted ? 'btn-primary' : 'btn-ghost'}`}
+            <VoiceMuteButton
+              active={voice.active}
+              muted={voice.muted}
+              level={voice.level}
               disabled={inPortal}
               onClick={() => {
                 if (!voice.active) ensureVoice()
                 else voiceRef.current?.toggleMute()
               }}
-            >
-              {!voice.active ? COPY.lobby.joinVoice : voice.muted ? COPY.lobby.unmute : COPY.lobby.muteMic}
-            </button>
+              idleLabel={COPY.lobby.joinVoice}
+              muteLabel={COPY.lobby.muteMic}
+              unmuteLabel={COPY.lobby.unmute}
+            />
             {room.isHost && room.phase === 'lobby' && (
               <button
                 type="button"
@@ -973,16 +979,20 @@ export default function App() {
                 <span className="text-mint">{p.score}</span>
               </div>
             ))}
-            <button
-              type="button"
-              className="btn btn-ghost mt-2 w-full !px-2 !py-1"
+            <VoiceMuteButton
+              compact
+              className="mt-2"
+              active={voice.active}
+              muted={voice.muted}
+              level={voice.level}
               onClick={() => {
                 if (!voice.active) ensureVoice()
                 else voiceRef.current?.toggleMute()
               }}
-            >
-              {!voice.active ? COPY.play.voice : voice.muted ? COPY.play.unmute : COPY.play.mute}
-            </button>
+              idleLabel={COPY.play.voice}
+              muteLabel={COPY.play.mute}
+              unmuteLabel={COPY.play.unmute}
+            />
           </div>
         </header>
 
