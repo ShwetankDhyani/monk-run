@@ -25,6 +25,7 @@ import { TempleGlobe } from './components/TempleGlobe.jsx'
 
 import { sfx } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
+import { LOBBY_THEME_IDS, LOBBY_WORLDS, getLobbyWorld } from './lib/lobbyWorlds.js'
 
 function useCountdown(endsAt, active) {
   const [left, setLeft] = useState(0)
@@ -652,15 +653,19 @@ export default function App() {
 
   if (inLobby) {
     const inPortal = room.phase === 'countdown' || portalHold
+    const world = getLobbyWorld(room.lobbyTheme || 'temple')
+    const relicHolder = room.relic?.holderId
+      ? room.players.find((p) => p.id === room.relic.holderId)
+      : null
     return (
       <Fragment>
-      <div className="lobby-shell">
+      <div className="lobby-shell" style={{ '--lobby-accent': world.accent }}>
         <Atmosphere intensity="soft" />
         <header className="lobby-header">
           <div>
             <p className="font-display text-2xl font-medium tracking-tight text-fog">monk.run</p>
             <p className="text-[10px] uppercase tracking-[0.22em] text-muted">
-              {COPY.lobby.subtitle(room.players.length, MAX_PLAYERS, room.localOnly)}
+              {COPY.lobby.subtitle(world.name, room.players.length, MAX_PLAYERS, room.localOnly)}
             </p>
           </div>
           <button
@@ -708,7 +713,7 @@ export default function App() {
         </header>
 
         <div className="lobby-main">
-          <div className="lobby-canvas-wrap">
+          <div className="lobby-canvas-wrap" style={{ borderColor: `${world.accent}33` }}>
           <MonkLobby
             selfId={room.selfId}
             players={room.players}
@@ -724,9 +729,50 @@ export default function App() {
             blackHoleX={room.blackHoleX ?? 640}
             blackHoleY={room.blackHoleY ?? 380}
             focused={!inPortal}
+            lobbyTheme={room.lobbyTheme || 'temple'}
+            relic={room.relic}
+            voiceLevel={voice.level || 0}
           />
           </div>
           <aside className="panel flex min-h-0 flex-col gap-3 p-4">
+            {room.isHost && room.phase === 'lobby' && !inPortal && (
+              <div className="theme-picker">
+                <p className="landing-label">{COPY.lobby.roomTheme}</p>
+                <div className="theme-chips">
+                  {LOBBY_THEME_IDS.map((id) => {
+                    const w = LOBBY_WORLDS[id]
+                    const active = (room.lobbyTheme || 'temple') === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`theme-chip${active ? ' is-active' : ''}`}
+                        style={{ '--theme-accent': w.accent }}
+                        title={w.tagline}
+                        onClick={() => ctrlRef.current?.setLobbyTheme?.(id)}
+                      >
+                        <span className="theme-chip-glyph" aria-hidden>
+                          {w.relic.glyph}
+                        </span>
+                        <span className="theme-chip-name">{w.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {!room.isHost && room.phase === 'lobby' && (
+              <p className="text-[10px] leading-relaxed text-muted">
+                {COPY.lobby.themeGuest(world.name, world.tagline)}
+              </p>
+            )}
+            {room.phase === 'lobby' && room.relic && (
+              <p className="text-[10px] leading-relaxed text-brass/80">
+                {relicHolder
+                  ? COPY.lobby.relicHeld(relicHolder.name || 'Monk', room.relic.label || world.relic.label)
+                  : COPY.lobby.relicLoose(room.relic.label || world.relic.label)}
+              </p>
+            )}
             <p className="landing-label">{COPY.lobby.players}</p>
             <ul className="space-y-2">
               {room.players.map((p) => {

@@ -41,7 +41,7 @@ export const COPY = {
   },
 
   lobby: {
-    subtitle: (n, max, local) => `Temple · ${n}/${max}${local ? ' · local' : ''}`,
+    subtitle: (themeName, n, max, local) => `${themeName} · ${n}/${max}${local ? ' · local' : ''}`,
     pinLabel: 'PIN',
     copied: 'Copied',
     tapCopy: 'Copy',
@@ -54,7 +54,7 @@ export const COPY = {
     away: 'away',
     host: 'host',
     chat: 'Chat',
-    chatEmpty: 'The temple is quiet.',
+    chatEmpty: 'The room is quiet.',
     chatPlaceholder: 'Speak…',
     send: 'Send',
     voiceOff: 'Voice off',
@@ -63,6 +63,10 @@ export const COPY = {
     voiceReconnecting: 'Voice reconnecting…',
     voiceBlocked: 'Mic blocked — allow access to join voice.',
     waitingHost: 'Waiting on the host…',
+    roomTheme: 'Lobby room',
+    themeGuest: (name, tagline) => `Room: ${name} — ${tagline}`,
+    relicLoose: (label) => `Hot potato: ${label} is on the floor. Walk over it.`,
+    relicHeld: (name, label) => `${name} holds the ${label}. Smack to pass — or explode.`,
   },
 
   howTo: {
@@ -70,8 +74,8 @@ export const COPY = {
     close: 'Close',
     steps: [
       {
-        title: 'Meet in the temple',
-        body: 'Open a room or enter a six-digit PIN. Move, smack, emote — and join voice if you like.',
+        title: 'Meet in the lobby',
+        body: 'Open a room or enter a six-digit PIN. Host picks a room (temple, desert, casino…). Move, smack, chase the hot-potato relic, join voice.',
       },
       {
         title: 'Fall through',
@@ -86,7 +90,7 @@ export const COPY = {
         body: 'Lock your guess. When all are locked — or time ends — the truth appears. Closest wins the round.',
       },
     ],
-    controls: 'Lobby: WASD / arrows · Space smack · 1–4 emotes · voice opt-in',
+    controls: 'Lobby: WASD / arrows · Space smack · 1–4 emotes · walk over relic · voice opt-in',
   },
 
   settings: {
@@ -109,8 +113,8 @@ export const COPY = {
   podium: {
     title: 'Final podium',
     room: (code) => `room ${code}`,
-    playAgain: 'Back to temple',
-    waitingHost: 'Waiting for the host to reopen the temple…',
+    playAgain: 'Back to lobby',
+    waitingHost: 'Waiting for the host to reopen the lobby…',
     leaveParty: 'Leave party',
     download: 'Save podium card',
     shareFooter: 'gathered · fallen · guessed',
@@ -195,10 +199,11 @@ export const COPY = {
 /** Deterministic lobby flavor line per room code. */
 export function lobbyFlavor(roomCode = '') {
   const lines = [
-    'The black hole waits in the floor.',
+    'Hot potato on the floor. Don’t hold it too long.',
+    'Host picks the room. Chaos picks the vibe.',
     'Five places. One party. No maps in hand.',
     'Closer is kinder. Locked is final.',
-    'Signs lie less than vibes.',
+    'Smack to pass the relic. Miss and it might explode.',
   ]
   let h = 0
   for (let i = 0; i < roomCode.length; i++) h = (h + roomCode.charCodeAt(i) * (i + 1)) % lines.length

@@ -1,18 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { dirFromDelta, drawMonkTopDown } from '../lib/avatarDraw.js'
+import { FLOOR, PLAYER_R, drawBlackHole } from '../lib/templeRoom.js'
 import {
-  STATIC_COLLIDERS,
-  FLOOR,
-  PLAYER_R,
-  drawLivingRoom,
-  drawLivingProp,
-  drawBlackHole,
-  makeLivingRoomProps,
-} from '../lib/templeRoom.js'
+  getLobbyWorld,
+  drawRelic,
+  drawRelicOverPlayer,
+} from '../lib/lobbyWorlds.js'
 
 const WORLD = { w: 1280, h: 720 }
-const SPEED = 185
+const DEFAULT_SPEED = 185
 
 const KEY = {
   ArrowUp: { x: 0, y: -1 },
@@ -131,13 +128,20 @@ export function MonkLobby({
   blackHoleX = 640,
   blackHoleY = 380,
   focused = true,
+  lobbyTheme = 'temple',
+  relic = null,
+  voiceLevel = 0,
 }) {
   const canvasRef = useRef(null)
   const keysRef = useRef(new Set())
   const selfRef = useRef({ x: 640, y: 520, dir: 'down', walk: 0 })
   const spawnedRef = useRef(false)
   const peersRef = useRef(new Map())
-  const propsRef = useRef(makeLivingRoomProps(blackHoleX, blackHoleY))
+  const propsRef = useRef(getLobbyWorld(lobbyTheme).makeProps(blackHoleX, blackHoleY))
+  const themeRef = useRef(lobbyTheme)
+  const relicRef = useRef(relic)
+  const voiceRef = useRef(voiceLevel)
+  const pulseRef = useRef(0)
   const lastSend = useRef(0)
   const lastTs = useRef(performance.now())
   const smackCd = useRef(0)
@@ -148,10 +152,20 @@ export function MonkLobby({
   const countdownRef = useRef(countdownSec)
   const bhRef = useRef({ x: blackHoleX, y: blackHoleY })
   const [actionMenu, setActionMenu] = useState(null)
+  const [hudTick, setHudTick] = useState(0)
   playersRef.current = players
   callbacksRef.current = { onPose, onSmack, onEmote }
+  themeRef.current = lobbyTheme
+  relicRef.current = relic
+  voiceRef.current = voiceLevel
   countdownRef.current = countdownSec
   bhRef.current = { x: blackHoleX, y: blackHoleY }
+
+  useEffect(() => {
+    if (!relic?.holderId || !relic?.fuseAt) return undefined
+    const id = setInterval(() => setHudTick((n) => n + 1), 250)
+    return () => clearInterval(id)
+  }, [relic?.holderId, relic?.fuseAt])
 
   useEffect(() => {
     const pose = lobby?.[selfId]
@@ -165,6 +179,21 @@ export function MonkLobby({
       callbacksRef.current.onPose?.({ x: me.x, y: me.y, dir: me.dir })
     }
   }, [lobby, selfId])
+
+  useEffect(() => {
+    const world = getLobbyWorld(lobbyTheme)
+    propsRef.current = world.makeProps(blackHoleX, blackHoleY)
+    themeRef.current = lobbyTheme
+  }, [lobbyTheme, blackHoleX, blackHoleY])
+
+  // Smack pulse for living ambience
+  useEffect(() => {
+    for (const pose of Object.values(lobby || {})) {
+      if (pose?.hitFlash && pose.hitFlash > Date.now()) {
+        pulseRef.current = 1
+      }
+    }
+  }, [lobby])
 
   useEffect(() => {
     const map = peersRef.current
@@ -319,7 +348,9 @@ export function MonkLobby({
       const sucking = suck > 0.06
       const me = selfRef.current
       const props = propsRef.current
-      const colliders = [...STATIC_COLLIDERS, ...propColliders(props)]
+      const world = getLobbyWorld(themeRef.current)
+      pulseRef.current = Math.max(0, pulseRef.current - dt * 1.8)
+      const colliders = [...(world.colliders || []), ...propColliders(props)]
 
       if (!sucking) {
         let dx = 0
@@ -333,7 +364,8 @@ export function MonkLobby({
         }
         if (dx || dy) {
           const len = Math.hypot(dx, dy) || 1
-          moveEntity(me, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt, colliders)
+          const speed = world.moveSpeed || DEFAULT_SPEED
+          moveEntity(me, (dx / len) * speed * dt, (dy / len) * speed * dt, colliders)
           me.dir = dirFromDelta(dx, dy, me.dir)
           me.walk += dt
         } else me.walk *= 0.85
@@ -393,10 +425,12 @@ export function MonkLobby({
       }
 
       const t = now / 1000
-      ctx.fillStyle = '#1a100c'
+      ctx.fillStyle = '#0a0a0e'
       ctx.fillRect(0, 0, WORLD.w, WORLD.h)
-      drawLivingRoom(ctx, t)
-      for (const p of props) drawLivingProp(ctx, p, t)
+      world.drawRoom(ctx, t, { voiceLevel: voiceRef.current || 0, pulse: pulseRef.current })
+      for (const p of props) world.drawProp(ctx, p, t)
+      const relic = relicRef.current
+      if (relic) drawRelic(ctx, relic, world, t)
       if (bhScale > 0.002) drawBlackHole(ctx, t, BH.x, BH.y, bhScale, suck, birth)
 
       const list = [...peersRef.current.entries()]
@@ -422,6 +456,8 @@ export function MonkLobby({
           ctx.textAlign = 'center'
           ctx.fillText({ wave: '👋', bow: '🙇', laugh: '😆', shock: '😲' }[pose.emote] || '✨', pose.x, pose.y - 36)
         }
+        const relicNow = relicRef.current
+        if (relicNow?.holderId === id) drawRelicOverPlayer(ctx, pose.x, pose.y, world, t, relicNow)
         ctx.restore()
       }
 
@@ -434,7 +470,7 @@ export function MonkLobby({
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [selfId, portalActive, countdownStartedAt, countdownEndsAt, portalHold, blackHoleX, blackHoleY])
+  }, [selfId, portalActive, countdownStartedAt, countdownEndsAt, portalHold, blackHoleX, blackHoleY, lobbyTheme])
 
   const runAction = (kind) => {
     if (!actionMenu) return
@@ -443,9 +479,39 @@ export function MonkLobby({
     setActionMenu(null)
   }
 
+  const worldHud = getLobbyWorld(lobbyTheme)
+  const holding = relic?.holderId
+  void hudTick
+  const fuseLeft =
+    holding && relic?.fuseAt && relic.fuseAt > Date.now()
+      ? Math.ceil((relic.fuseAt - Date.now()) / 1000)
+      : null
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#1a100c]">
       <canvas ref={canvasRef} width={WORLD.w} height={WORLD.h} className="h-full w-full touch-none object-contain" tabIndex={0} />
+      <div className="lobby-room-hud pointer-events-none absolute left-2 top-2 right-2 z-10 flex flex-wrap items-start justify-between gap-2">
+        <div className="rounded-md border border-white/10 bg-black/55 px-2.5 py-1.5 backdrop-blur-sm">
+          <p className="font-display text-sm text-fog" style={{ color: worldHud.accent }}>
+            {worldHud.name}
+          </p>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-muted">{worldHud.tagline}</p>
+        </div>
+        {relic && !portalActive && !portalHold && (
+          <div className="rounded-md border border-white/10 bg-black/55 px-2.5 py-1.5 text-right backdrop-blur-sm">
+            <p className="text-[11px] text-fog">
+              {holding
+                ? fuseLeft != null
+                  ? `${worldHud.relic.glyph} Hot potato · ${fuseLeft}s`
+                  : `${worldHud.relic.glyph} Hot potato`
+                : `${worldHud.relic.glyph} ${worldHud.relic.label} on the floor`}
+            </p>
+            <p className="text-[9px] uppercase tracking-[0.16em] text-muted">
+              Walk over · smack to pass · don’t hold too long
+            </p>
+          </div>
+        )}
+      </div>
       {actionMenu && (
         <div className="absolute z-20 min-w-[140px] rounded-xl border border-amber/30 bg-[#1a100c]/95 p-2 shadow-xl" style={{ left: Math.min(window.innerWidth - 160, actionMenu.clientX - 70), top: Math.max(8, actionMenu.clientY - 120) }}>
           <p className="mb-2 px-2 text-[10px] uppercase tracking-widest text-muted">{actionMenu.targetName}</p>
