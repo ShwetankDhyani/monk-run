@@ -136,6 +136,52 @@ async function streetViewMeta(lat, lng, apiKey, radius) {
   }
 }
 
+/**
+ * Probe GOOGLE_MAPS_API_KEY against Street View Metadata (never returns the key).
+ * @returns {Promise<{ present: boolean, ok: boolean, mode: string, detail?: string }>}
+ */
+export async function probeConfiguredMapsKey() {
+  const key = String(
+    process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '',
+  ).trim()
+  const scrape = scrapeAllowed()
+  if (!key) {
+    return {
+      present: false,
+      ok: false,
+      mode: scrape ? 'demo-scrape' : 'missing',
+      detail: scrape
+        ? 'No GOOGLE_MAPS_API_KEY set — using demo scrape + Street View embed'
+        : 'GOOGLE_MAPS_API_KEY is required',
+    }
+  }
+  try {
+    const meta = await streetViewMeta(40.758, -73.9855, key, 2000)
+    if (meta?.panoId || meta?.lat) {
+      return {
+        present: true,
+        ok: true,
+        mode: scrape ? 'first-party+demo-fallback' : 'first-party',
+        detail: 'Street View Metadata OK',
+      }
+    }
+    return {
+      present: true,
+      ok: false,
+      mode: scrape ? 'demo-scrape' : 'first-party',
+      detail: 'Key accepted HTTP but no panorama near probe point',
+    }
+  } catch (err) {
+    const detail = String(err?.message || err).replace(/AIza[0-9A-Za-z_-]+/g, '[redacted]')
+    return {
+      present: true,
+      ok: false,
+      mode: scrape ? 'demo-scrape' : 'first-party-required',
+      detail: detail.slice(0, 240),
+    }
+  }
+}
+
 async function reverseGeocode(lat, lng) {
   try {
     const url = new URL('https://nominatim.openstreetmap.org/reverse')

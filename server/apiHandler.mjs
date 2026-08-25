@@ -13,6 +13,7 @@ import {
   mapsConfigured,
   consumeLeaderboardCommit,
 } from './game.mjs'
+import { probeConfiguredMapsKey } from './randomPlaces.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 loadEnvFile(join(__dirname, '..', '.env'))
@@ -86,10 +87,12 @@ export async function handleApi(req, res) {
   const url = req.url?.split('?')[0]
 
   if (req.method === 'GET' && url === '/api/health') {
+    const mapsKey = await probeConfiguredMapsKey()
     sendJson(res, 200, {
       ok: true,
       service: 'monk.run',
       mapsConfigured: mapsConfigured(),
+      mapsKey,
       uptimeSec: Math.round(process.uptime()),
     })
     return
