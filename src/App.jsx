@@ -128,7 +128,7 @@ export default function App() {
   const commitRef = useRef({ sessionId: '', tokens: {} })
   const [room, setRoom] = useState(null)
   const [guess, setGuess] = useState(null)
-  const [pinning, setPinning] = useState(false)
+  const [pinSheetOpen, setPinSheetOpen] = useState(false)
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
@@ -319,10 +319,10 @@ export default function App() {
 
   useEffect(() => {
     window.dispatchEvent(new Event('monk-play-layout'))
-  }, [pinning])
+  }, [pinSheetOpen])
 
   useEffect(() => {
-    setPinning(false)
+    setPinSheetOpen(false)
   }, [room?.roundIndex])
 
   const selfGuessed = !!(room && room.guesses?.[room.selfId])
@@ -425,30 +425,26 @@ export default function App() {
   const lockGuess = useCallback(() => {
     if (!guess || selfGuessed) return
     ctrlRef.current.submitGuess({ lat: guess.lat, lng: guess.lng, country })
+    setPinSheetOpen(false)
   }, [guess, country, selfGuessed])
 
   useEffect(() => {
-    if (selfGuessed) {
-      setPinning(false)
-      return
-    }
-    // Phones: start in pin-map mode so the Leaflet surface is actually reachable
-    const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
-    setPinning(narrow)
-  }, [room?.roundIndex, room?.phase, selfGuessed])
+    if (selfGuessed) setPinSheetOpen(false)
+  }, [selfGuessed])
 
   useEffect(() => {
-    if (!pinning) return undefined
+    if (!pinSheetOpen) return undefined
     const notify = () => window.dispatchEvent(new Event('monk-play-layout'))
     notify()
-    document.getElementById('play-map-panel')?.scrollIntoView({ block: 'nearest' })
     const id = window.setTimeout(notify, 80)
     const id2 = window.setTimeout(notify, 320)
+    const id3 = window.setTimeout(notify, 600)
     return () => {
       window.clearTimeout(id)
       window.clearTimeout(id2)
+      window.clearTimeout(id3)
     }
-  }, [pinning])
+  }, [pinSheetOpen])
 
 
   const onPose = useCallback((pose) => {
@@ -1148,10 +1144,10 @@ export default function App() {
     )
   }
 
-  // Playing: Street View + always-visible world map (never hide the map behind a button)
+  // Playing: full-screen Street View; map is a sidebar on desktop, bottom sheet on mobile
   return (
     <Fragment>
-    <div className={`play-shell screen-enter${pinning && !selfGuessed ? ' play-shell--pinning' : ''}`}>
+    <div className="play-shell screen-enter">
       <div className="play-view">
         {room.viewToken && <StreetView viewToken={room.viewToken} />}
 
@@ -1203,23 +1199,14 @@ export default function App() {
         )}
       </div>
 
-      <aside className="play-map" id="play-map-panel">
+      <aside className="play-map hidden md:grid" id="play-map-panel">
         {!selfGuessed ? (
           <>
             <div className="play-map-head mb-2 flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-display text-base font-medium text-brass-bright">{COPY.play.mapTitle}</p>
-                <p className="play-map-hint text-[11px] text-muted">
-                  {pinning ? COPY.play.mapHint : COPY.play.mapCollapsed}
-                </p>
+                <p className="play-map-hint text-[11px] text-muted">{COPY.play.mapHint}</p>
               </div>
-              <button
-                type="button"
-                className="btn btn-ghost play-map-toggle shrink-0 !px-3 !py-1.5 text-[11px] uppercase tracking-wide md:hidden"
-                onClick={() => setPinning((v) => !v)}
-              >
-                {pinning ? COPY.play.backToView : COPY.play.openMap}
-              </button>
             </div>
             <div className="play-map-body min-h-0 flex-1 overflow-hidden">
               <GuessMap
@@ -1230,8 +1217,6 @@ export default function App() {
                 onCountry={setCountry}
                 locked={selfGuessed}
                 tall
-                compact={!pinning}
-                onPinFocus={() => setPinning(true)}
               />
             </div>
             <button
@@ -1260,6 +1245,79 @@ export default function App() {
           </div>
         )}
       </aside>
+
+      <div className="play-mobile-dock md:hidden">
+        {!selfGuessed ? (
+          <>
+            {guess && (
+              <p className="play-mobile-dock-hint text-center text-[11px] text-muted">
+                {COPY.play.pinPlaced}
+              </p>
+            )}
+            <button
+              type="button"
+              className="btn btn-primary play-mobile-dock-btn w-full"
+              onClick={() => setPinSheetOpen(true)}
+            >
+              {guess ? COPY.play.lock : COPY.play.openMap}
+            </button>
+          </>
+        ) : (
+          <div className="play-mobile-dock-locked text-center">
+            <p className="font-display text-base text-mint">{COPY.play.locked}</p>
+            <p className="mt-1 text-[11px] text-muted">
+              {lockedCount >= room.players.filter((p) => p.connected !== false).length
+                ? COPY.play.allIn
+                : COPY.play.waiting(lockedCount, room.players.length)}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {pinSheetOpen && !selfGuessed && (
+        <div className="play-pin-sheet md:hidden" role="dialog" aria-modal="true" aria-label={COPY.play.mapTitle}>
+          <button
+            type="button"
+            className="play-pin-sheet-backdrop"
+            aria-label={COPY.play.closeMap}
+            onClick={() => setPinSheetOpen(false)}
+          />
+          <div className="play-pin-sheet-panel">
+            <div className="play-pin-sheet-head">
+              <div className="min-w-0">
+                <p className="font-display text-base font-medium text-brass-bright">{COPY.play.mapTitle}</p>
+                <p className="text-[11px] text-muted">{COPY.play.mapHint}</p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost play-pin-sheet-close shrink-0 !px-3 !py-1.5 text-[11px] uppercase tracking-wide"
+                onClick={() => setPinSheetOpen(false)}
+              >
+                {COPY.play.closeMap}
+              </button>
+            </div>
+            <div className="play-pin-sheet-body min-h-0 flex-1 overflow-hidden">
+              <GuessMap
+                mode="guess"
+                guess={guess}
+                onGuess={setGuess}
+                country={country}
+                onCountry={setCountry}
+                locked={selfGuessed}
+                tall
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary play-pin-sheet-lock w-full shrink-0"
+              disabled={!guess}
+              onClick={lockGuess}
+            >
+              {guess ? COPY.play.lock : COPY.play.needPin}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     <CinematicOverlay phase={cinPhase} />
     </Fragment>
