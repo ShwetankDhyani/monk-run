@@ -10,6 +10,24 @@ export const DEFAULT_ROUND_MS = 90_000
 export const LOBBY_COUNTDOWN_MS = 3_000
 export const INTERMISSION_MS = 4_500
 
+const DEFAULT_ICE = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:global.stun.twilio.com:3478' },
+]
+
+/** Parse VITE_ICE_SERVERS JSON, or fall back to public STUN. */
+export function resolveIceServers() {
+  const raw = import.meta.env?.VITE_ICE_SERVERS
+  if (!raw || typeof raw !== 'string') return DEFAULT_ICE
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length) return parsed
+  } catch {
+    /* ignore bad env */
+  }
+  return DEFAULT_ICE
+}
+
 /** Assign a random walkable spawn, spread from existing lobby positions. */
 function assignSpawn(lobby, excludeId = null) {
   const existing = Object.entries(lobby || {})
@@ -370,10 +388,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       const p = new Peer(id, {
         debug: 0,
         config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' },
-          ],
+          iceServers: resolveIceServers(),
         },
       })
       const timer = setTimeout(() => {
@@ -783,6 +798,44 @@ export function createRoomController({ onState, onError, onEvent }) {
     void beginIntermissionAsync(state.roundIndex + 1)
   }
 
+  /**
+   * Host sends the party back to the temple lobby for another match.
+   * Keeps PeerJS connections, room PIN, and roster — only resets match state.
+   */
+  function returnToLobby() {
+    if (!actingHost) return
+    if (state.phase !== 'podium' && state.phase !== 'error') return
+    cancelPendingReveal()
+    roundLoadGen++
+    secrets = blankSecrets()
+    state.phase = 'lobby'
+    state.message = 'Temple lobby — gather when ready.'
+    state.roundIndex = 0
+    state.totalRounds = DEFAULT_ROUNDS
+    state.roundEndsAt = 0
+    state.roundStartedAt = 0
+    state.countdownEndsAt = 0
+    state.countdownStartedAt = 0
+    state.intermissionEndsAt = 0
+    state.viewToken = ''
+    state.guesses = {}
+    state.reveal = null
+    state.scores = Object.fromEntries(
+      state.players.filter((p) => p.connected !== false).map((p) => [p.id, 0]),
+    )
+    // Drop seats that disconnected mid-match so PIN slots free up
+    state.players = state.players.filter((p) => p.connected !== false)
+    state.players = state.players.map((p) => ({ ...p, ready: false }))
+    const keep = new Set(state.players.map((p) => p.id))
+    for (const id of Object.keys(state.lobby || {})) {
+      if (!keep.has(id)) delete state.lobby[id]
+    }
+    for (const p of state.players) {
+      if (!state.lobby[p.id]) state.lobby[p.id] = assignSpawn(state.lobby, p.id)
+    }
+    pushSync()
+  }
+
   function destroy() {
     for (const c of connections.values()) {
       try {
@@ -818,9 +871,13 @@ export function createRoomController({ onState, onError, onEvent }) {
     tick,
     revealRound,
     nextRound,
+    returnToLobby,
     destroy,
     getState: () => state,
     getPeer: () => peer,
-    getPeerIds: () => state.players.map((p) => p.id).filter((id) => id !== state.selfId && !String(id).startsWith('solo-')),
+    getPeerIds: () =>
+      state.players
+        .filter((p) => p.id !== state.selfId && p.connected !== false && !String(p.id).startsWith('solo-'))
+        .map((p) => p.id),
   }
 }

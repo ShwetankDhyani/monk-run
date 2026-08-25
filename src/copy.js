@@ -59,6 +59,8 @@ export const COPY = {
     voiceOff: 'Voice off',
     voiceMuted: 'Voice muted',
     voiceLive: (n) => `Voice live · ${n}`,
+    voiceReconnecting: 'Voice reconnecting…',
+    voiceBlocked: 'Mic blocked — allow access to join voice.',
     waitingHost: 'Waiting on the host…',
   },
 
@@ -106,7 +108,9 @@ export const COPY = {
   podium: {
     title: 'Final podium',
     room: (code) => `room ${code}`,
-    newParty: 'New party',
+    playAgain: 'Back to temple',
+    waitingHost: 'Waiting for the host to reopen the temple…',
+    leaveParty: 'Leave party',
     download: 'Save podium card',
     shareFooter: 'gathered · fallen · guessed',
     shareHeader: (code) => `ROOM ${code} · FINAL PODIUM`,
@@ -182,6 +186,8 @@ export const COPY = {
     join: 'Couldn’t enter — check the PIN.',
     copy: 'Couldn’t copy the PIN',
     voice: 'Voice unavailable right now.',
+    voiceNat:
+      'Voice couldn’t reach everyone — often a strict network or firewall. Try again, or play on the same Wi‑Fi.',
   },
 }
 

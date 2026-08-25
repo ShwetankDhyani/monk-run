@@ -126,7 +126,13 @@ export default function App() {
   const [copied, setCopied] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
   const chatEndRef = useRef(null)
-  const [voice, setVoice] = useState({ muted: true, active: false, peers: [], error: null })
+  const [voice, setVoice] = useState({
+    muted: true,
+    active: false,
+    peers: [],
+    error: null,
+    link: 'idle',
+  })
   const [portalHold, setPortalHold] = useState(false)
   const prevPhaseRef = useRef(null)
   const prevRoundIndexRef = useRef(-1)
@@ -270,6 +276,14 @@ export default function App() {
     })
   }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode])
 
+  // Rematch: when the party returns to the temple, keep voice mesh warm.
+  useEffect(() => {
+    if (room?.phase !== 'lobby') return
+    scoreSubmittedRef.current = false
+    commitRef.current = { sessionId: '', tokens: {} }
+    voiceRef.current?.refresh?.()
+  }, [room?.phase])
+
   const selfGuessed = !!(room && room.guesses?.[room.selfId])
   const lockedCount = room ? Object.keys(room.guesses || {}).length : 0
 
@@ -285,21 +299,27 @@ export default function App() {
       voiceRef.current = createVoiceChat({
         getPeer: () => ctrlRef.current?.getPeer?.(),
         getRemotePeerIds: () => ctrlRef.current?.getPeerIds?.() || [],
-        selfId: room?.selfId,
+        selfId: () => ctrlRef.current?.getState?.()?.selfId || room?.selfId,
         onStatus: (s) =>
           setVoice({
             muted: s.muted,
             active: s.active,
             peers: s.peers || [],
             error: s.error || null,
+            link: s.link || 'idle',
           }),
       })
     }
     try {
       await voiceRef.current.enableMic()
       voiceRef.current.setMuted(false)
+      voiceRef.current.refresh?.()
     } catch (err) {
-      setVoice((v) => ({ ...v, error: err?.message || 'Mic permission denied' }))
+      setVoice((v) => ({
+        ...v,
+        error: err?.message || 'Mic permission denied',
+        link: 'blocked',
+      }))
     }
   }
 
@@ -681,16 +701,22 @@ export default function App() {
 
             <div className="space-y-1 text-[10px] leading-relaxed text-muted">
               <p>
-                {voice.active
-                  ? voice.muted
-                    ? COPY.lobby.voiceMuted
-                    : COPY.lobby.voiceLive(voice.peers.length)
-                  : COPY.lobby.voiceOff}
+                {voice.link === 'blocked'
+                  ? COPY.lobby.voiceBlocked
+                  : voice.link === 'reconnecting' && voice.active
+                    ? COPY.lobby.voiceReconnecting
+                    : voice.active
+                      ? voice.muted
+                        ? COPY.lobby.voiceMuted
+                        : COPY.lobby.voiceLive(voice.peers.length)
+                      : COPY.lobby.voiceOff}
               </p>
               <p className="text-brass/70">{lobbyFlavor(room.roomCode)}</p>
               {voice.error && (
                 <p className="notice-soft !mt-2 text-left text-amber">
-                  {playerError(voice.error, COPY.errors.voice)}
+                  {String(voice.error).includes('voice-nat') || /ice|turn|candidate|webrtc/i.test(String(voice.error))
+                    ? COPY.errors.voiceNat
+                    : playerError(voice.error, voice.link === 'blocked' ? COPY.errors.mic : COPY.errors.voice)}
                 </p>
               )}
               {!room.isHost && room.phase === 'lobby' && !inPortal && (
@@ -749,9 +775,25 @@ export default function App() {
           <div className="mt-8">
             <ShareCard players={room.players} scores={room.scores} roomCode={room.roomCode} />
           </div>
+          {room.isHost ? (
+            <button
+              type="button"
+              className="btn btn-primary mt-6 w-full"
+              onClick={() => {
+                ctrlRef.current?.returnToLobby?.()
+                // Keep voice mesh up for the rematch; just refresh peer links.
+                voiceRef.current?.refresh?.()
+                setError('')
+              }}
+            >
+              {COPY.podium.playAgain}
+            </button>
+          ) : (
+            <p className="mt-6 text-center text-sm text-muted">{COPY.podium.waitingHost}</p>
+          )}
           <button
             type="button"
-            className="btn btn-primary mt-6 w-full"
+            className="btn btn-ghost mt-3 w-full"
             onClick={() => {
               voiceRef.current?.destroy()
               voiceRef.current = null
@@ -768,7 +810,7 @@ export default function App() {
               setError('')
             }}
           >
-            {COPY.podium.newParty}
+            {COPY.podium.leaveParty}
           </button>
         </div>
         <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="relative z-10 mt-5 shrink-0" />

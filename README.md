@@ -55,9 +55,11 @@ STATIC_DIR=dist NODE_ENV=production GOOGLE_MAPS_API_KEY=... node server/leaderbo
 1. Create or join with a PIN  
 2. Lobby → host hits PLAY  
 3. Explore → pin the map → lock  
-4. Server scores the round → podium → verified leaderboard submit  
+4. Server scores the round → podium → host returns the party to the **temple lobby** for a rematch (same PIN; Leave party exits to home)
 
-## Stack
+### Voice chat
+
+Voice is optional PeerJS mesh audio. Public STUN works on many networks; **strict NATs need a TURN server** via `VITE_ICE_SERVERS` (see `.env.example`). Deploy over HTTPS so browsers allow the mic.
 
 Vite · React 19 · Tailwind 4 · Canvas lobby · PeerJS · Leaflet · Google Street View · Node integrity API
 
