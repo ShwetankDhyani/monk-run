@@ -22,7 +22,7 @@ Temple lobby. Voice chat. Worldwide Street View rounds. A party geography game b
 |-------------|-----|
 | `GOOGLE_MAPS_API_KEY` | Street View Metadata + panorama rendering (restricted key, billing enabled) |
 | `MONK_SCORE_SECRET` | HMAC for leaderboard commit tokens |
-| **Vercel KV** (`KV_REST_API_URL` + `KV_REST_API_TOKEN`) | **Durable all-time Hall of Fame / Hall of Shame** on Vercel |
+| **Vercel Blob** (`BLOB_READ_WRITE_TOKEN`) | **Durable all-time Hall of Fame / Hall of Shame** on Vercel (free Hobby) |
 | HTTPS + TURN (recommended) | Voice/data behind strict NATs |
 | Own PeerServer (recommended) | Don’t rely on public PeerJS cloud at scale |
 
@@ -85,8 +85,7 @@ Vite · React 19 · Tailwind 4 · Canvas lobby · PeerJS · Leaflet · Google St
 |----------|----------|--------|
 | `GOOGLE_MAPS_API_KEY` | yes* | Street View Metadata + Maps JS when scrape is off |
 | `MONK_SCORE_SECRET` | yes | Long random string (`openssl rand -hex 32`) |
-| `KV_REST_API_URL` | yes* | Vercel KV / Upstash — **durable all-time records** |
-| `KV_REST_API_TOKEN` | yes* | Paired with `KV_REST_API_URL` |
+| `BLOB_READ_WRITE_TOKEN` | yes* | Vercel Blob — **durable all-time records** (Storage → **Blob**) |
 | `ALLOW_MAPS_KEY_SCRAPE` | optional | Default on: demo metadata scrape + Street View **embed** (avoids broken Maps JS keys). Set `0` for first-party Maps JS only. |
 | `VITE_ICE_SERVERS` | optional | JSON ICE/TURN list for voice behind strict NATs |
 
@@ -94,8 +93,8 @@ Vite · React 19 · Tailwind 4 · Canvas lobby · PeerJS · Leaflet · Google St
 
 **Notes**
 - Restrict the Maps key to your Vercel domain(s) plus `localhost`.
-- **All-time records:** connect [Vercel KV](https://vercel.com/docs/storage/vercel-kv) (or Upstash Redis) to the project so `KV_REST_API_URL` and `KV_REST_API_TOKEN` are set. Without KV, leaderboard writes fall back to `/tmp` (ephemeral). Local dev and Docker use `data/leaderboard.json` (Docker volume persists it).
-- To copy existing local records into KV: `npm run seed:halls-kv` (with KV env vars in `.env`).
+- **All-time records:** Storage → **Blob** (not Redis/Upstash) → create + connect to the project so `BLOB_READ_WRITE_TOKEN` is set. Without Blob, leaderboard writes fall back to `/tmp` (ephemeral). Local/Docker use `data/leaderboard.json`.
+- To copy existing local records into Blob: `npm run seed:halls-kv` (with `BLOB_READ_WRITE_TOKEN` in `.env`).
 - Game session state is in-memory per serverless instance — fine for typical party sessions on a warm function; for always-on production multiplayer, prefer Docker/`npm start` on a persistent host.
 
 ## Compliance notes

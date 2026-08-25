@@ -13,10 +13,12 @@
     "preview": "vite preview --host 0.0.0.0 --port 47447",
     "lint": "oxlint",
     "start": "NODE_ENV=production STATIC_DIR=dist node server/leaderboard.mjs",
+    "seed:halls": "node scripts/seed-halls-kv.mjs",
     "seed:halls-kv": "node scripts/seed-halls-kv.mjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.2",
+    "@vercel/blob": "^2.8.0",
     "leaflet": "^1.9.4",
     "peerjs": "^1.5.5",
     "react": "^19.2.8",

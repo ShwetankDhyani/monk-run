@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 /**
- * Copy local data/leaderboard.json into Vercel KV / Upstash Redis.
- * Requires KV_REST_API_URL + KV_REST_API_TOKEN (or UPSTASH_* equivalents).
+ * Copy local data/leaderboard.json into durable storage (Vercel Blob or KV).
+ * Prefer Blob: set BLOB_READ_WRITE_TOKEN from Vercel → Storage → Blob.
  */
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadEnvFile } from '../server/loadEnv.mjs'
-import { seedKvFromFile, getLeaderboardStoreInfo } from '../server/hallStore.mjs'
+import { seedDurableFromFile, getLeaderboardStoreInfo } from '../server/hallStore.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 loadEnvFile(join(root, '.env'))
 
 const info = getLeaderboardStoreInfo()
-if (info.kind !== 'kv') {
-  console.error('KV not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN in .env')
+if (!info.durable || (info.kind !== 'blob' && info.kind !== 'kv')) {
+  console.error('Durable store not configured. Create Vercel Blob and set BLOB_READ_WRITE_TOKEN in .env')
   process.exit(1)
 }
 
-const halls = await seedKvFromFile()
-console.log('Seeded halls to KV:', info.path)
+const { kind, halls } = await seedDurableFromFile()
+console.log(`Seeded halls to ${kind}:`, info.path)
 console.log(JSON.stringify(halls, null, 2))
