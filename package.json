@@ -14,7 +14,8 @@
     "lint": "oxlint",
     "start": "NODE_ENV=production STATIC_DIR=dist node server/leaderboard.mjs",
     "seed:halls": "node scripts/seed-halls-kv.mjs",
-    "seed:halls-kv": "node scripts/seed-halls-kv.mjs"
+    "seed:halls-kv": "node scripts/seed-halls-kv.mjs",
+    "wipe:halls": "node scripts/wipe-halls.mjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.2",

@@ -130,23 +130,14 @@ export const COPY = {
   },
 
   podium: {
-    title: 'Final podium',
-    room: (code) => `room ${code}`,
+    title: 'Match results',
+    subtitle: (code) => `room ${code} · this match only`,
     playAgain: 'Back to lobby',
     waitingHost: 'Waiting for the host to reopen the lobby…',
     leaveParty: 'Leave party',
     download: 'Save podium card',
     shareFooter: 'gathered · fallen · guessed',
-    shareHeader: (code) => `ROOM ${code} · FINAL PODIUM`,
-    allTimeTitle: 'All-time records',
-    allTimeHint: 'How this run compares to the temple halls',
-    allTimeRank: (rank, score) => `Your ${score.toLocaleString()} pts landed in the all-time top ${rank}.`,
-    allTimeYourRun: (score, high) => {
-      const h = high != null ? Number(high) : null
-      if (!h || score >= h) return `Your ${score.toLocaleString()} pts — temple-record pace.`
-      const gap = h - score
-      return `Your ${score.toLocaleString()} pts · ${gap.toLocaleString()} behind the all-time high.`
-    },
+    shareHeader: (code) => `ROOM ${code} · MATCH RESULTS`,
   },
 
   reveal: {

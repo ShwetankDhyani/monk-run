@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const HALL_SIZE = 5
-const REDIS_KEY = 'monk:halls'
-const BLOB_PATH = 'monk/halls.json'
+const REDIS_KEY = 'monk:halls:v2'
+const BLOB_PATH = 'monk/halls-v2.json'
 
 const DATA_DIR = process.env.VERCEL
   ? join('/tmp', 'monk-run-data')
@@ -176,6 +176,13 @@ export async function updateHalls(mutator) {
   const next = mutator(structuredClone(halls))
   await saveHalls(next)
   return next
+}
+
+/** Wipe all hall records in the active store. */
+export async function clearHalls() {
+  const empty = emptyHalls()
+  await saveHalls(empty)
+  return empty
 }
 
 /** One-time import from local file into the active durable store (Blob or KV). */
