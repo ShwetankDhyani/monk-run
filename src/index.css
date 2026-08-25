@@ -726,11 +726,6 @@
   }
 }
 
-@keyframes globe-drift {
-  from { transform: translateX(0); }
-  to { transform: translateX(-160px); }
-}
-
 @keyframes mark-spin {
   from {
     transform: rotate(0deg);
