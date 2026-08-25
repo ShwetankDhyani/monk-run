@@ -20,12 +20,11 @@ export default function StreetView({ viewToken }) {
         key={viewToken}
         title="Round panorama"
         src={`/api/game/sv/${viewToken}`}
-        className="h-full w-full border-0"
+        className="play-sv-frame h-full w-full border-0"
         referrerPolicy="no-referrer"
-        allow="accelerometer; gyroscope"
-        sandbox="allow-scripts allow-same-origin"
+        allow="accelerometer; gyroscope; fullscreen; xr-spatial-tracking"
       />
-      {/* Block Google's location label that appears over the panorama (anti-spoiler). */}
+      {/* Block Google's location label — must not intercept pan gestures. */}
       <div className="play-sv-spoiler-shield pointer-events-none absolute inset-x-0 top-0 z-20 h-[4.75rem] bg-gradient-to-b from-[#06080e] via-[#06080e]/92 to-transparent" aria-hidden />
       <div className="play-sv-spoiler-shield-center pointer-events-none absolute inset-x-[12%] top-2 z-20 h-12 rounded-md bg-[#06080e]/88" aria-hidden />
     </div>

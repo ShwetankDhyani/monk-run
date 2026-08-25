@@ -259,6 +259,14 @@ function streetViewEmbedSrc(panoId, latS, lngS, heading) {
     : `https://www.google.com/maps?layer=c&cbll=${latS},${lngS}&cbp=12,${heading},0,0,0&hl=en&output=svembed`
 }
 
+/** Direct Google embed URL — one iframe hop for reliable mobile touch panning. */
+export function buildStreetViewEmbedUrl(view, heading = Math.floor(Math.random() * 360)) {
+  const panoId = String(view.panoId || '').replace(/[^A-Za-z0-9_-]/g, '')
+  const latS = Number(view.lat).toFixed(6)
+  const lngS = Number(view.lng).toFixed(6)
+  return streetViewEmbedSrc(panoId, latS, lngS, heading)
+}
+
 function streetViewEmbedHtml(embedSrc) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -296,7 +304,7 @@ export function renderStreetViewHtml(view, apiKey = '') {
   const latS = Number(view.lat).toFixed(6)
   const lngS = Number(view.lng).toFixed(6)
   const heading = Math.floor(Math.random() * 360)
-  const embedSrc = streetViewEmbedSrc(panoId, latS, lngS, heading)
+  const embedSrc = buildStreetViewEmbedUrl(view, heading)
 
   // Demo / scrape mode: never hand an env key to Maps JS — Vercel often has a key
   // that works for neither Metadata nor JS (or only partially), which blanks the round.
@@ -347,6 +355,7 @@ export function renderStreetViewHtml(view, apiKey = '') {
         showRoadLabels: false,
         clickToGo: true,
         scrollwheel: true,
+        gestureHandling: 'greedy',
       });
     }
   </script>
@@ -384,6 +393,7 @@ export function renderStreetViewHtml(view, apiKey = '') {
         showRoadLabels: false,
         clickToGo: true,
         scrollwheel: true,
+        gestureHandling: 'greedy',
       });
       var svc = new google.maps.StreetViewService();
       svc.getPanorama({ location: { lat: ${latS}, lng: ${lngS} }, radius: 5000, preference: google.maps.StreetViewPreference.NEAREST }, function(data, status) {

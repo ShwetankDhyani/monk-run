@@ -131,6 +131,7 @@ export default function App() {
   const [guess, setGuess] = useState(null)
   const [pinSheetOpen, setPinSheetOpen] = useState(false)
   const isDesktopMap = useMediaQuery('(min-width: 768px)')
+  const compactPlayHud = useMediaQuery('(max-width: 1024px)')
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
@@ -443,6 +444,18 @@ export default function App() {
     ctrlRef.current.submitGuess({ lat: guess.lat, lng: guess.lng, country })
     setPinSheetOpen(false)
   }, [guess, country, selfGuessed])
+
+  const confirmLockGuess = useCallback(() => {
+    if (!guess || selfGuessed) return
+    if (compactPlayHud && !window.confirm(COPY.play.lockConfirm)) return
+    lockGuess()
+  }, [guess, selfGuessed, compactPlayHud, lockGuess])
+
+  const requestEndRound = useCallback(() => {
+    if (!room?.isHost) return
+    if (compactPlayHud && !window.confirm(COPY.play.endRoundConfirm)) return
+    ctrlRef.current.revealRound()
+  }, [room?.isHost, compactPlayHud])
 
   useEffect(() => {
     if (selfGuessed) setPinSheetOpen(false)
@@ -1180,11 +1193,22 @@ export default function App() {
         {room.viewToken && <StreetView viewToken={room.viewToken} />}
 
         <header className="play-hud">
-          <div className="pointer-events-auto hud-chip px-3 py-2">
-            <p className="font-display text-lg font-medium">monk.run</p>
-            <p className="text-[10px] text-muted">
-              {COPY.play.round(room.roundIndex + 1, room.totalRounds, lockedCount, room.players.length)}
-            </p>
+          <div className="pointer-events-auto hud-chip flex items-center gap-2 px-3 py-2">
+            <div>
+              <p className="font-display text-lg font-medium">monk.run</p>
+              <p className="text-[10px] text-muted">
+                {COPY.play.round(room.roundIndex + 1, room.totalRounds, lockedCount, room.players.length)}
+              </p>
+            </div>
+            {room.isHost && compactPlayHud && (
+              <button
+                type="button"
+                className="play-end-chip"
+                onClick={requestEndRound}
+              >
+                {COPY.play.endRound}
+              </button>
+            )}
           </div>
           <div className="pointer-events-auto hud-chip px-4 py-2 text-center">
             <p className="landing-label">{COPY.play.time}</p>
@@ -1216,11 +1240,11 @@ export default function App() {
           </div>
         </header>
 
-        {room.isHost && (
+        {room.isHost && !compactPlayHud && (
           <button
             type="button"
-            className="btn btn-ghost play-end"
-            onClick={() => ctrlRef.current.revealRound()}
+            className="btn btn-ghost play-end play-end--desktop"
+            onClick={requestEndRound}
           >
             {COPY.play.endRound}
           </button>
@@ -1288,7 +1312,7 @@ export default function App() {
               className="btn btn-primary play-mobile-dock-btn w-full"
               onClick={() => setPinSheetOpen(true)}
             >
-              {guess ? COPY.play.lock : COPY.play.openMap}
+              {guess ? COPY.play.editPin : COPY.play.openMap}
             </button>
           </>
         ) : (
@@ -1342,7 +1366,7 @@ export default function App() {
               type="button"
               className="btn btn-primary play-pin-sheet-lock w-full shrink-0"
               disabled={!guess}
-              onClick={lockGuess}
+              onClick={confirmLockGuess}
             >
               {guess ? COPY.play.lock : COPY.play.needPin}
             </button>

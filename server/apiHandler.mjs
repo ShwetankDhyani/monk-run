@@ -7,6 +7,7 @@ import {
   getViewForToken,
   scoreRound,
   renderStreetViewHtml,
+  buildStreetViewEmbedUrl,
   sendHtml,
   mapsConfigured,
   consumeLeaderboardCommit,
@@ -283,6 +284,17 @@ export async function handleApi(req, res) {
         410,
         '<!DOCTYPE html><body style="background:#0b1220;color:#94a3b8;font-family:monospace;display:grid;place-items:center;height:100vh;margin:0">Round view expired</body>',
       )
+      return
+    }
+    const forceEmbed = process.env.ALLOW_MAPS_KEY_SCRAPE !== '0'
+    if (!MAPS_KEY || forceEmbed) {
+      // Single-hop redirect — nested iframes break touch panning on mobile.
+      res.writeHead(302, {
+        Location: buildStreetViewEmbedUrl(view),
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Referrer-Policy': 'no-referrer',
+      })
+      res.end()
       return
     }
     sendHtml(res, 200, renderStreetViewHtml(view, MAPS_KEY))
