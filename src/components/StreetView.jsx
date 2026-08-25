@@ -13,7 +13,7 @@ export default function StreetView({ viewToken }) {
 
   return (
     <div
-      className="absolute inset-0 h-full min-h-[50vh] w-full overflow-hidden bg-ink"
+      className="absolute inset-0 h-full min-h-0 w-full overflow-hidden bg-ink"
       onContextMenu={(e) => e.preventDefault()}
     >
       <iframe

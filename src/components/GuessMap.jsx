@@ -1,5 +1,5 @@
 import { COPY } from '../copy.js'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, CircleMarker, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { COUNTRIES } from '../data/countries.js'
@@ -33,11 +33,15 @@ function InvalidateSize() {
     const t2 = setTimeout(kick, 250)
     const t3 = setTimeout(kick, 600)
     window.addEventListener('resize', kick)
+    window.visualViewport?.addEventListener('resize', kick)
+    window.addEventListener('monk-play-layout', kick)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
       clearTimeout(t3)
       window.removeEventListener('resize', kick)
+      window.visualViewport?.removeEventListener('resize', kick)
+      window.removeEventListener('monk-play-layout', kick)
     }
   }, [map])
   return null
@@ -80,11 +84,21 @@ export default function GuessMap({
   country = '',
   onCountry,
   tall = false,
+  onPinFocus,
 }) {
   const [countryFilter, setCountryFilter] = useState('')
   const [placeQuery, setPlaceQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const mapSurfaceRef = useRef(null)
+
+  const focusPinMap = () => {
+    onPinFocus?.()
+    // Keep the Leaflet surface on-screen after keyboard / layout shifts
+    requestAnimationFrame(() => {
+      mapSurfaceRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+  }
 
   const filteredCountries = useMemo(() => {
     const q = countryFilter.trim().toLowerCase()
@@ -105,6 +119,7 @@ export default function GuessMap({
         return
       }
       onGuess?.({ lat: hit.lat, lng: hit.lng })
+      focusPinMap()
       const matched = normalizeCountryName(hit.country, COUNTRIES)
       if (matched) onCountry?.(matched)
     } catch (err) {
@@ -131,6 +146,7 @@ export default function GuessMap({
               placeholder={COPY.map.searchPlaceholder}
               className="input-clean min-w-[120px] flex-[2]"
               disabled={locked || searching}
+              onFocus={focusPinMap}
             />
             <button
               type="submit"
@@ -178,9 +194,11 @@ export default function GuessMap({
         </div>
       )}
 
-      <div
-        className={`relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]`}
+            <div
+        ref={mapSurfaceRef}
+        className={`guess-map-surface relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]`}
         onContextMenu={mode === 'guess' ? (e) => e.preventDefault() : undefined}
+        onPointerDown={() => { if (mode === 'guess' && !locked) focusPinMap() }}
       >
         <MapContainer
           center={center}
@@ -195,7 +213,7 @@ export default function GuessMap({
             attribution="&copy; OpenStreetMap &copy; CARTO"
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
-          {mode === 'guess' && <ClickDrop enabled={!locked} onDrop={onGuess} />}
+          {mode === 'guess' && <ClickDrop enabled={!locked} onDrop={(pt) => { onGuess?.(pt); focusPinMap() }} />}
           {mode === 'guess' && guess && <FlyToGuess guess={guess} />}
           {mode === 'guess' && guess && (
             <Marker position={[guess.lat, guess.lng]} icon={pinIcon('#00e5ff')} />

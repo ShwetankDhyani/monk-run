@@ -125,6 +125,7 @@ export default function App() {
   const commitRef = useRef({ sessionId: '', tokens: {} })
   const [room, setRoom] = useState(null)
   const [guess, setGuess] = useState(null)
+  const [pinning, setPinning] = useState(false)
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
@@ -397,6 +398,30 @@ export default function App() {
     if (!guess || selfGuessed) return
     ctrlRef.current.submitGuess({ lat: guess.lat, lng: guess.lng, country })
   }, [guess, country, selfGuessed])
+
+  useEffect(() => {
+    if (selfGuessed) {
+      setPinning(false)
+      return
+    }
+    // Phones: start in pin-map mode so the Leaflet surface is actually reachable
+    const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    setPinning(narrow)
+  }, [room?.roundIndex, room?.phase, selfGuessed])
+
+  useEffect(() => {
+    if (!pinning) return undefined
+    const notify = () => window.dispatchEvent(new Event('monk-play-layout'))
+    notify()
+    document.getElementById('play-map-panel')?.scrollIntoView({ block: 'nearest' })
+    const id = window.setTimeout(notify, 80)
+    const id2 = window.setTimeout(notify, 320)
+    return () => {
+      window.clearTimeout(id)
+      window.clearTimeout(id2)
+    }
+  }, [pinning])
+
 
   const onPose = useCallback((pose) => {
     ctrlRef.current?.sendLobbyPose(pose)
@@ -986,7 +1011,7 @@ export default function App() {
   // Playing: Street View + always-visible world map (never hide the map behind a button)
   return (
     <Fragment>
-    <div className="play-shell screen-enter">
+    <div className={`play-shell screen-enter${pinning && !selfGuessed ? ' play-shell--pinning' : ''}`}>
       <div className="play-view">
         {room.viewToken && <StreetView viewToken={room.viewToken} />}
 
@@ -1038,14 +1063,23 @@ export default function App() {
         )}
       </div>
 
-      <aside className="play-map">
+      <aside className="play-map" id="play-map-panel">
         {!selfGuessed ? (
           <>
-            <div className="mb-2">
-              <p className="font-display text-base font-medium text-brass-bright">{COPY.play.mapTitle}</p>
-              <p className="text-[11px] text-muted">
-                {COPY.play.mapHint}
-              </p>
+            <div className="play-map-head mb-2 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-display text-base font-medium text-brass-bright">{COPY.play.mapTitle}</p>
+                <p className="play-map-hint text-[11px] text-muted">
+                  {COPY.play.mapHint}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost shrink-0 !px-3 !py-1.5 text-[11px] uppercase tracking-wide md:hidden"
+                onClick={() => setPinning((v) => !v)}
+              >
+                {pinning ? 'View' : 'Pin map'}
+              </button>
             </div>
             <div className="play-map-body min-h-0 flex-1 overflow-hidden">
               <GuessMap
@@ -1056,6 +1090,7 @@ export default function App() {
                 onCountry={setCountry}
                 locked={selfGuessed}
                 tall
+                onPinFocus={() => setPinning(true)}
               />
             </div>
             <button

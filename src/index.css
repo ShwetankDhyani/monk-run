@@ -677,26 +677,29 @@
   .play-view {
     position: relative;
     min-height: 0;
-    flex: 1 1 52%;
+    flex: 1 1 42%;
   }
   .play-map {
     z-index: 30;
-    display: flex;
-    max-height: 46dvh;
+    display: grid;
+    grid-template-rows: auto minmax(200px, 1fr) auto;
+    max-height: 58dvh;
     width: 100%;
     flex-shrink: 0;
-    flex-direction: column;
     overflow: hidden;
     border-top: 1px solid rgba(212, 165, 116, 0.25);
     background: rgba(18, 24, 32, 0.96);
     padding:
-      0.75rem
+      0.55rem
       max(0.75rem, env(safe-area-inset-right))
-      max(0.75rem, env(safe-area-inset-bottom))
+      max(0.65rem, env(safe-area-inset-bottom))
       max(0.75rem, env(safe-area-inset-left));
   }
+  .play-map-head {
+    min-width: 0;
+  }
   .play-map-body {
-    min-height: 0;
+    min-height: 200px;
     overflow: hidden;
   }
   .play-lock-btn {
@@ -707,10 +710,70 @@
   }
   @media (min-width: 768px) {
     .play-map {
+      display: flex;
+      flex-direction: column;
       max-height: none;
       width: min(42vw, 460px);
       border-top: 0;
       border-left: 1px solid rgba(212, 165, 116, 0.25);
+      padding: 0.75rem;
+    }
+    .play-map-body {
+      min-height: 0;
+      flex: 1 1 auto;
+    }
+  }
+  /* Mobile pin focus: enlarge map sheet so Leaflet is actually tappable */
+  @media (max-width: 767px) {
+    .play-shell {
+      display: grid;
+      grid-template-rows: minmax(140px, 1fr) minmax(300px, 58dvh);
+      height: 100dvh;
+      max-height: 100dvh;
+    }
+    .play-shell.play-shell--pinning {
+      grid-template-rows: minmax(96px, 26dvh) minmax(0, 1fr);
+    }
+    .play-view {
+      flex: unset;
+      min-height: 0;
+    }
+    .play-map {
+      max-height: none;
+      height: 100%;
+      min-height: 0;
+    }
+    .play-shell.play-shell--pinning .play-map {
+      max-height: none;
+    }
+    .play-map-body {
+      min-height: 220px;
+    }
+    .guess-map {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .guess-map-controls {
+      flex-shrink: 0;
+    }
+    .guess-map-countries,
+    .guess-map-hint {
+      display: none;
+    }
+    .guess-map-surface {
+      flex: 1 1 auto;
+      min-height: 220px !important;
+      height: auto !important;
+    }
+    .guess-map-surface .leaflet-container {
+      min-height: 220px !important;
+      height: 100% !important;
+      touch-action: none;
+    }
+    .play-map-hint {
+      display: none;
     }
   }
   .play-hud {
@@ -737,13 +800,9 @@
   }
   @media (max-width: 640px) {
     .play-map {
-      max-height: 48dvh;
-      display: flex;
-      flex-direction: column;
+      max-height: none;
     }
     .play-map-body {
-      flex: 1 1 auto;
-      min-height: 0;
       overflow: hidden;
     }
     .play-lock-btn {
@@ -752,18 +811,8 @@
       flex-shrink: 0;
       margin-top: 0.5rem !important;
     }
-    .guess-map,
-    .guess-map .leaflet-container {
-      max-height: 100%;
-    }
-    .guess-map-hint {
-      display: none;
-    }
     .guess-map-controls {
       gap: 0.35rem;
-    }
-    .guess-map .leaflet-container {
-      min-height: 0 !important;
     }
     .play-hud .hud-chip--scores { display: none; }
     .landing-ctas {
@@ -873,15 +922,20 @@
 
 
   @media (max-width: 640px) and (max-height: 700px) {
+    .play-shell {
+      grid-template-rows: minmax(110px, 34dvh) minmax(260px, 1fr);
+    }
+    .play-shell.play-shell--pinning {
+      grid-template-rows: minmax(72px, 22dvh) minmax(0, 1fr);
+    }
     .play-map {
-      max-height: 38dvh;
+      max-height: none;
       display: grid !important;
-      grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(180px, 1fr) auto;
       align-content: stretch;
     }
     .play-map-body {
-      min-height: 0 !important;
-      max-height: none;
+      min-height: 180px !important;
       overflow: hidden !important;
     }
     .play-lock-btn {
@@ -890,17 +944,11 @@
       background: linear-gradient(120deg, #c4925a 0%, #e8c08a 48%, #b8844e 100%) !important;
       box-shadow: 0 -10px 24px rgba(6, 8, 14, 0.9);
     }
-    .guess-map-countries {
-      display: none;
+    .guess-map-surface {
+      min-height: 180px !important;
     }
-    .guess-map {
-      min-height: 0 !important;
-      height: 100% !important;
-    }
-    .guess-map .leaflet-container {
-      min-height: 0 !important;
-      height: 100% !important;
-      max-height: 100% !important;
+    .guess-map-surface .leaflet-container {
+      min-height: 180px !important;
     }
   }
 
