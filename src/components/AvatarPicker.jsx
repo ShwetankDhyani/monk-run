@@ -23,10 +23,11 @@ export function AvatarPicker({ value, onChange }) {
           type="button"
           data-active={value === a.id}
           onClick={() => onChange(a.id)}
-          className="flex min-h-16 flex-col items-center justify-center p-2.5"
+          className="scout-pick flex min-h-[5.25rem] flex-col items-center justify-start overflow-hidden px-1 pb-2 pt-1.5"
+          title={a.label}
         >
-          <canvas ref={(el) => { refs.current[a.id] = el }} width={64} height={64} className="h-14 w-14" />
-          <span className="mt-1 font-display text-[11px] uppercase tracking-wide text-muted">{a.label}</span>
+          <canvas ref={(el) => { refs.current[a.id] = el }} width={64} height={64} className="h-11 w-11 shrink-0 sm:h-12 sm:w-12" />
+          <span className="scout-name">{a.label}</span>
         </button>
       ))}
     </div>
