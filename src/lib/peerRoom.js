@@ -92,10 +92,11 @@ export function createRoomController({ onState, onError, onEvent }) {
       roundTimeMs: DEFAULT_ROUND_MS,
       message: '',
       localOnly: false,
+      myCommit: null,
     }
   }
 
-  /** Public sync — never includes seeds, location ids, or coordinates. */
+  /** Public sync — never includes seeds, location ids, raw guess coords, or commit tokens. */
   function publicState() {
     return {
       phase: state.phase,
@@ -113,11 +114,47 @@ export function createRoomController({ onState, onError, onEvent }) {
       intermissionEndsAt: state.intermissionEndsAt,
       roundStartedAt: state.roundStartedAt,
       viewToken: state.viewToken,
-      guesses: state.guesses,
-      reveal: state.reveal,
+      guesses: publicGuesses(),
+      reveal: publicReveal(state.reveal),
       scores: state.scores,
       roundTimeMs: state.roundTimeMs,
       message: state.message,
+    }
+  }
+
+  /** During play, only broadcast lock flags — not pin coordinates (stops pin-peeking). */
+  function publicGuesses() {
+    const out = {}
+    for (const [id, g] of Object.entries(state.guesses || {})) {
+      if (!g) continue
+      if (state.phase === 'playing' || state.phase === 'revealing') {
+        out[id] = { locked: true, at: g.at || 0 }
+      } else {
+        out[id] = { locked: true, at: g.at || 0 }
+      }
+    }
+    return out
+  }
+
+  function publicReveal(reveal) {
+    if (!reveal) return null
+    return {
+      truth: reveal.truth,
+      totals: reveal.totals,
+      results: (reveal.results || []).map((r) => ({
+        playerId: r.playerId,
+        name: r.name,
+        vibe: r.vibe,
+        avatar: r.avatar,
+        lat: r.lat,
+        lng: r.lng,
+        country: r.country,
+        km: r.km,
+        score: r.score,
+        missed: r.missed,
+        total: r.total,
+        // commitToken intentionally omitted — delivered privately per player
+      })),
     }
   }
 
@@ -253,10 +290,16 @@ export function createRoomController({ onState, onError, onEvent }) {
       return
     }
     if (msg.type === 'guess' && state.phase === 'playing') {
-      if (state.roundStartedAt && msg.at < state.roundStartedAt - 250) return
+      // First lock wins — no revisions until the next round.
+      if (state.guesses[fromId]) return
       state.guesses = {
         ...state.guesses,
-        [fromId]: { lat: msg.lat, lng: msg.lng, country: msg.country || '', at: Date.now() },
+        [fromId]: {
+          lat: Number(msg.lat),
+          lng: Number(msg.lng),
+          country: msg.country || '',
+          at: Date.now(), // host receive time — ignore client clocks
+        },
       }
       pushSync()
       autoRevealIfReady()
@@ -264,13 +307,26 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function onClientData(msg) {
+    if (msg.type === 'commit') {
+      // Private leaderboard credential — only accept for self.
+      if (msg.playerId && msg.playerId !== state.selfId) return
+      state.myCommit = {
+        sessionId: String(msg.sessionId || ''),
+        commitToken: String(msg.commitToken || ''),
+        score: Math.round(Number(msg.score) || 0),
+      }
+      emit()
+      return
+    }
     if (msg.type === 'sync') {
+      const keepCommit = state.myCommit
       state = {
         ...state,
         ...msg.state,
         isHost: false,
         selfId: state.selfId,
         localOnly: false,
+        myCommit: keepCommit,
       }
       emit()
       return
@@ -564,11 +620,11 @@ export function createRoomController({ onState, onError, onEvent }) {
       secrets = {
         gameSessionId: session.sessionId,
         hostToken: session.hostToken || '',
-        locationIds: session.locationIds,
+        locationIds: session.locationIds || [],
         currentLocationId: null,
         seed: 0,
       }
-      state.totalRounds = session.totalRounds
+      state.totalRounds = session.totalRounds || rounds
       pushSync()
     } catch (err) {
       if (state.phase !== 'countdown') return
@@ -663,28 +719,28 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   function submitGuess({ lat, lng, country }) {
     if (state.phase !== 'playing') return
-    const guess = { lat, lng, country: country || '', at: Date.now() }
+    // First lock wins for self as well.
+    if (state.guesses[state.selfId]) return
+    const guess = {
+      lat: Number(lat),
+      lng: Number(lng),
+      country: country || '',
+      at: Date.now(),
+    }
     state.guesses = { ...state.guesses, [state.selfId]: guess }
     if (actingHost) {
       pushSync()
       autoRevealIfReady()
     } else {
       emit()
-      send(hostConn, { type: 'guess', ...guess })
+      send(hostConn, { type: 'guess', lat: guess.lat, lng: guess.lng, country: guess.country })
     }
   }
 
   function autoRevealIfReady() {
     if (!actingHost || state.phase !== 'playing') return
     const live = state.players.filter((p) => p.connected !== false)
-    const started = state.roundStartedAt || 0
-    if (
-      live.length > 0 &&
-      live.every((p) => {
-        const g = state.guesses[p.id]
-        return g && (!started || g.at >= started - 250)
-      })
-    ) {
+    if (live.length > 0 && live.every((p) => !!state.guesses[p.id])) {
       revealRound()
     }
   }
@@ -722,11 +778,42 @@ export function createRoomController({ onState, onError, onEvent }) {
       commitToken: r.commitToken,
       total: r.total,
     }))
-    results.sort((a, b) => b.score - a.score)
+    results.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      const ak = a.km == null ? Infinity : a.km
+      const bk = b.km == null ? Infinity : b.km
+      if (ak !== bk) return ak - bk
+      return String(a.playerId).localeCompare(String(b.playerId))
+    })
     return {
       truth: scored.truth,
       results,
       totals: scored.totals,
+    }
+  }
+
+  /** Deliver each player's leaderboard commit privately — never broadcast tokens. */
+  function deliverCommits(reveal) {
+    const sessionId = secrets.gameSessionId
+    if (!sessionId || !reveal?.results) return
+    for (const r of reveal.results) {
+      if (!r.commitToken || !r.playerId) continue
+      const payload = {
+        type: 'commit',
+        sessionId,
+        playerId: r.playerId,
+        commitToken: r.commitToken,
+        score: r.total,
+      }
+      if (r.playerId === state.selfId) {
+        state.myCommit = {
+          sessionId,
+          commitToken: r.commitToken,
+          score: Math.round(Number(r.total) || 0),
+        }
+      } else {
+        send(connections.get(r.playerId), payload)
+      }
     }
   }
 
@@ -739,15 +826,26 @@ export function createRoomController({ onState, onError, onEvent }) {
     if (!actingHost || state.phase !== 'playing') return
     const gen = revealGen
     const idx = state.roundIndex
+    // Enter revealing immediately so timer / all-locked cannot race a second score.
+    state.phase = 'revealing'
     state.roundEndsAt = 0
+    state.message = 'Scoring…'
+    pushSync()
     const reveal = await buildRevealAsync()
-    if (gen !== revealGen || state.phase !== 'playing' || state.roundIndex !== idx) return
-    if (!reveal) return
-    state.reveal = reveal
-    state.viewToken = ''
-    for (const r of reveal.results) {
-      state.scores[r.playerId] = (state.scores[r.playerId] || 0) + r.score
+    if (gen !== revealGen || state.roundIndex !== idx) return
+    if (state.phase !== 'revealing') return
+    if (!reveal) {
+      state.phase = 'playing'
+      state.message = 'Couldn’t score — try ending the round again.'
+      pushSync()
+      return
     }
+    deliverCommits(reveal)
+    // Strip tokens before storing in shared reveal state
+    state.reveal = publicReveal(reveal)
+    state.viewToken = ''
+    // Use server cumulative totals — do not re-add on the client.
+    state.scores = { ...(reveal.totals || {}) }
     state.phase = 'reveal'
     state.message = 'Results'
     pushSync()
@@ -833,6 +931,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     for (const p of state.players) {
       if (!state.lobby[p.id]) state.lobby[p.id] = assignSpawn(state.lobby, p.id)
     }
+    state.myCommit = null
     pushSync()
   }
 

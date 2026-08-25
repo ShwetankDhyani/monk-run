@@ -44,7 +44,7 @@ function ShareCard({ players, scores, roomCode }) {
     () =>
       [...players]
         .map((p) => ({ ...p, score: scores[p.id] || 0 }))
-        .sort((a, b) => b.score - a.score),
+        .sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id))),
     [players, scores],
   )
 
@@ -162,16 +162,18 @@ export default function App() {
 
   useEffect(() => {
     if (!room?.reveal?.results) return
-    const tokens = { ...commitRef.current.tokens }
-    for (const r of room.reveal.results) {
-      if (r.playerId && r.commitToken) tokens[r.playerId] = r.commitToken
-    }
-    commitRef.current = {
-      sessionId: room.gameSessionId || commitRef.current.sessionId,
-      tokens,
+    // Commit tokens are delivered privately via myCommit — never scraped from shared reveal.
+    if (room.myCommit?.commitToken) {
+      commitRef.current = {
+        sessionId: room.myCommit.sessionId || commitRef.current.sessionId,
+        tokens: {
+          ...commitRef.current.tokens,
+          [room.selfId]: room.myCommit.commitToken,
+        },
+      }
     }
     sfx.reveal()
-  }, [room?.reveal])
+  }, [room?.reveal, room?.myCommit, room?.selfId])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -234,6 +236,7 @@ export default function App() {
 
     if (
       (room.phase === 'playing' ||
+        room.phase === 'revealing' ||
         room.phase === 'reveal' ||
         room.phase === 'intermission' ||
         room.phase === 'loading-round' ||
@@ -263,18 +266,25 @@ export default function App() {
     const score = room.scores?.[room.selfId] || 0
     if (!me || score <= 0) return
     scoreSubmittedRef.current = true
+    const commit =
+      room.myCommit?.commitToken
+        ? room.myCommit
+        : {
+            sessionId: commitRef.current.sessionId,
+            commitToken: commitRef.current.tokens[room.selfId] || '',
+          }
     submitScore({
       name: me.name,
       score,
       roomCode: room.roomCode,
       avatarId: me.avatar || me.vibe,
-      sessionId: commitRef.current.sessionId || room.gameSessionId || '',
+      sessionId: commit.sessionId || '',
       playerId: room.selfId,
-      commitToken: commitRef.current.tokens[room.selfId] || '',
+      commitToken: commit.commitToken || '',
     }).then(() => {
       setLeaderboardKey((k) => k + 1)
     })
-  }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode])
+  }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode, room?.myCommit])
 
   // Rematch: when the party returns to the temple, keep voice mesh warm.
   useEffect(() => {
@@ -291,7 +301,7 @@ export default function App() {
     if (!room) return []
     return [...room.players]
       .map((p) => ({ ...p, score: room.scores?.[p.id] || 0 }))
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)))
   }, [room])
 
   const ensureVoice = async () => {
@@ -850,7 +860,7 @@ export default function App() {
           <div className="flex flex-col gap-3 border border-brass/15 bg-black/30 p-4 backdrop-blur-md">
             <p className="font-display text-lg">
               You:{' '}
-              <span className="text-mint">{selfResult?.PLACEHOLDER_MISSED ? 'missed' : formatKm(selfResult?.km)}</span>
+              <span className="text-mint">{selfResult?.missed ? 'missed' : formatKm(selfResult?.km)}</span>
               {' · '}
               <span className="text-brass-bright">+{selfResult?.score || 0}</span>
             </p>
@@ -909,17 +919,23 @@ export default function App() {
     )
   }
 
-  if (room.phase === 'loading-round') {
+  if (room.phase === 'loading-round' || room.phase === 'revealing') {
     return (
       <Fragment>
       <div className="screen-enter relative flex min-h-full flex-col items-center justify-center overflow-hidden p-6">
         <Atmosphere />
         <div className="relative z-10 max-w-md text-center">
           <BrandMark className="mx-auto mb-4 h-12 w-12 animate-pulse text-brass" />
-          <p className="landing-label">{COPY.loading.round(room.roundIndex + 1)}</p>
-          <p className="mt-2 font-display text-3xl text-brass-bright">{COPY.loading.title}</p>
+          <p className="landing-label">
+            {room.phase === 'revealing'
+              ? 'Scoring the round…'
+              : COPY.loading.round(room.roundIndex + 1)}
+          </p>
+          <p className="mt-2 font-display text-3xl text-brass-bright">
+            {room.phase === 'revealing' ? 'Fair reckoning' : COPY.loading.title}
+          </p>
         </div>
-        {room.viewToken && (
+        {room.viewToken && room.phase === 'loading-round' && (
           <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>
             <StreetView viewToken={room.viewToken} />
           </div>

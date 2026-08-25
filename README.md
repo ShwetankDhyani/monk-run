@@ -57,6 +57,14 @@ STATIC_DIR=dist NODE_ENV=production GOOGLE_MAPS_API_KEY=... node server/leaderbo
 3. Explore → pin the map → lock  
 4. Server scores the round → podium → host returns the party to the **temple lobby** for a rematch (same PIN; Leave party exits to home)
 
+### Scoring fairness
+
+- Round points are **server-authoritative** (haversine distance → 0–5000). Distance only — no time bonus.
+- Reveals are **idempotent** (a raced/retried reveal cannot double-count).
+- Guesses are **first-lock** and pin coordinates are **not synced** until reveal (stops pin-peeking).
+- All-time board commits are **HMAC + one-shot** and require `MONK_SCORE_SECRET` (never falls back to the Maps key).
+- Residual party-game trust: the host still submits guesses to the API; treat ranked competitive play as needing a fully server-side lock path.
+
 ### Voice chat
 
 Voice is optional PeerJS mesh audio. Public STUN works on many networks; **strict NATs need a TURN server** via `VITE_ICE_SERVERS` (see `.env.example`). Deploy over HTTPS so browsers allow the mic.

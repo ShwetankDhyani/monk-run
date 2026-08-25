@@ -12,7 +12,7 @@ import {
   renderStreetViewHtml,
   sendHtml,
   mapsConfigured,
-  verifyLeaderboardCommit,
+  consumeLeaderboardCommit,
 } from './game.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -107,8 +107,13 @@ const server = createServer(async (req, res) => {
         sendJson(res, 400, { error: 'Score must be positive' })
         return
       }
-      // Reject forged scores — require HMAC commit from a scored session
-      if (!sessionId || !playerId || !commitToken || !verifyLeaderboardCommit(sessionId, playerId, score, commitToken)) {
+      // Reject forged / reused scores — one-shot commit matching server totals
+      if (
+        !sessionId ||
+        !playerId ||
+        !commitToken ||
+        !consumeLeaderboardCommit(sessionId, playerId, score, commitToken)
+      ) {
         sendJson(res, 403, { error: 'Score not verified' })
         return
       }

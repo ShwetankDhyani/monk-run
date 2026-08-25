@@ -12,7 +12,8 @@ export function haversineKm(a, b) {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
-/** 5000 at 0km, asymptotic toward 0 past ~10,000km. */
+/** 5000 at ≤25m, then 5000 × e^(−km / 2000), clamped 0–5000.
+ *  Must stay in lockstep with server/game.mjs — server is authoritative. */
 export function scoreFromDistanceKm(km) {
   if (!Number.isFinite(km) || km < 0) return 0
   if (km < 0.025) return 5000

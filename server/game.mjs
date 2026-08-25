@@ -9,10 +9,16 @@ const viewTokens = new Map()
 
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000
 const VIEW_TTL_MS = 100 * 60 * 1000
-const SCORE_SECRET = () =>
-  process.env.MONK_SCORE_SECRET ||
-  process.env.GOOGLE_MAPS_API_KEY ||
-  'monk-dev-score-secret-change-me'
+
+/** Never fall back to the Maps key — that would mint forgeable leaderboard tokens. */
+function SCORE_SECRET() {
+  const s = String(process.env.MONK_SCORE_SECRET || '').trim()
+  if (s && s !== 'change-me-to-a-long-random-string') return s
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('MONK_SCORE_SECRET is required in production')
+  }
+  return 'monk-dev-score-secret-local-only'
+}
 
 function purgeExpired() {
   const now = Date.now()
@@ -89,7 +95,11 @@ export async function createGameSession(roomCode, rounds = 5, mapsKey = '') {
     locationIds,
     roundTokens,
     revealed: new Set(),
+    /** @type {Map<number, object>} */
+    roundSnapshots: new Map(),
     totals: /** @type {Record<string, number>} */ ({}),
+    /** Player ids that already posted to the all-time board this session */
+    consumedCommits: new Set(),
     createdAt: Date.now(),
   })
   return {
@@ -140,6 +150,7 @@ export async function getEnrichedLocationForHost(sessionId, roundIndex, hostToke
 
 /**
  * Server-authoritative reveal — host submits guesses, server returns scores + truth.
+ * Idempotent per round: a second call returns the same snapshot and does not re-add totals.
  * @param {string} sessionId
  * @param {string} hostToken
  * @param {number} roundIndex
@@ -150,6 +161,11 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
   if (!session) return null
   const loc = session.locations?.[roundIndex]
   if (!loc) return null
+
+  // Fairness: never double-count if the host retried / raced reveal.
+  if (session.revealed.has(roundIndex) && session.roundSnapshots?.has(roundIndex)) {
+    return session.roundSnapshots.get(roundIndex)
+  }
 
   const truthLoc = await enrichPlace(loc)
   const list = Array.isArray(guesses) ? guesses : []
@@ -175,10 +191,17 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
       commitToken: signLeaderboardCommit(sessionId, playerId, session.totals[playerId]),
     }
   })
-  results.sort((a, b) => b.score - a.score)
+  // Round rank: higher score, then closer km, then playerId (stable).
+  results.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score
+    const ak = a.km == null ? Infinity : a.km
+    const bk = b.km == null ? Infinity : b.km
+    if (ak !== bk) return ak - bk
+    return String(a.playerId).localeCompare(String(b.playerId))
+  })
   session.revealed.add(roundIndex)
 
-  return {
+  const snapshot = {
     truth: {
       id: truthLoc.id,
       lat: truthLoc.lat,
@@ -189,7 +212,30 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
     results,
     totals: { ...session.totals },
   }
+  if (!session.roundSnapshots) session.roundSnapshots = new Map()
+  session.roundSnapshots.set(roundIndex, snapshot)
+  return snapshot
 }
+
+/**
+ * Verify + consume a one-shot leaderboard commit for this session.
+ * Score must match the server's cumulative total for that player.
+ */
+export function consumeLeaderboardCommit(sessionId, playerId, score, token) {
+  const session = sessions.get(sessionId)
+  if (!session) return false
+  const pid = String(playerId || '')
+  if (!pid || !token) return false
+  const expectedScore = Math.round(session.totals[pid] || 0)
+  if (expectedScore <= 0 || Math.round(score) !== expectedScore) return false
+  if (!verifyLeaderboardCommit(sessionId, pid, expectedScore, token)) return false
+  if (!session.consumedCommits) session.consumedCommits = new Set()
+  if (session.consumedCommits.has(pid)) return false
+  session.consumedCommits.add(pid)
+  return true
+}
+
+export { haversineKm, scoreFromDistanceKm }
 
 /**
  * Street View HTML — prefer panorama id so raw lat/lng are not in the document.
