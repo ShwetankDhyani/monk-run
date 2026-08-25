@@ -276,9 +276,15 @@ export async function handleApi(req, res) {
     return
   }
 
-  const svMatch = url?.match(/^\/api\/game\/sv\/([a-f0-9]+)$/)
+  const svMatch = url?.match(/^\/api\/game\/sv\/([^/?#]+)$/)
   if (req.method === 'GET' && svMatch) {
-    const view = getViewForToken(svMatch[1])
+    let viewToken = svMatch[1]
+    try {
+      viewToken = decodeURIComponent(viewToken)
+    } catch {
+      /* use raw */
+    }
+    const view = getViewForToken(viewToken)
     if (!view) {
       sendHtml(
         res,

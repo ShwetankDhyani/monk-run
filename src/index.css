@@ -1538,11 +1538,6 @@
     }
   }
 
-  .play-sv-spoiler-shield-center {
-    max-width: 22rem;
-    margin-inline: auto;
-  }
-
   body.play-pin-sheet-open {
     overflow: hidden;
     position: fixed;

@@ -11,6 +11,8 @@ export default function StreetView({ viewToken }) {
     )
   }
 
+  const src = `/api/game/sv/${encodeURIComponent(viewToken)}`
+
   return (
     <div
       className="play-sv-root absolute inset-0 h-full min-h-0 w-full overflow-hidden bg-ink"
@@ -19,14 +21,16 @@ export default function StreetView({ viewToken }) {
       <iframe
         key={viewToken}
         title="Round panorama"
-        src={`/api/game/sv/${viewToken}`}
+        src={src}
         className="play-sv-frame h-full w-full border-0"
         referrerPolicy="no-referrer"
         allow="accelerometer; gyroscope; magnetometer; fullscreen; xr-spatial-tracking"
       />
-      {/* Block Google's location label — must not intercept pan gestures. */}
-      <div className="play-sv-spoiler-shield pointer-events-none absolute inset-x-0 top-0 z-20 h-[4.75rem] bg-gradient-to-b from-[#06080e] via-[#06080e]/92 to-transparent" aria-hidden />
-      <div className="play-sv-spoiler-shield-center pointer-events-none absolute inset-x-[12%] top-2 z-20 h-12 rounded-md bg-[#06080e]/88" aria-hidden />
+      {/* Slim top gradient — hides Google's location label without blocking the view. */}
+      <div
+        className="play-sv-spoiler-shield pointer-events-none absolute inset-x-0 top-0 z-20 h-12 bg-gradient-to-b from-[#06080e]/95 to-transparent"
+        aria-hidden
+      />
     </div>
   )
 }
