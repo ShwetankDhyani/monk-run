@@ -15,6 +15,8 @@ import { MonkLobby } from './components/MonkLobby.jsx'
 import { AvatarPicker } from './components/AvatarPicker.jsx'
 import { CinematicOverlay } from './components/CinematicOverlay.jsx'
 import { AllTimeLeaderboardButton } from './components/AllTimeLeaderboard.jsx'
+import { PodiumStage } from './components/PodiumStage.jsx'
+import { PodiumHallRecords } from './components/PodiumHallRecords.jsx'
 import { submitScore } from './lib/leaderboard.js'
 import { playerError } from './lib/playerErrors.js'
 import { HowToPlayModal } from './components/HowToPlayModal.jsx'
@@ -314,6 +316,14 @@ export default function App() {
     commitRef.current = { sessionId: '', tokens: {} }
     voiceRef.current?.refresh?.()
   }, [room?.phase])
+
+  useEffect(() => {
+    window.dispatchEvent(new Event('monk-play-layout'))
+  }, [pinning])
+
+  useEffect(() => {
+    setPinning(false)
+  }, [room?.roundIndex])
 
   const selfGuessed = !!(room && room.guesses?.[room.selfId])
   const lockedCount = room ? Object.keys(room.guesses || {}).length : 0
@@ -923,32 +933,47 @@ export default function App() {
   }
 
   if (room.phase === 'podium') {
+    const me = room.players.find((p) => p.id === room.selfId)
+    const myScore = room.scores?.[room.selfId] || 0
+    const rest = ranked.slice(3)
     return (
       <Fragment>
-      <div className="screen-enter relative flex min-h-full flex-col items-center justify-center overflow-auto p-4 pb-6">
+      <div className="screen-enter relative flex min-h-full flex-col items-center overflow-auto p-4 pb-6">
         <Atmosphere />
-        <div className="relative z-10 w-full max-w-2xl px-2 md:px-4">
+        <div className="relative z-10 w-full max-w-3xl px-2 md:px-4">
           <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
           <h2 className="text-center font-display text-4xl font-medium text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
           <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">{COPY.podium.room(room.roomCode)}</p>
-          <ol className="mt-8 space-y-1">
-            {ranked.map((p, i) => {
-              const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
-              return (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between border-b border-brass/15 px-2 py-3"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="podium-rank text-xl text-amber">{i + 1}</span>
-                    <span className="h-3 w-3 rounded-full" style={{ background: look.robe }} />
-                    <span className="font-display text-lg">{p.name}</span>
-                  </span>
-                  <span className="font-mono text-mint">{p.score}</span>
-                </li>
-              )
-            })}
-          </ol>
+
+          <PodiumStage ranked={ranked} />
+
+          {rest.length > 0 && (
+            <ol className="mt-4 space-y-1 border-t border-brass/15 pt-4">
+              {rest.map((p, i) => {
+                const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
+                return (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between px-2 py-2"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="podium-rank text-lg text-amber">{i + 4}</span>
+                      <span className="h-3 w-3 rounded-full" style={{ background: look.robe }} />
+                      <span className="font-display">{p.name}</span>
+                    </span>
+                    <span className="font-mono text-mint">{p.score}</span>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+
+          <PodiumHallRecords
+            refreshKey={leaderboardKey}
+            partyScore={myScore}
+            playerName={me?.name}
+          />
+
           <div className="mt-8">
             <ShareCard players={room.players} scores={room.scores} roomCode={room.roomCode} />
           </div>
@@ -958,7 +983,6 @@ export default function App() {
               className="btn btn-primary mt-6 w-full"
               onClick={() => {
                 ctrlRef.current?.returnToLobby?.()
-                // Keep voice mesh up for the rematch; just refresh peer links.
                 voiceRef.current?.refresh?.()
                 setError('')
               }}
@@ -1000,8 +1024,8 @@ export default function App() {
           >
             {COPY.podium.leaveParty}
           </button>
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
         </div>
-        <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="relative z-10 mt-5 shrink-0" />
       </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>
@@ -1186,15 +1210,15 @@ export default function App() {
               <div className="min-w-0">
                 <p className="font-display text-base font-medium text-brass-bright">{COPY.play.mapTitle}</p>
                 <p className="play-map-hint text-[11px] text-muted">
-                  {COPY.play.mapHint}
+                  {pinning ? COPY.play.mapHint : COPY.play.mapCollapsed}
                 </p>
               </div>
               <button
                 type="button"
-                className="btn btn-ghost shrink-0 !px-3 !py-1.5 text-[11px] uppercase tracking-wide md:hidden"
+                className="btn btn-ghost play-map-toggle shrink-0 !px-3 !py-1.5 text-[11px] uppercase tracking-wide md:hidden"
                 onClick={() => setPinning((v) => !v)}
               >
-                {pinning ? 'View' : 'Pin map'}
+                {pinning ? COPY.play.backToView : COPY.play.openMap}
               </button>
             </div>
             <div className="play-map-body min-h-0 flex-1 overflow-hidden">
@@ -1206,6 +1230,7 @@ export default function App() {
                 onCountry={setCountry}
                 locked={selfGuessed}
                 tall
+                compact={!pinning}
                 onPinFocus={() => setPinning(true)}
               />
             </div>

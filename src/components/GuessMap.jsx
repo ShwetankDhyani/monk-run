@@ -151,6 +151,7 @@ export default function GuessMap({
   country = '',
   onCountry,
   tall = false,
+  compact = false,
   onPinFocus,
 }) {
   const [countryFilter, setCountryFilter] = useState('')
@@ -201,7 +202,7 @@ export default function GuessMap({
 
   return (
     <div className={`guess-map flex flex-col gap-2 ${tall ? 'h-full min-h-0' : ''}`}>
-      {mode === 'guess' && (
+      {mode === 'guess' && !compact && (
         <div className="guess-map-controls flex shrink-0 flex-col gap-2">
           <form className="flex flex-wrap items-center gap-2" onSubmit={runPlaceSearch}>
             <input
@@ -261,7 +262,13 @@ export default function GuessMap({
         </div>
       )}
 
-            <div
+      {mode === 'guess' && compact && (
+        <p className="guess-map-compact-hint text-center text-[11px] text-muted">
+          {COPY.play.mapCollapsed}
+        </p>
+      )}
+
+      <div
         ref={mapSurfaceRef}
         className={`guess-map-surface relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]`}
         onContextMenu={mode === 'guess' ? (e) => e.preventDefault() : undefined}

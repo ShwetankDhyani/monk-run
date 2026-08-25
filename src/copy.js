@@ -138,6 +138,15 @@ export const COPY = {
     download: 'Save podium card',
     shareFooter: 'gathered · fallen · guessed',
     shareHeader: (code) => `ROOM ${code} · FINAL PODIUM`,
+    allTimeTitle: 'All-time records',
+    allTimeHint: 'How this run compares to the temple halls',
+    allTimeRank: (rank, score) => `Your ${score.toLocaleString()} pts landed in the all-time top ${rank}.`,
+    allTimeYourRun: (score, high) => {
+      const h = high != null ? Number(high) : null
+      if (!h || score >= h) return `Your ${score.toLocaleString()} pts — temple-record pace.`
+      const gap = h - score
+      return `Your ${score.toLocaleString()} pts · ${gap.toLocaleString()} behind the all-time high.`
+    },
   },
 
   reveal: {
@@ -172,7 +181,10 @@ export const COPY = {
     mute: 'Mute',
     endRound: 'End round',
     mapTitle: 'World map',
-    mapHint: 'Search a place, or click the map.',
+    mapHint: 'Search a place, or tap the map.',
+    mapCollapsed: 'Explore the view first — open the map when you are ready to guess.',
+    openMap: 'Pin on map',
+    backToView: 'Back to location',
     lock: 'Lock guess',
     needPin: 'Drop a pin first',
     locked: 'Guess locked',

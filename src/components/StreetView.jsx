@@ -25,7 +25,7 @@ export default function StreetView({ viewToken }) {
         allow="accelerometer; gyroscope"
         sandbox="allow-scripts allow-same-origin"
       />
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-3">
+      <div className="play-sv-badge pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-3 max-md:hidden">
         <span className="rounded-full bg-black/60 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-white/70">
           Locked view · explore only
         </span>
