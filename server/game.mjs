@@ -312,9 +312,13 @@ export function renderStreetViewHtml(view, apiKey = '', forceEmbedFallback = tru
 
   const authFallback = forceEmbedFallback
     ? `
-    window.gm_authFailure = function() {
-      location.replace(${JSON.stringify(embedSrc)});
-    };`
+    var __embedFallback = ${JSON.stringify(embedSrc)};
+    window.gm_authFailure = function() { location.replace(__embedFallback); };
+    function __fallbackToEmbed() { location.replace(__embedFallback); }
+    setTimeout(function() {
+      var pano = document.getElementById('pano');
+      if (!pano || pano.querySelector('canvas, img') == null) __fallbackToEmbed();
+    }, 5000);`
     : ''
 
   if (panoId) {

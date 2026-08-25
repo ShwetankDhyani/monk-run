@@ -287,8 +287,10 @@ export async function handleApi(req, res) {
       return
     }
     const forceEmbed = process.env.ALLOW_MAPS_KEY_SCRAPE !== '0'
-    if (!MAPS_KEY) {
-      // No key — public embed redirect (no gyro API control).
+    const streetViewJs = process.env.MONK_STREETVIEW_JS === '1'
+    // Default: Google embed redirect — always renders (metadata keys often fail Maps JS in-browser).
+    // Set MONK_STREETVIEW_JS=1 + ALLOW_MAPS_KEY_SCRAPE=0 when Maps JavaScript API is fully enabled.
+    if (!MAPS_KEY || forceEmbed || !streetViewJs) {
       res.writeHead(302, {
         Location: buildStreetViewEmbedUrl(view),
         'Cache-Control': 'no-store, no-cache, must-revalidate',
@@ -297,9 +299,7 @@ export async function handleApi(req, res) {
       res.end()
       return
     }
-    // Maps JS when a key exists — motionTracking for phone gyro look-around;
-    // gm_authFailure in the HTML falls back to embed if the key fails in-browser.
-    sendHtml(res, 200, renderStreetViewHtml(view, MAPS_KEY, forceEmbed))
+    sendHtml(res, 200, renderStreetViewHtml(view, MAPS_KEY, true))
     return
   }
 
