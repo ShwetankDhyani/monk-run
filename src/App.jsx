@@ -283,8 +283,7 @@ export default function App() {
     if (room?.phase !== 'podium' || scoreSubmittedRef.current) return
     const me = room.players.find((p) => p.id === room.selfId)
     const score = room.scores?.[room.selfId] || 0
-    if (!me || score <= 0) return
-    scoreSubmittedRef.current = true
+    if (!me) return
     const commit =
       room.myCommit?.commitToken
         ? room.myCommit
@@ -292,6 +291,8 @@ export default function App() {
             sessionId: commitRef.current.sessionId,
             commitToken: commitRef.current.tokens[room.selfId] || '',
           }
+    if (!commit.commitToken) return
+    scoreSubmittedRef.current = true
     submitScore({
       name: me.name,
       score,

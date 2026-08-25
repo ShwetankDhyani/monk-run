@@ -24,29 +24,55 @@ const DATA_DIR = process.env.VERCEL
   : join(__dirname, '..', 'data')
 const DATA_FILE = join(DATA_DIR, 'leaderboard.json')
 const MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || ''
-const MAX_ENTRIES = 10
+const HALL_SIZE = 5
 
-async function loadEntries() {
-  try {
-    if (!existsSync(DATA_FILE)) return []
-    const raw = await readFile(DATA_FILE, 'utf8')
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
+function emptyHalls() {
+  return {
+    highestScore: [],
+    lowestScore: [],
+    closestGuess: [],
+    farthestGuess: [],
   }
 }
 
-async function saveEntries(entries) {
-  if (!existsSync(DATA_DIR)) await mkdir(DATA_DIR, { recursive: true })
-  await writeFile(DATA_FILE, JSON.stringify(entries, null, 2))
+function normalizeHalls(raw) {
+  if (Array.isArray(raw)) {
+    // Legacy flat top-score list → Hall of Fame highest score
+    return {
+      ...emptyHalls(),
+      highestScore: [...raw]
+        .sort((a, b) => b.score - a.score || (b.at || 0) - (a.at || 0))
+        .slice(0, HALL_SIZE),
+    }
+  }
+  if (!raw || typeof raw !== 'object') return emptyHalls()
+  return {
+    highestScore: Array.isArray(raw.highestScore) ? raw.highestScore : [],
+    lowestScore: Array.isArray(raw.lowestScore) ? raw.lowestScore : [],
+    closestGuess: Array.isArray(raw.closestGuess) ? raw.closestGuess : [],
+    farthestGuess: Array.isArray(raw.farthestGuess) ? raw.farthestGuess : [],
+  }
 }
 
-function topEntries(entries) {
-  return [...entries]
-    .sort((a, b) => b.score - a.score || b.at - a.at)
-    .slice(0, MAX_ENTRIES)
+async function loadHalls() {
+  try {
+    if (!existsSync(DATA_FILE)) return emptyHalls()
+    const raw = await readFile(DATA_FILE, 'utf8')
+    return normalizeHalls(JSON.parse(raw))
+  } catch {
+    return emptyHalls()
+  }
 }
+
+async function saveHalls(halls) {
+  if (!existsSync(DATA_DIR)) await mkdir(DATA_DIR, { recursive: true })
+  await writeFile(DATA_FILE, JSON.stringify(halls, null, 2))
+}
+
+function trimHall(list, compare) {
+  return [...list].sort(compare).slice(0, HALL_SIZE)
+}
+
 
 function sendJson(res, status, body) {
   res.writeHead(status, {
@@ -99,8 +125,17 @@ export async function handleApi(req, res) {
   }
 
   if (req.method === 'GET' && url === '/api/leaderboard') {
-    const entries = await loadEntries()
-    sendJson(res, 200, { entries: topEntries(entries) })
+    const halls = await loadHalls()
+    sendJson(res, 200, {
+      halls: {
+        highestScore: trimHall(halls.highestScore, (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0)),
+        lowestScore: trimHall(halls.lowestScore, (a, b) => a.score - b.score || (a.at || 0) - (b.at || 0)),
+        closestGuess: trimHall(halls.closestGuess, (a, b) => a.km - b.km || (a.at || 0) - (b.at || 0)),
+        farthestGuess: trimHall(halls.farthestGuess, (a, b) => b.km - a.km || (a.at || 0) - (b.at || 0)),
+      },
+      // Back-compat for older clients
+      entries: trimHall(halls.highestScore, (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0)),
+    })
     return
   }
 
@@ -114,34 +149,59 @@ export async function handleApi(req, res) {
       const playerId = String(body.playerId || '')
       const commitToken = String(body.commitToken || '')
 
-      if (score <= 0) {
-        sendJson(res, 400, { error: 'Score must be positive' })
+      // Reject forged / reused scores — one-shot commit matching server totals
+      if (!sessionId || !playerId || !commitToken) {
+        sendJson(res, 403, { error: 'Score not verified' })
         return
       }
-      // Reject forged / reused scores — one-shot commit matching server totals
-      if (
-        !sessionId ||
-        !playerId ||
-        !commitToken ||
-        !consumeLeaderboardCommit(sessionId, playerId, score, commitToken)
-      ) {
+      const verified = consumeLeaderboardCommit(sessionId, playerId, score, commitToken)
+      if (!verified) {
         sendJson(res, 403, { error: 'Score not verified' })
         return
       }
 
-      const entry = {
+      const base = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name,
-        score,
+        score: verified.score,
         avatarId: String(body.avatarId || 'aot-eren').slice(0, 32),
         roomCode: String(body.roomCode || '').slice(0, 8),
         at: Date.now(),
       }
-      const entries = await loadEntries()
-      entries.push(entry)
-      const trimmed = topEntries(entries)
-      await saveEntries(trimmed)
-      sendJson(res, 201, { entry, entries: trimmed })
+      const halls = await loadHalls()
+
+      halls.highestScore = trimHall(
+        [...halls.highestScore, { ...base }],
+        (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0),
+      )
+      halls.lowestScore = trimHall(
+        [...halls.lowestScore, { ...base }],
+        (a, b) => a.score - b.score || (a.at || 0) - (b.at || 0),
+      )
+      if (Number.isFinite(verified.closestKm)) {
+        halls.closestGuess = trimHall(
+          [...halls.closestGuess, { ...base, km: verified.closestKm }],
+          (a, b) => a.km - b.km || (a.at || 0) - (b.at || 0),
+        )
+      }
+      if (Number.isFinite(verified.farthestKm)) {
+        halls.farthestGuess = trimHall(
+          [...halls.farthestGuess, { ...base, km: verified.farthestKm }],
+          (a, b) => b.km - a.km || (a.at || 0) - (b.at || 0),
+        )
+      }
+
+      await saveHalls(halls)
+      sendJson(res, 201, {
+        entry: base,
+        halls: {
+          highestScore: halls.highestScore,
+          lowestScore: halls.lowestScore,
+          closestGuess: halls.closestGuess,
+          farthestGuess: halls.farthestGuess,
+        },
+        entries: halls.highestScore,
+      })
     } catch {
       sendJson(res, 400, { error: 'Invalid request' })
     }

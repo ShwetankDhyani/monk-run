@@ -230,6 +230,120 @@
     color: rgba(240, 201, 138, 0.92);
   }
 
+  .hall-grid {
+    display: grid;
+    gap: 1.25rem;
+  }
+  @media (min-width: 720px) {
+    .hall-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+  }
+  .hall-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    min-width: 0;
+  }
+  .hall-column-label {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0 0.15rem;
+  }
+  .hall-column--fame .hall-column-label {
+    color: rgba(125, 206, 160, 0.9);
+  }
+  .hall-column--shame .hall-column-label {
+    color: rgba(224, 122, 95, 0.9);
+  }
+  .hall-panel {
+    border: 1px solid rgba(212, 165, 116, 0.14);
+    border-radius: 0.85rem;
+    background: rgba(0, 0, 0, 0.28);
+    padding: 0.75rem 0.85rem 0.65rem;
+  }
+  .hall-column--fame .hall-panel {
+    border-color: rgba(125, 206, 160, 0.18);
+  }
+  .hall-column--shame .hall-panel {
+    border-color: rgba(224, 122, 95, 0.18);
+  }
+  .hall-panel-head {
+    margin-bottom: 0.55rem;
+  }
+  .hall-panel-title {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    color: var(--color-fog);
+  }
+  .hall-panel-sub {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    color: var(--color-muted);
+    margin-top: 0.1rem;
+  }
+  .hall-empty {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    padding: 0.55rem 0.15rem 0.35rem;
+  }
+  .hall-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .hall-row {
+    display: grid;
+    grid-template-columns: 1.4rem 2rem 1fr auto;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.4rem;
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .hall-rank {
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    color: var(--color-muted);
+    text-align: center;
+  }
+  .hall-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.35);
+  }
+  .hall-name {
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    color: var(--color-fog);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hall-stat {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .hall-stat--score {
+    color: #7dcea0;
+  }
+  .hall-column--shame .hall-stat--score {
+    color: #e07a5f;
+  }
+  .hall-stat--km {
+    color: #f0c98a;
+  }
+  .hall-column--shame .hall-stat--km {
+    color: #e8a07a;
+  }
+
   /* —— Atmosphere —— */
   .atmosphere {
     pointer-events: none;

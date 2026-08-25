@@ -110,11 +110,23 @@ export const COPY = {
   },
 
   leaderboard: {
-    title: 'All-time board',
+    title: 'Hall of Fame',
+    subtitle: 'and Hall of Shame',
     close: 'Close',
-    loading: 'Reading the board…',
-    empty: 'No names yet. Finish a match to claim a place.',
-    link: 'all-time board',
+    loading: 'Reading the halls…',
+    empty: 'No records yet. Finish a match to carve your name.',
+    emptyList: 'No entries yet.',
+    link: 'Hall of Fame',
+    fame: 'Hall of Fame',
+    shame: 'Hall of Shame',
+    highestScore: 'Highest score',
+    highestScoreHint: 'Top 5 match totals',
+    closestGuess: 'Closest guess',
+    closestGuessHint: 'Top 5 nearest pins',
+    lowestScore: 'Lowest score',
+    lowestScoreHint: 'Top 5 humblest totals',
+    farthestGuess: 'Farthest guess',
+    farthestGuessHint: 'Top 5 wildest misses',
   },
 
   podium: {

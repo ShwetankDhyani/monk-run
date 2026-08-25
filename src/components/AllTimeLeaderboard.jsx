@@ -3,38 +3,75 @@ import { useEffect, useRef, useState } from 'react'
 import { resolvePlayerLook, migrateVibeToAvatar } from '../data/avatars.js'
 import { drawMonkTopDown } from '../lib/avatarDraw.js'
 import { fetchLeaderboard } from '../lib/leaderboard.js'
+import { formatKm } from '../lib/scoring.js'
 
-function PodiumMonk({ entry, size = 88 }) {
+function HallMonk({ entry, size = 36 }) {
   const ref = useRef(null)
   useEffect(() => {
     const c = ref.current
     if (!c || !entry) return
     const ctx = c.getContext('2d')
     ctx.clearRect(0, 0, size, size)
-    const look = resolvePlayerLook(migrateVibeToAvatar(entry.avatarId || 'aot-eren'), entry.id || entry.name, [])
-    drawMonkTopDown(ctx, size / 2, size / 2 + (size > 48 ? 10 : 4), look, 'down', 0)
+    const look = resolvePlayerLook(
+      migrateVibeToAvatar(entry.avatarId || 'aot-eren'),
+      entry.id || entry.name,
+      [],
+    )
+    drawMonkTopDown(ctx, size / 2, size / 2 + (size > 40 ? 6 : 2), look, 'down', 0)
   }, [entry, size])
-  return <canvas ref={ref} width={size} height={size} className="drop-shadow-lg" />
+  return <canvas ref={ref} width={size} height={size} className="drop-shadow-md" />
 }
 
-const PODIUM_ORDER = [
-  { rank: 2, slot: 'left', height: 'h-20', medal: '🥈' },
-  { rank: 1, slot: 'center', height: 'h-28', medal: '🥇' },
-  { rank: 3, slot: 'right', height: 'h-16', medal: '🥉' },
-]
+function HallList({ title, subtitle, entries, kind, empty }) {
+  return (
+    <section className="hall-panel">
+      <header className="hall-panel-head">
+        <h3 className="hall-panel-title">{title}</h3>
+        <p className="hall-panel-sub">{subtitle}</p>
+      </header>
+      {entries.length === 0 ? (
+        <p className="hall-empty">{empty}</p>
+      ) : (
+        <ol className="hall-list">
+          {entries.slice(0, 5).map((e, i) => (
+            <li key={e.id || `${kind}-${i}-${e.name}`} className="hall-row">
+              <span className="hall-rank">{i + 1}</span>
+              <span className="hall-avatar">
+                <HallMonk entry={e} size={32} />
+              </span>
+              <span className="hall-name">{e.name}</span>
+              <span className={`hall-stat hall-stat--${kind}`}>
+                {kind === 'score' ? (e.score?.toLocaleString?.() ?? e.score) : formatKm(e.km)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
 
-function LeaderboardModal({ onClose, refreshKey }) {
-  const [entries, setEntries] = useState([])
+function HallsModal({ onClose, refreshKey }) {
+  const [halls, setHalls] = useState({
+    highestScore: [],
+    lowestScore: [],
+    closestGuess: [],
+    farthestGuess: [],
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
     setLoading(true)
-    fetchLeaderboard().then((list) => {
-      if (alive) {
-        setEntries(list.slice(0, 10))
-        setLoading(false)
-      }
+    fetchLeaderboard().then((data) => {
+      if (!alive) return
+      setHalls({
+        highestScore: data.highestScore || [],
+        lowestScore: data.lowestScore || [],
+        closestGuess: data.closestGuess || [],
+        farthestGuess: data.farthestGuess || [],
+      })
+      setLoading(false)
     })
     return () => {
       alive = false
@@ -49,8 +86,11 @@ function LeaderboardModal({ onClose, refreshKey }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const top3 = entries.slice(0, 3)
-  const rest = entries.slice(3, 10)
+  const empty =
+    !loading &&
+    [halls.highestScore, halls.lowestScore, halls.closestGuess, halls.farthestGuess].every(
+      (list) => list.length === 0,
+    )
 
   return (
     <div
@@ -59,77 +99,67 @@ function LeaderboardModal({ onClose, refreshKey }) {
       role="presentation"
     >
       <div
-        className="panel w-full max-w-lg overflow-hidden p-0 shadow-2xl"
+        className="panel hall-modal w-full max-w-3xl overflow-hidden p-0 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-labelledby="lb-title"
+        aria-labelledby="hall-title"
       >
         <div className="flex items-center justify-between border-b border-brass/15 px-5 py-4">
-          <h2 id="lb-title" className="font-display text-xl font-medium text-fog">{COPY.leaderboard.title}</h2>
+          <div>
+            <h2 id="hall-title" className="font-display text-xl font-medium text-fog">
+              {COPY.leaderboard.title}
+            </h2>
+            <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-muted">
+              {COPY.leaderboard.subtitle}
+            </p>
+          </div>
           <button type="button" className="btn btn-ghost px-3 py-1 text-sm" onClick={onClose}>
-            Close
+            {COPY.leaderboard.close}
           </button>
         </div>
 
-        <div className="px-5 py-6">
+        <div className="max-h-[min(78vh,720px)] overflow-y-auto px-5 py-5">
           {loading ? (
-            <p className="py-12 text-center text-sm text-muted animate-pulse">{COPY.leaderboard.loading}</p>
-          ) : entries.length === 0 ? (
+            <p className="animate-pulse py-12 text-center text-sm text-muted">{COPY.leaderboard.loading}</p>
+          ) : empty ? (
             <p className="py-12 text-center text-sm text-muted">{COPY.leaderboard.empty}</p>
           ) : (
-            <>
-              <div className="flex items-end justify-center gap-2 sm:gap-4">
-                {PODIUM_ORDER.map(({ rank, height, medal }) => {
-                  const entry = top3[rank - 1]
-                  if (!entry) {
-                    return (
-                      <div key={rank} className="flex w-[30%] max-w-[120px] flex-col items-center opacity-30">
-                        <div className={`mb-1 flex w-full items-end justify-center rounded-t-lg border border-white/10 bg-white/5 ${height}`} />
-                        <span className="text-xs text-muted">—</span>
-                      </div>
-                    )
-                  }
-                  return (
-                    <div key={rank} className="flex w-[30%] max-w-[120px] flex-col items-center">
-                      <PodiumMonk entry={entry} size={rank === 1 ? 96 : 80} />
-                      <p className="mt-1 max-w-full truncate text-center font-display text-sm font-bold text-fog">
-                        {entry.name}
-                      </p>
-                      <p className="font-mono text-sm text-mint">{entry.score.toLocaleString()}</p>
-                      <div
-                        className={`mt-2 flex w-full flex-col items-center justify-end rounded-t-lg border border-amber/30 bg-gradient-to-t from-amber/20 to-amber/5 ${height}`}
-                      >
-                        <span className="mb-2 text-2xl">{medal}</span>
-                        <span className="mb-1 font-display text-lg font-bold text-amber">{rank}</span>
-                      </div>
-                    </div>
-                  )
-                })}
+            <div className="hall-grid">
+              <div className="hall-column hall-column--fame">
+                <p className="hall-column-label">{COPY.leaderboard.fame}</p>
+                <HallList
+                  title={COPY.leaderboard.highestScore}
+                  subtitle={COPY.leaderboard.highestScoreHint}
+                  entries={halls.highestScore}
+                  kind="score"
+                  empty={COPY.leaderboard.emptyList}
+                />
+                <HallList
+                  title={COPY.leaderboard.closestGuess}
+                  subtitle={COPY.leaderboard.closestGuessHint}
+                  entries={halls.closestGuess}
+                  kind="km"
+                  empty={COPY.leaderboard.emptyList}
+                />
               </div>
-
-              {rest.length > 0 && (
-                <ol className="mt-8 space-y-2 border-t border-white/10 pt-6">
-                  {rest.map((e, i) => {
-                    const rank = i + 4
-                    return (
-                      <li
-                        key={e.id || rank}
-                        className="flex items-center justify-between rounded-xl bg-black/25 px-3 py-2.5"
-                      >
-                        <span className="flex min-w-0 items-center gap-3">
-                          <span className="w-6 shrink-0 font-display text-sm text-muted">{rank}</span>
-                          <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-white/10 bg-black/40">
-                            <PodiumMonk entry={e} size={32} />
-                          </span>
-                          <span className="truncate font-display text-sm text-fog">{e.name}</span>
-                        </span>
-                        <span className="shrink-0 font-mono text-sm text-mint">{e.score.toLocaleString()}</span>
-                      </li>
-                    )
-                  })}
-                </ol>
-              )}
-            </>
+              <div className="hall-column hall-column--shame">
+                <p className="hall-column-label">{COPY.leaderboard.shame}</p>
+                <HallList
+                  title={COPY.leaderboard.lowestScore}
+                  subtitle={COPY.leaderboard.lowestScoreHint}
+                  entries={halls.lowestScore}
+                  kind="score"
+                  empty={COPY.leaderboard.emptyList}
+                />
+                <HallList
+                  title={COPY.leaderboard.farthestGuess}
+                  subtitle={COPY.leaderboard.farthestGuessHint}
+                  entries={halls.farthestGuess}
+                  kind="km"
+                  empty={COPY.leaderboard.emptyList}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -144,10 +174,10 @@ export function AllTimeLeaderboardButton({ refreshKey = 0, className = '' }) {
     <>
       <div className={`flex justify-center ${className}`}>
         <button type="button" className="lb-footlink" onClick={() => setOpen(true)}>
-          all-time leaderboard
+          {COPY.leaderboard.link}
         </button>
       </div>
-      {open && <LeaderboardModal onClose={() => setOpen(false)} refreshKey={refreshKey} />}
+      {open && <HallsModal onClose={() => setOpen(false)} refreshKey={refreshKey} />}
     </>
   )
 }

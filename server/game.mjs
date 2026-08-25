@@ -98,6 +98,8 @@ export async function createGameSession(roomCode, rounds = 5, mapsKey = '') {
     /** @type {Map<number, object>} */
     roundSnapshots: new Map(),
     totals: /** @type {Record<string, number>} */ ({}),
+    /** Best / worst guess distance (km) per player across revealed rounds */
+    kmStats: /** @type {Record<string, { closestKm: number|null, farthestKm: number|null }>} */ ({}),
     /** Player ids that already posted to the all-time board this session */
     consumedCommits: new Set(),
     createdAt: Date.now(),
@@ -177,6 +179,13 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
     const km = missed ? null : haversineKm({ lat, lng }, { lat: truthLoc.lat, lng: truthLoc.lng })
     const score = missed ? 0 : scoreFromDistanceKm(km)
     session.totals[playerId] = (session.totals[playerId] || 0) + score
+    if (Number.isFinite(km)) {
+      if (!session.kmStats) session.kmStats = {}
+      const prev = session.kmStats[playerId] || { closestKm: null, farthestKm: null }
+      if (prev.closestKm == null || km < prev.closestKm) prev.closestKm = km
+      if (prev.farthestKm == null || km > prev.farthestKm) prev.farthestKm = km
+      session.kmStats[playerId] = prev
+    }
     return {
       playerId,
       name: String(g.name || '').slice(0, 24),
@@ -220,19 +229,26 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
 /**
  * Verify + consume a one-shot leaderboard commit for this session.
  * Score must match the server's cumulative total for that player.
+ * Returns match stats (including server-tracked closest/farthest km) or null.
  */
 export function consumeLeaderboardCommit(sessionId, playerId, score, token) {
   const session = sessions.get(sessionId)
-  if (!session) return false
+  if (!session) return null
   const pid = String(playerId || '')
-  if (!pid || !token) return false
+  if (!pid || !token) return null
+  if (!(pid in (session.totals || {}))) return null
   const expectedScore = Math.round(session.totals[pid] || 0)
-  if (expectedScore <= 0 || Math.round(score) !== expectedScore) return false
-  if (!verifyLeaderboardCommit(sessionId, pid, expectedScore, token)) return false
+  if (Math.round(score) !== expectedScore) return null
+  if (!verifyLeaderboardCommit(sessionId, pid, expectedScore, token)) return null
   if (!session.consumedCommits) session.consumedCommits = new Set()
-  if (session.consumedCommits.has(pid)) return false
+  if (session.consumedCommits.has(pid)) return null
   session.consumedCommits.add(pid)
-  return true
+  const km = session.kmStats?.[pid] || {}
+  return {
+    score: expectedScore,
+    closestKm: Number.isFinite(km.closestKm) ? km.closestKm : null,
+    farthestKm: Number.isFinite(km.farthestKm) ? km.farthestKm : null,
+  }
 }
 
 export { haversineKm, scoreFromDistanceKm }

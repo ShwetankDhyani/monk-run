@@ -1,13 +1,27 @@
-/** All-time top scores — submissions must include a server commit token. */
+/** Hall of Fame / Hall of Shame — submissions need a server commit token. */
+
+const EMPTY_HALLS = {
+  highestScore: [],
+  lowestScore: [],
+  closestGuess: [],
+  farthestGuess: [],
+}
 
 export async function fetchLeaderboard() {
   try {
     const res = await fetch('/api/leaderboard')
-    if (!res.ok) return []
+    if (!res.ok) return { ...EMPTY_HALLS, entries: [] }
     const data = await res.json()
-    return data.entries || []
+    const halls = data.halls || EMPTY_HALLS
+    return {
+      highestScore: halls.highestScore || [],
+      lowestScore: halls.lowestScore || [],
+      closestGuess: halls.closestGuess || [],
+      farthestGuess: halls.farthestGuess || [],
+      entries: data.entries || halls.highestScore || [],
+    }
   } catch {
-    return []
+    return { ...EMPTY_HALLS, entries: [] }
   }
 }
 
