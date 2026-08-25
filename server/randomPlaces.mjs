@@ -236,6 +236,7 @@ async function reverseGeocode(lat, lng) {
         'Accept-Language': 'en',
         'User-Agent': 'monk.run/1.0 (https://monk.run; party geography game)',
       },
+      signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) return { country: 'Unknown', city: '' }
     const data = await res.json()

@@ -1126,12 +1126,24 @@ export default function App() {
           <BrandMark className="mx-auto mb-4 h-12 w-12 animate-pulse text-brass" />
           <p className="landing-label">
             {room.phase === 'revealing'
-              ? 'Scoring the round…'
+              ? COPY.loading.scoring
               : COPY.loading.round(room.roundIndex + 1)}
           </p>
           <p className="mt-2 font-display text-3xl text-brass-bright">
-            {room.phase === 'revealing' ? 'Fair reckoning' : COPY.loading.title}
+            {room.phase === 'revealing' ? COPY.loading.scoringTitle : COPY.loading.title}
           </p>
+          {room.message && room.message !== 'Scoring…' && room.message !== 'Results' && (
+            <p className="mt-4 text-sm text-coral">{playerError(room.message)}</p>
+          )}
+          {room.phase === 'revealing' && room.isHost && (
+            <button
+              type="button"
+              className="btn btn-primary mt-6 min-h-12 w-full max-w-xs"
+              onClick={() => ctrlRef.current.revealRound()}
+            >
+              {COPY.loading.retryScore}
+            </button>
+          )}
         </div>
         {room.viewToken && room.phase === 'loading-round' && (
           <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>

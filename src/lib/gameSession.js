@@ -45,7 +45,7 @@ export async function openRoundView(sessionId, roundIndex) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       },
-      { retries: 3, delayMs: 300 },
+      { retries: 3, delayMs: 300, timeoutMs: 22_000 },
     )
   } catch (err) {
     throw new Error(playerError(err, 'Round didn’t load. Try again.'))
@@ -70,12 +70,27 @@ export async function revealRoundScores(sessionId, hostToken, roundIndex, guesse
         },
         body: JSON.stringify({ hostToken, guesses }),
       },
-      { retries: 3, delayMs: 300 },
+      { retries: 2, delayMs: 400, timeoutMs: 28_000 },
     )
   } catch (err) {
     throw new Error(playerError(err, 'Couldn’t score this round. Try again.'))
   }
-  if (!res.ok) throw new Error('Couldn’t score this round. Try again.')
+  if (!res.ok) {
+    let detail = ''
+    try {
+      const body = await res.json()
+      detail = String(body?.error || '')
+    } catch {
+      /* ignore */
+    }
+    if (res.status === 403) {
+      throw new Error(
+        detail ||
+          'Scoring session expired on the server — start a new match from the temple.',
+      )
+    }
+    throw new Error(detail || 'Couldn’t score this round. Try again.')
+  }
   return res.json()
 }
 

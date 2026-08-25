@@ -170,6 +170,9 @@ export const COPY = {
   loading: {
     round: (n) => `Round ${n}`,
     title: 'A place takes shape…',
+    scoring: 'Scoring the round…',
+    scoringTitle: 'Fair reckoning',
+    retryScore: 'Retry scoring',
   },
 
   play: {

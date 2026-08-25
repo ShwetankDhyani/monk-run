@@ -60,6 +60,8 @@ export function createRoomController({ onState, onError, onEvent }) {
   let roundLoadGen = 0
   let revealGen = 0
   let pendingRoundIndex = 0
+  let revealRetryScheduled = false
+  let revealInFlight = false
 
   function emitLobbyPoses() {
     const now = Date.now()
@@ -94,6 +96,9 @@ export function createRoomController({ onState, onError, onEvent }) {
       message: '',
       localOnly: false,
       myCommit: null,
+      revealingStartedAt: 0,
+      roundLoadStartedAt: 0,
+      phaseStuckSince: 0,
     }
   }
 
@@ -323,6 +328,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (msg.type === 'sync') {
       const keepCommit = state.myCommit
+      const prevPhase = state.phase
       state = {
         ...state,
         ...msg.state,
@@ -330,6 +336,9 @@ export function createRoomController({ onState, onError, onEvent }) {
         selfId: state.selfId,
         localOnly: false,
         myCommit: keepCommit,
+      }
+      if (msg.state.phase !== prevPhase) {
+        state.phaseStuckSince = Date.now()
       }
       emit()
       return
@@ -666,6 +675,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   function cancelPendingReveal() {
     revealGen++
+    revealInFlight = false
   }
 
   /** Sync transition once the next panorama token is ready. */
@@ -700,6 +710,8 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.roundEndsAt = 0
     state.phase = 'loading-round'
     state.viewToken = ''
+    state.roundLoadStartedAt = Date.now()
+    state.phaseStuckSince = Date.now()
     pushSync()
 
     try {
@@ -707,13 +719,15 @@ export function createRoomController({ onState, onError, onEvent }) {
       if (gen !== roundLoadGen) return
       state.viewToken = opened.viewToken
       secrets.currentLocationId = opened.locationId
-    } catch {
+    } catch (err) {
       if (gen !== roundLoadGen) return
-      fail('Couldn’t load this round. Head back and try PLAY again.')
+      state.roundLoadStartedAt = 0
+      fail(playerError(err, 'Couldn’t load this round. Head back and try PLAY again.'))
       return
     }
 
     if (gen !== roundLoadGen) return
+    state.roundLoadStartedAt = 0
     state.phase = 'playing'
     state.roundStartedAt = Date.now()
     state.roundEndsAt = Date.now() + state.roundTimeMs
@@ -845,41 +859,102 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function revealRound() {
-    if (state.phase !== 'playing') return
+    if (state.phase !== 'playing' && state.phase !== 'revealing') return
+    cancelPendingReveal()
     void revealRoundAsync()
   }
 
   async function revealRoundAsync() {
-    if (!actingHost || state.phase !== 'playing') return
+    if (!actingHost) return
+    if (state.phase !== 'playing' && state.phase !== 'revealing') return
+    if (revealInFlight) return
+    revealInFlight = true
     const gen = revealGen
     const idx = state.roundIndex
-    // Enter revealing immediately so timer / all-locked cannot race a second score.
-    state.phase = 'revealing'
-    state.roundEndsAt = 0
-    state.message = 'Scoring…'
-    pushSync()
-    const reveal = await buildRevealAsync()
-    if (gen !== revealGen || state.roundIndex !== idx) return
-    if (state.phase !== 'revealing') return
-    if (!reveal) {
-      state.phase = 'playing'
-      state.message = 'Couldn’t score — try ending the round again.'
+    if (state.phase === 'playing') {
+      state.phase = 'revealing'
+      state.roundEndsAt = 0
+      state.revealingStartedAt = Date.now()
+      state.phaseStuckSince = Date.now()
+      state.message = 'Scoring…'
       pushSync()
+    }
+    try {
+      const reveal = await buildRevealAsync()
+      if (gen !== revealGen || state.roundIndex !== idx) return
+      if (state.phase !== 'revealing') return
+      if (!reveal) {
+        state.revealingStartedAt = 0
+        state.phase = 'playing'
+        state.message = 'Couldn’t score — try ending the round again.'
+        pushSync()
+        return
+      }
+      deliverCommits(reveal)
+      state.reveal = publicReveal(reveal)
+      state.viewToken = ''
+      state.scores = { ...(reveal.totals || {}) }
+      state.phase = 'reveal'
+      state.revealingStartedAt = 0
+      state.message = 'Results'
+      pushSync()
+    } catch (err) {
+      if (gen !== revealGen || state.roundIndex !== idx) return
+      if (state.phase !== 'revealing') return
+      state.revealingStartedAt = 0
+      state.phase = 'playing'
+      state.message = playerError(err, 'Couldn’t score this round. Try ending the round again.')
+      pushSync()
+    } finally {
+      revealInFlight = false
+    }
+  }
+
+  function clientStuckWatchdog() {
+    if (state.phase !== 'loading-round' && state.phase !== 'revealing') {
+      state.phaseStuckSince = 0
       return
     }
-    deliverCommits(reveal)
-    // Strip tokens before storing in shared reveal state
-    state.reveal = publicReveal(reveal)
-    state.viewToken = ''
-    // Use server cumulative totals — do not re-add on the client.
-    state.scores = { ...(reveal.totals || {}) }
-    state.phase = 'reveal'
-    state.message = 'Results'
-    pushSync()
+    if (!state.phaseStuckSince) state.phaseStuckSince = Date.now()
+    const elapsed = Date.now() - state.phaseStuckSince
+    if (elapsed < 55_000) return
+    state.phaseStuckSince = 0
+    fail(
+      state.phase === 'revealing'
+        ? 'Round scoring stalled. Ask the host to retry, or return to the temple.'
+        : 'Round load stalled. Return to the temple and start again.',
+    )
+  }
+
+  function hostStuckWatchdog() {
+    if (state.phase === 'revealing' && state.revealingStartedAt > 0) {
+      const elapsed = Date.now() - state.revealingStartedAt
+      if (elapsed > 32_000 && !revealRetryScheduled && !revealInFlight) {
+        revealRetryScheduled = true
+        void revealRoundAsync().finally(() => {
+          revealRetryScheduled = false
+        })
+      } else if (elapsed > 65_000) {
+        state.revealingStartedAt = 0
+        fail('Scoring timed out. Return to the temple and start a new match.')
+      }
+      return
+    }
+    if (state.phase === 'loading-round' && state.roundLoadStartedAt > 0) {
+      const elapsed = Date.now() - state.roundLoadStartedAt
+      if (elapsed > 50_000) {
+        state.roundLoadStartedAt = 0
+        fail('Round load timed out. Return to the temple and start a new match.')
+      }
+    }
   }
 
   function tick() {
-    if (!actingHost) return
+    if (!actingHost) {
+      clientStuckWatchdog()
+      return
+    }
+    hostStuckWatchdog()
     if (state.phase === 'countdown' && Date.now() >= state.countdownEndsAt) {
       // Wait until game session exists — place picking can finish after the portal animation
       if (!secrets.gameSessionId) {

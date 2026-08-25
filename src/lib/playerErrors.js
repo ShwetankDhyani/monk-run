@@ -36,16 +36,29 @@ export function playerError(err, fallback = COPY.errors.default) {
 export async function fetchRetry(url, init = {}, opts = {}) {
   const retries = opts.retries ?? 3
   const delayMs = opts.delayMs ?? 400
+  const timeoutMs = opts.timeoutMs ?? 0
   let lastErr
   for (let i = 0; i < retries; i++) {
+    const controller = timeoutMs > 0 ? new AbortController() : null
+    const timer =
+      controller && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null
     try {
-      const res = await fetch(url, init)
+      const res = await fetch(url, {
+        ...init,
+        signal: controller?.signal ?? init?.signal,
+      })
+      if (timer) clearTimeout(timer)
       if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429)) {
         return res
       }
       lastErr = new Error(`HTTP ${res.status}`)
     } catch (e) {
-      lastErr = e
+      if (timer) clearTimeout(timer)
+      if (e?.name === 'AbortError' && timeoutMs > 0) {
+        lastErr = new Error('Request timed out')
+      } else {
+        lastErr = e
+      }
     }
     if (i < retries - 1) await new Promise((r) => setTimeout(r, delayMs * (i + 1)))
   }
