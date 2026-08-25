@@ -245,3 +245,39 @@ export function drawNearnessBond(ctx, ax, ay, bx, by) {
   ctx.stroke()
   ctx.setLineDash([])
 }
+
+/** Small floor clutter that gets swept into the portal. */
+export function spawnPortalDebris(cx, cy, count = 16) {
+  return Array.from({ length: count }, (_, i) => {
+    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.4
+    const rad = 140 + Math.random() * 340
+    return {
+      x: cx + Math.cos(angle) * rad,
+      y: cy + Math.sin(angle) * rad,
+      vx: 0,
+      vy: 0,
+      mass: 0.35 + Math.random() * 1.1,
+      r: 4 + Math.random() * 7,
+      rot: Math.random() * Math.PI * 2,
+      hue: i % 3,
+    }
+  })
+}
+
+export function drawPortalDebris(ctx, p, t) {
+  if (p.x == null || p.y == null) return
+  ctx.save()
+  ctx.translate(p.x, p.y)
+  ctx.rotate(p.rot || 0)
+  const colors = ['#5ec4b6', '#d4a574', '#e07a5f']
+  ctx.fillStyle = colors[p.hue % 3] || '#5ec4b6'
+  ctx.globalAlpha = 0.85
+  ctx.beginPath()
+  ctx.roundRect(-p.r, -p.r * 0.6, p.r * 2, p.r * 1.2, 2)
+  ctx.fill()
+  ctx.globalAlpha = 0.35 + Math.sin(t * 8 + p.x) * 0.1
+  ctx.strokeStyle = '#f0c98a'
+  ctx.lineWidth = 1
+  ctx.stroke()
+  ctx.restore()
+}

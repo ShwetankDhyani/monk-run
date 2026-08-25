@@ -11,6 +11,8 @@ import {
   drawSpeechBubble,
   drawSocialNameplate,
   drawNearnessBond,
+  spawnPortalDebris,
+  drawPortalDebris,
 } from '../lib/lobbyWorlds.js'
 
 const WORLD = { w: 1280, h: 720 }
@@ -120,6 +122,60 @@ function nearestPlayer(x, y, peers, players, maxDist = 55) {
   return best
 }
 
+/** Inverse-square pull — speed builds as monks fall toward the singularity. */
+const BH_G = 1_350_000
+const BH_SOFT = 65
+const BH_SWIRL = 240
+
+function applyBlackHolePull(body, bhX, bhY, dt, suck, mass = 1, maxSpeed = 3000) {
+  const dx = bhX - body.x
+  const dy = bhY - body.y
+  const distSq = dx * dx + dy * dy
+  const dist = Math.sqrt(distSq) || 0.001
+  const accel = (BH_G * suck * suck) / ((distSq + BH_SOFT * BH_SOFT) * mass)
+
+  if (body.vx == null) body.vx = 0
+  if (body.vy == null) body.vy = 0
+
+  body.vx += (dx / dist) * accel * dt
+  body.vy += (dy / dist) * accel * dt
+
+  const swirl = (BH_SWIRL * suck * suck) / mass
+  body.vx += (-dy / dist) * swirl * dt
+  body.vy += (dx / dist) * swirl * dt
+
+  const speed = Math.hypot(body.vx, body.vy)
+  if (speed > maxSpeed) {
+    const cap = maxSpeed / speed
+    body.vx *= cap
+    body.vy *= cap
+  }
+
+  body.x += body.vx * dt
+  body.y += body.vy * dt
+
+  const proximity = Math.min(1, 360 / dist)
+  const speedFactor = Math.min(1, speed / 1400)
+  return {
+    stretchX: Math.max(0.05, 1 - suck * proximity * 0.9),
+    stretchY: 1 + suck * proximity * 3.8 + speedFactor * suck * 1.4,
+    spin: suck * proximity * 15 + speedFactor * 5,
+  }
+}
+
+function kickTowardHole(body, bhX, bhY, strength = 160) {
+  const dx = bhX - body.x
+  const dy = bhY - body.y
+  const dist = Math.hypot(dx, dy) || 1
+  body.vx = (dx / dist) * strength
+  body.vy = (dy / dist) * strength
+}
+
+function clearBodyVelocity(body) {
+  body.vx = 0
+  body.vy = 0
+}
+
 export function MonkLobby({
   selfId,
   players,
@@ -158,6 +214,8 @@ export function MonkLobby({
   const callbacksRef = useRef({ onPose, onSmack, onEmote })
   const countdownRef = useRef(countdownSec)
   const bhRef = useRef({ x: blackHoleX, y: blackHoleY })
+  const wasSuckingRef = useRef(false)
+  const debrisSpawnedRef = useRef(false)
   const [actionMenu, setActionMenu] = useState(null)
   playersRef.current = players
   callbacksRef.current = { onPose, onSmack, onEmote }
@@ -374,6 +432,22 @@ export function MonkLobby({
       pulseRef.current = Math.max(0, pulseRef.current - dt * 1.8)
       const colliders = [...(world.colliders || []), ...propColliders(props)]
 
+      if (sucking && !wasSuckingRef.current) {
+        kickTowardHole(me, BH.x, BH.y, 140 + suck * 120)
+        for (const peer of peersRef.current.values()) kickTowardHole(peer, BH.x, BH.y, 120 + suck * 100)
+        if (!debrisSpawnedRef.current) {
+          propsRef.current = spawnPortalDebris(BH.x, BH.y)
+          debrisSpawnedRef.current = true
+        }
+      }
+      if (!sucking && wasSuckingRef.current) {
+        clearBodyVelocity(me)
+        for (const peer of peersRef.current.values()) clearBodyVelocity(peer)
+        propsRef.current = HANGOUT.makeProps(blackHoleX, blackHoleY)
+        debrisSpawnedRef.current = false
+      }
+      wasSuckingRef.current = sucking
+
       if (!sucking) {
         let dx = 0
         let dy = 0
@@ -386,19 +460,15 @@ export function MonkLobby({
         }
         if (dx || dy) {
           const len = Math.hypot(dx, dy) || 1
-                    moveEntity(me, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt, colliders)
+          moveEntity(me, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt, colliders)
           me.dir = dirFromDelta(dx, dy, me.dir)
           me.walk += dt
         } else me.walk *= 0.85
         suckLocal.current = { stretchX: 1, stretchY: 1, spin: 0 }
       } else {
-        const dist = Math.hypot(BH.x - me.x, BH.y - me.y) || 1
-        const pull = (420 + suck * 1800) * dt
-        me.x += ((BH.x - me.x) / dist) * pull
-        me.y += ((BH.y - me.y) / dist) * pull
+        suckLocal.current = applyBlackHolePull(me, BH.x, BH.y, dt, suck, 1, 3200)
         me.dir = dirFromDelta(BH.x - me.x, BH.y - me.y, me.dir)
-        me.walk += dt * 5
-        suckLocal.current = { stretchX: Math.max(0.08, 1 - suck * 0.88), stretchY: 1 + suck * 3.2, spin: suck * 10 }
+        me.walk += dt * (2 + Math.hypot(me.vx, me.vy) * 0.004)
       }
 
       if (now - lastSend.current > 45) {
@@ -407,21 +477,18 @@ export function MonkLobby({
       }
 
       for (const peer of peersRef.current.values()) {
-        if (peer.tx != null) {
+        if (!sucking && peer.tx != null) {
           peer.x += (peer.tx - peer.x) * Math.min(1, dt * 28)
           peer.y += (peer.ty - peer.y) * Math.min(1, dt * 28)
         }
         if (peer.tDir != null) peer.dir = peer.tDir
         peer.walk = (peer.walk || 0) + dt
         if (sucking) {
-          const dist = Math.hypot(BH.x - peer.x, BH.y - peer.y) || 1
-          const pull = (380 + suck * 1600) * dt
-          peer.x += ((BH.x - peer.x) / dist) * pull
-          peer.y += ((BH.y - peer.y) / dist) * pull
+          const deform = applyBlackHolePull(peer, BH.x, BH.y, dt, suck, 1.05, 3000)
           peer.dir = dirFromDelta(BH.x - peer.x, BH.y - peer.y, peer.dir || 'down')
-          peer.stretchX = Math.max(0.08, 1 - suck * 0.85)
-          peer.stretchY = 1 + suck * 2.8
-          peer.spin = suck * 9
+          peer.stretchX = deform.stretchX
+          peer.stretchY = deform.stretchY
+          peer.spin = deform.spin
         } else {
           peer.stretchX = 1
           peer.stretchY = 1
@@ -431,17 +498,8 @@ export function MonkLobby({
 
       for (const p of props) {
         if (sucking) {
-          const dx = BH.x - p.x
-          const dy = BH.y - p.y
-          const dist = Math.hypot(dx, dy) || 1
-          const pull = (180 + suck * 2200 / p.mass) * dt
-          p.vx += (dx / dist) * pull
-          p.vy += (dy / dist) * pull
-          p.vx += (-dy / dist) * suck * 120 * dt
-          p.vy += (dx / dist) * suck * 120 * dt
-          p.x += p.vx * dt
-          p.y += p.vy * dt
-          p.rot += suck * 8 * dt * (1 / p.mass)
+          applyBlackHolePull(p, BH.x, BH.y, dt, suck, p.mass || 1, 3600)
+          p.rot = (p.rot || 0) + (p.vx * -0.002 + p.vy * 0.002) * dt * 8
         }
       }
 
@@ -449,7 +507,7 @@ export function MonkLobby({
       ctx.fillStyle = '#0a0a0e'
       ctx.fillRect(0, 0, WORLD.w, WORLD.h)
       drawHangoutRoom(ctx, t, { voiceLevel: voiceRef.current || 0, pulse: pulseRef.current })
-      for (const p of props) world.drawProp(ctx, p, t)
+      for (const p of props) drawPortalDebris(ctx, p, t)
       if (bhScale > 0.002) drawBlackHole(ctx, t, BH.x, BH.y, bhScale, suck, birth)
 
       const list = [...peersRef.current.entries()]
@@ -533,7 +591,7 @@ export function MonkLobby({
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#0c0e14]">
+    <div className="monk-lobby relative h-full w-full overflow-hidden bg-[#0c0e14]">
       <canvas ref={canvasRef} width={WORLD.w} height={WORLD.h} className="h-full w-full touch-none object-contain" tabIndex={0} />
       {chrome && (
       <div className="lobby-room-hud pointer-events-none absolute left-2 top-2 right-2 z-10 flex flex-wrap items-start justify-between gap-2">
