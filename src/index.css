@@ -31,13 +31,16 @@
   body,
   #root {
     height: 100%;
+    height: 100dvh;
     margin: 0;
+    overflow: hidden;
   }
   body {
     background: var(--color-void);
     color: var(--color-fog);
     font-family: var(--font-body);
     overflow: hidden;
+    overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
   }
   ::selection {
@@ -441,16 +444,49 @@
   .landing-ctas .btn {
     min-width: 10rem;
     min-height: 3rem;
-    flex: 1 1 10rem;
+    flex: 0 1 10rem;
   }
   .landing-gate {
-    margin-top: 1.75rem;
+    margin-top: 1.25rem;
     width: 100%;
     max-width: min(34rem, 100%);
     margin-left: auto;
     margin-right: auto;
     text-align: left;
     animation: gate-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .landing-gate-scroll {
+    display: flex;
+    flex-direction: column;
+  }
+  .landing-gate-action {
+    margin-top: 1.25rem;
+  }
+  /* Gate mode: compact brand + always-visible temple CTA on phones */
+  .landing--gate .landing-hero {
+    min-height: 0;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    padding-top: 0.35rem;
+    padding-bottom: 0.5rem;
+  }
+  .landing--gate .landing-brand {
+    flex-direction: row;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: center;
+  }
+  .landing--gate .landing-globe {
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0;
+  }
+  .landing--gate .landing-title {
+    font-size: clamp(1.85rem, 7vw, 2.6rem);
+    line-height: 1;
+  }
+  .landing--gate .landing-below {
+    display: none;
   }
   .landing-back {
     appearance: none;
@@ -560,26 +596,29 @@
     position: relative;
     display: flex;
     height: 100%;
-    min-height: 100%;
-    min-height: 100dvh;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
     flex-direction: column;
+    overflow: hidden;
     background: var(--color-void);
   }
   .lobby-header {
     position: relative;
-    z-index: 2;
+    z-index: 20;
+    flex-shrink: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.85rem;
+    gap: 0.65rem;
     padding:
-      max(0.75rem, env(safe-area-inset-top))
-      max(1rem, env(safe-area-inset-right))
-      0.85rem
-      max(1rem, env(safe-area-inset-left));
+      max(0.65rem, env(safe-area-inset-top))
+      max(0.75rem, env(safe-area-inset-right))
+      0.65rem
+      max(0.75rem, env(safe-area-inset-left));
     border-bottom: 1px solid rgba(212, 165, 116, 0.14);
-    background: linear-gradient(180deg, rgba(18, 24, 32, 0.85) 0%, rgba(6, 8, 14, 0.4) 100%);
+    background: linear-gradient(180deg, rgba(18, 24, 32, 0.94) 0%, rgba(6, 8, 14, 0.88) 100%);
     backdrop-filter: blur(10px);
   }
   .pin-plate,
@@ -656,6 +695,10 @@
       max(0.75rem, env(safe-area-inset-bottom))
       max(0.75rem, env(safe-area-inset-left));
   }
+  .play-map-body {
+    min-height: 0;
+    overflow: hidden;
+  }
   .play-lock-btn {
     position: relative;
     z-index: 50;
@@ -695,6 +738,23 @@
   @media (max-width: 640px) {
     .play-map {
       max-height: 48dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .play-map-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .play-lock-btn {
+      position: relative;
+      z-index: 60;
+      flex-shrink: 0;
+      margin-top: 0.5rem !important;
+    }
+    .guess-map,
+    .guess-map .leaflet-container {
+      max-height: 100%;
     }
     .guess-map-hint {
       display: none;
@@ -706,8 +766,142 @@
       min-height: 0 !important;
     }
     .play-hud .hud-chip--scores { display: none; }
-    .landing-ctas { flex-direction: column; align-items: stretch; }
-    .landing-ctas .btn { width: 100%; min-width: 0; }
+    .landing-ctas {
+      flex-direction: column;
+      align-items: stretch;
+      margin-top: 1.5rem;
+      gap: 0.65rem;
+    }
+    .landing-ctas .btn {
+      width: 100%;
+      min-width: 0;
+      flex: 0 0 auto;
+      height: auto;
+      min-height: 3rem;
+    }
+    .landing-title {
+      font-size: clamp(2.8rem, 14vw, 4.2rem);
+    }
+    .landing-globe {
+      width: clamp(5.5rem, 26vw, 8rem);
+      height: clamp(5.5rem, 26vw, 8rem);
+    }
+    /* Temple gate: keep Open/Enter CTA pinned on screen */
+    .landing--gate {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    .landing--gate .landing-stage {
+      min-height: 100%;
+      min-height: 100dvh;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      padding-top: max(0.65rem, env(safe-area-inset-top));
+      padding-bottom: 0;
+      justify-content: flex-start;
+    }
+    .landing--gate .landing-hero {
+      min-height: 0;
+      height: 100%;
+      flex: 1 1 auto;
+      overflow: hidden;
+      justify-content: flex-start;
+      padding: 0.25rem 0 0;
+    }
+    .landing--gate .landing-gate {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      margin-top: 0.65rem;
+      max-width: 100%;
+    }
+    .landing--gate .landing-gate-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding-bottom: 0.35rem;
+    }
+    .landing--gate .landing-gate-action {
+      flex-shrink: 0;
+      margin-top: 0;
+      padding: 0.65rem 0 max(0.85rem, env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(6, 8, 14, 0) 0%, rgba(6, 8, 14, 0.92) 32%, rgba(6, 8, 14, 0.98) 100%);
+      z-index: 6;
+    }
+    .landing--gate .landing-gate-action .btn {
+      min-height: 3.15rem;
+      touch-action: manipulation;
+    }
+    .scout-grid {
+      gap: 0.4rem;
+    }
+    .lobby-shell {
+      height: 100dvh;
+      max-height: 100dvh;
+      overflow: hidden;
+    }
+    .lobby-header {
+      gap: 0.5rem;
+    }
+    .lobby-header .btn-primary {
+      min-height: 2.85rem;
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+    }
+    .lobby-main {
+      grid-template-rows: minmax(28vh, 1fr) auto;
+      min-height: 0;
+      overflow: hidden;
+      padding: 0.5rem;
+      gap: 0.5rem;
+    }
+    .lobby-canvas-wrap {
+      min-height: 28vh;
+    }
+    .lobby-main .panel {
+      max-height: 42dvh;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+
+  @media (max-width: 640px) and (max-height: 700px) {
+    .play-map {
+      max-height: 38dvh;
+      display: grid !important;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      align-content: stretch;
+    }
+    .play-map-body {
+      min-height: 0 !important;
+      max-height: none;
+      overflow: hidden !important;
+    }
+    .play-lock-btn {
+      grid-row: 3;
+      z-index: 80;
+      background: linear-gradient(120deg, #c4925a 0%, #e8c08a 48%, #b8844e 100%) !important;
+      box-shadow: 0 -10px 24px rgba(6, 8, 14, 0.9);
+    }
+    .guess-map-countries {
+      display: none;
+    }
+    .guess-map {
+      min-height: 0 !important;
+      height: 100% !important;
+    }
+    .guess-map .leaflet-container {
+      min-height: 0 !important;
+      height: 100% !important;
+      max-height: 100% !important;
+    }
   }
 
   .reveal-place {

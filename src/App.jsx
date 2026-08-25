@@ -410,6 +410,14 @@ export default function App() {
     voiceRef.current?.refresh?.()
   }, [room?.players?.length])
 
+  // Mobile browsers sometimes keep a stale window scroll from the landing gate,
+  // which clips the temple header / PLAY control. Pin scroll on screen changes.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }, [screen, room?.phase, gateMode])
+
   const sendChat = (e) => {
     e?.preventDefault?.()
     const text = chatDraft.trim()
@@ -442,7 +450,7 @@ export default function App() {
             <div className="landing-brand">
               <TempleGlobe className="landing-globe" />
               <h1 className="landing-title">{COPY.brand}</h1>
-              <p className="landing-tag">{COPY.landing.tag}</p>
+              {!gateMode && <p className="landing-tag">{COPY.landing.tag}</p>}
             </div>
 
             {!gateMode && (
@@ -458,87 +466,102 @@ export default function App() {
 
             {gateMode && (
               <div className="landing-gate">
-                <button
-                  type="button"
-                  className="landing-back"
-                  onClick={() => setGateMode(null)}
-                >
-                  {COPY.landing.back}
-                </button>
+                <div className="landing-gate-scroll">
+                  <button
+                    type="button"
+                    className="landing-back"
+                    onClick={() => setGateMode(null)}
+                  >
+                    {COPY.landing.back}
+                  </button>
 
-                <label className="landing-label">{COPY.landing.nameLabel}</label>
-                <input
-                  className="input-clean mt-1"
-                  maxLength={18}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={COPY.landing.namePlaceholder}
-                  autoFocus
-                />
+                  <label className="landing-label">{COPY.landing.nameLabel}</label>
+                  <input
+                    className="input-clean mt-1"
+                    maxLength={18}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={COPY.landing.namePlaceholder}
+                    enterKeyHint="done"
+                    autoComplete="nickname"
+                  />
 
-                {gateMode === 'create' && (
-                  <>
-                    <p className="landing-label mt-6">{COPY.landing.scoutLabel}</p>
-                    <AvatarPicker
-                      value={avatar}
-                      onChange={(id) => {
-                        setAvatar(id)
-                        localStorage.setItem('monk-avatar', id)
-                      }}
-                    />
-                    <p className="landing-hint">{COPY.landing.scoutHint}</p>
-                    <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
-                      {COPY.landing.openTemple}
-                    </button>
-                  </>
-                )}
+                  {gateMode === 'create' && (
+                    <>
+                      <p className="landing-label mt-5">{COPY.landing.scoutLabel}</p>
+                      <AvatarPicker
+                        value={avatar}
+                        onChange={(id) => {
+                          setAvatar(id)
+                          localStorage.setItem('monk-avatar', id)
+                        }}
+                      />
+                      <p className="landing-hint">{COPY.landing.scoutHint}</p>
+                    </>
+                  )}
 
-                {gateMode === 'join' && (
-                  <>
-                    <p className="landing-label mt-5">{COPY.landing.scoutLabel}</p>
-                    <AvatarPicker
-                      value={avatar}
-                      onChange={(id) => {
-                        setAvatar(id)
-                        localStorage.setItem('monk-avatar', id)
-                      }}
-                    />
-                    <label className="landing-label mt-6">{COPY.landing.pinLabel}</label>
-                    <input
-                      className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      value={joinCode}
-                      onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && pinReady && !busy) join()
-                      }}
-                      placeholder="000000"
-                    />
+                  {gateMode === 'join' && (
+                    <>
+                      <p className="landing-label mt-5">{COPY.landing.scoutLabel}</p>
+                      <AvatarPicker
+                        value={avatar}
+                        onChange={(id) => {
+                          setAvatar(id)
+                          localStorage.setItem('monk-avatar', id)
+                        }}
+                      />
+                      <label className="landing-label mt-5">{COPY.landing.pinLabel}</label>
+                      <input
+                        className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={joinCode}
+                        onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && pinReady && !busy) join()
+                        }}
+                        placeholder="000000"
+                        enterKeyHint="go"
+                      />
+                    </>
+                  )}
+
+                  {error && (
+                    <div className="notice-soft" role="status">
+                      <p>{playerError(error)}</p>
+                      <button
+                        type="button"
+                        className="landing-back mt-2"
+                        onClick={() => setError('')}
+                      >
+                        {COPY.landing.dismiss}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="landing-gate-action">
+                  {gateMode === 'create' ? (
                     <button
                       type="button"
-                      className="btn btn-primary mt-5 w-full"
+                      className="btn btn-primary w-full"
+                      disabled={busy}
+                      onClick={create}
+                    >
+                      {COPY.landing.openTemple}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary w-full"
                       disabled={busy || !pinReady}
                       onClick={join}
                     >
                       {COPY.landing.stepInside}
                     </button>
-                  </>
-                )}
-
-                {error && (
-                  <div className="notice-soft" role="status">
-                    <p>{playerError(error)}</p>
-                    <button
-                      type="button"
-                      className="landing-back mt-2"
-                      onClick={() => setError('')}
-                    >
-                      {COPY.landing.dismiss}
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>
