@@ -26,26 +26,29 @@ function normLatLng(lat, lng) {
   return [Number(lat), wrapLng(lng)]
 }
 
-/** Keep reveal lines on a single world copy (shortest east/west path). */
-function shortPath(a, b) {
-  const lat1 = Number(a[0])
-  const lat2 = Number(b[0])
-  let lng1 = wrapLng(a[1])
-  let lng2 = wrapLng(b[1])
-  if (lng2 - lng1 > 180) lng2 -= 360
-  if (lng1 - lng2 > 180) lng1 -= 360
-  // Prefer both endpoints inside the visible globe when possible
-  if (lng1 < -180 || lng2 < -180) {
-    lng1 += 360
-    lng2 += 360
-  }
-  if (lng1 > 180 || lng2 > 180) {
-    lng1 -= 360
-    lng2 -= 360
-  }
+/**
+ * Reveal line(s) that never leave longitude [-180, 180].
+ * If the shortest path crosses the antimeridian, return two segments
+ * clipped at ±180 — never park a pin or line in the empty gutter beside the globe.
+ */
+function revealSegments(a, b) {
+  const p1 = normLatLng(a[0], a[1])
+  const p2 = normLatLng(b[0], b[1])
+  const lat1 = p1[0]
+  const lng1 = p1[1]
+  const lat2 = p2[0]
+  const lng2 = p2[1]
+  const dl = lng2 - lng1
+  if (Math.abs(dl) <= 180) return [[p1, p2]]
+
+  // Shorter route crosses the date line — split at the edge of the single world
+  const lng2s = lng2 - Math.sign(dl) * 360
+  const edge = lng2s > lng1 ? 180 : -180
+  const t = (edge - lng1) / (lng2s - lng1)
+  const latEdge = lat1 + t * (lat2 - lat1)
   return [
-    [lat1, lng1],
-    [lat2, lng2],
+    [p1, [latEdge, edge]],
+    [[latEdge, -edge], p2],
   ]
 }
 
@@ -87,6 +90,22 @@ function SingleWorld() {
   useEffect(() => {
     map.options.worldCopyJump = false
     map.setMaxBounds(WORLD_BOUNDS)
+    // Keep zoom high enough that one world fills the pane — no empty side gutters
+    // that look like "masks" over phantom wrapped copies.
+    const clampMinZoom = () => {
+      const w = map.getSize()?.x || 0
+      if (w < 64) return
+      const minZ = Math.max(1, Math.log2(w / 256))
+      if (Math.abs((map.getMinZoom?.() ?? 0) - minZ) > 0.01) {
+        map.setMinZoom(minZ)
+      }
+      if (map.getZoom() < minZ) map.setZoom(minZ)
+    }
+    clampMinZoom()
+    map.on('resize', clampMinZoom)
+    return () => {
+      map.off('resize', clampMinZoom)
+    }
   }, [map])
   return null
 }
@@ -104,17 +123,18 @@ function FitReveal({ truth, guesses }) {
   const map = useMap()
   useEffect(() => {
     if (!truth) return
+    // Only in-range coordinates — never fitBounds to lng outside [-180, 180]
     const pts = [normLatLng(truth.lat, truth.lng)]
     for (const g of guesses || []) {
       if (g.lat == null) continue
-      // Use unwrapped short-path endpoints so fitBounds doesn't jump to another world copy
-      const path = shortPath([g.lat, g.lng], [truth.lat, truth.lng])
-      pts.push(path[0], path[1])
+      pts.push(normLatLng(g.lat, g.lng))
     }
     try {
       map.fitBounds(pts, { padding: [48, 48], maxZoom: 5 })
+      const minZ = map.getMinZoom()
+      if (map.getZoom() < minZ) map.setZoom(minZ)
     } catch {
-      map.setView(normLatLng(truth.lat, truth.lng), 2)
+      map.setView(normLatLng(truth.lat, truth.lng), Math.max(2, map.getMinZoom()))
     }
   }, [map, truth, guesses])
   return null
@@ -287,20 +307,13 @@ export default function GuessMap({
                 pathOptions={{ color: '#80ff72', fillColor: '#80ff72', fillOpacity: 0.9 }}
                 radius={9}
               />
-              {revealResults.map((r) => {
-                if (r.lat == null) return null
+                            {revealResults.flatMap((r) => {
+                if (r.lat == null) return []
                 const look = resolvePlayerLook(r.avatar || r.vibe, r.playerId, revealResults.map((x) => ({ id: x.playerId, avatar: x.avatar, vibe: x.vibe })))
-                return (
-                  <Marker key={`m-${r.playerId}`} position={normLatLng(r.lat, r.lng)} icon={pinIcon(look.robe)} />
-                )
-              })}
-              {revealResults.map((r) => {
-                if (r.lat == null) return null
-                const look = resolvePlayerLook(r.avatar || r.vibe, r.playerId, revealResults.map((x) => ({ id: x.playerId, avatar: x.avatar, vibe: x.vibe })))
-                return (
+                return revealSegments([r.lat, r.lng], [truth.lat, truth.lng]).map((seg, i) => (
                   <Polyline
-                    key={`l-${r.playerId}`}
-                    positions={shortPath([r.lat, r.lng], [truth.lat, truth.lng])}
+                    key={`l-${r.playerId}-${i}`}
+                    positions={seg}
                     pathOptions={{
                       color: look.robe,
                       weight: r.playerId === selfId ? 3 : 1.5,
@@ -308,7 +321,7 @@ export default function GuessMap({
                       dashArray: r.playerId === selfId ? undefined : '6 8',
                     }}
                   />
-                )
+                ))
               })}
             </>
           )}
