@@ -656,29 +656,29 @@ export default function App() {
     const hall = HANGOUT
     return (
       <Fragment>
-      <div className="lobby-shell" style={{ '--lobby-accent': hall.accent }}>
+      <div className="lobby-shell waiting-shell" style={{ '--lobby-accent': hall.accent }}>
         <Atmosphere intensity="soft" />
-        <header className="lobby-header">
-          <div>
-            <p className="font-display text-2xl font-medium tracking-tight text-fog">monk.run</p>
+        <header className="lobby-header waiting-header">
+          <div className="waiting-brand">
+            <p className="font-display text-xl font-medium tracking-tight text-fog">monk.run</p>
             <p className="text-[10px] uppercase tracking-[0.22em] text-muted">
               {COPY.lobby.subtitle(room.players.length, MAX_PLAYERS, room.localOnly)}
             </p>
           </div>
           <button
             type="button"
-            className="pin-plate"
+            className="code-plate"
             onClick={copyPin}
             disabled={inPortal}
-            title="Copy PIN"
+            title="Copy code"
           >
-            <p className="text-[9px] uppercase tracking-[0.25em] text-muted">{COPY.lobby.pinLabel}</p>
-            <p className="font-mono text-2xl font-bold tracking-[0.2em] text-amber">
+            <p className="text-[9px] uppercase tracking-[0.28em] text-muted">{COPY.lobby.pinLabel}</p>
+            <p className="font-mono text-3xl font-bold tracking-[0.28em] text-amber md:text-4xl">
               {room.roomCode}
             </p>
             <p className="text-[10px] text-jade-bright">{copied ? COPY.lobby.copied : COPY.lobby.tapCopy}</p>
           </button>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="waiting-actions flex flex-wrap items-center gap-2">
             <VoiceMuteButton
               active={voice.active}
               muted={voice.muted}
@@ -695,7 +695,7 @@ export default function App() {
             {room.isHost && room.phase === 'lobby' && (
               <button
                 type="button"
-                className="btn btn-primary px-8 text-lg tracking-wide"
+                className="btn btn-primary start-btn px-10 text-xl tracking-wide"
                 onClick={() =>
                   ctrlRef.current.beginCountdown({
                     rounds: DEFAULT_ROUNDS,
@@ -706,11 +706,14 @@ export default function App() {
                 {COPY.lobby.play}
               </button>
             )}
+            {!room.isHost && room.phase === 'lobby' && (
+              <p className="waiting-host-chip">{COPY.lobby.waitingHost}</p>
+            )}
           </div>
         </header>
 
-        <div className="lobby-main">
-          <div className="lobby-canvas-wrap" style={{ borderColor: `${hall.accent}33` }}>
+        <div className="lobby-main waiting-main">
+          <div className="lobby-canvas-wrap waiting-stage" style={{ borderColor: `${hall.accent}40` }}>
           <MonkLobby
             selfId={room.selfId}
             players={room.players}
@@ -730,13 +733,10 @@ export default function App() {
             chat={room.chat || []}
           />
           </div>
-          <aside className="panel flex min-h-0 flex-col gap-3 p-4">
-
-
-
-            <div className="salon-intro">
-              <p className="landing-label">{COPY.lobby.gather}</p>
-              <p className="text-[11px] leading-relaxed text-muted">{COPY.lobby.gatherHint}</p>
+          <aside className="panel crew-panel flex min-h-0 flex-col gap-3 p-4">
+            <div className="crew-head">
+              <p className="landing-label">{COPY.lobby.crew}</p>
+              <p className="text-[11px] leading-relaxed text-muted">{COPY.lobby.crewHint}</p>
               {!voice.active && room.phase === 'lobby' && !inPortal && (
                 <button
                   type="button"
@@ -747,23 +747,33 @@ export default function App() {
                 </button>
               )}
             </div>
-            <p className="landing-label">{COPY.lobby.players}</p>
-            <ul className="space-y-2">
+            <ul className="crew-list">
               {room.players.map((p) => {
                 const look = resolvePlayerLook(p.avatar || p.vibe, p.id, room.players)
                 return (
-                  <li key={p.id} className="flex items-center justify-between border-b border-brass/10 px-1 py-2">
-                    <span className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: look.robe }} />
-                      <span className="font-display text-sm">{p.name}</span>
-                      {p.isHost && <span className="text-[9px] uppercase text-amber">{COPY.lobby.host}</span>}
+                  <li key={p.id} className={`crew-card${p.id === room.selfId ? ' is-you' : ''}${p.connected === false ? ' is-away' : ''}`}>
+                    <span className="crew-swatch" style={{ background: look.robe }} />
+                    <span className="crew-meta">
+                      <span className="crew-name">{p.name}</span>
+                      <span className="crew-tags">
+                        {p.isHost && <span className="crew-tag host">{COPY.lobby.host}</span>}
+                        {p.id === room.selfId && <span className="crew-tag you">{COPY.lobby.you}</span>}
+                      </span>
                     </span>
-                    <span className={`text-[10px] uppercase ${p.connected === false ? 'text-coral' : 'text-mint'}`}>
+                    <span className={`crew-status ${p.connected === false ? 'away' : 'here'}`}>
                       {p.connected === false ? COPY.lobby.away : COPY.lobby.here}
                     </span>
                   </li>
                 )
               })}
+              {Array.from({ length: Math.max(0, MAX_PLAYERS - room.players.length) }).map((_, i) => (
+                <li key={`empty-${i}`} className="crew-card is-empty">
+                  <span className="crew-swatch empty" />
+                  <span className="crew-meta">
+                    <span className="crew-name muted">{COPY.lobby.emptySeat}</span>
+                  </span>
+                </li>
+              ))}
             </ul>
 
             <p className="landing-label mt-1">{COPY.lobby.conversation}</p>

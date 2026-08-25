@@ -41,14 +41,14 @@ export const COPY = {
   },
 
   lobby: {
-    subtitle: (n, max, local) => `Gathering · ${n}/${max}${local ? ' · local' : ''}`,
+    subtitle: (n, max, local) => `Crew ${n}/${max}${local ? ' · local' : ''}`,
     pinLabel: 'PIN',
     copied: 'Copied',
     tapCopy: 'Copy',
     joinVoice: 'Join voice',
     unmute: 'Unmute',
     muteMic: 'Mute',
-    play: 'PLAY',
+    play: 'START',
     players: 'Who’s here',
     here: 'here',
     away: 'away',
@@ -62,7 +62,11 @@ export const COPY = {
     voiceLive: (n) => `Voice live · ${n}`,
     voiceReconnecting: 'Voice reconnecting…',
     voiceBlocked: 'Mic blocked — allow access to join voice.',
-    waitingHost: 'Whenever the host is ready…',
+    waitingHost: 'Waiting for host to start…',
+    crew: 'Crew',
+    crewHint: 'Same room. Same mic. Same fall.',
+    emptySeat: 'Open seat',
+    you: 'you',
     gather: 'The gathering',
     gatherHint: 'This is where the party lives — talk, wander, catch up. The world waits for PLAY.',
     joinVoiceCta: 'Join the conversation',
@@ -132,7 +136,11 @@ export const COPY = {
     hang: 'Hold still — the void is choosing.',
     podium: 'Podium',
     nextRound: 'Next round',
-    waitingHost: 'Whenever the host is ready…',
+    waitingHost: 'Waiting for host to start…',
+    crew: 'Crew',
+    crewHint: 'Same room. Same mic. Same fall.',
+    emptySeat: 'Open seat',
+    you: 'you',
   },
 
   loading: {
@@ -199,11 +207,11 @@ export const COPY = {
 /** Deterministic lobby flavor line per room code. */
 export function lobbyFlavor(roomCode = '') {
   const lines = [
-    'Voice on. Names matter more than pins.',
-    'Hang out first. Fall when the party feels ready.',
+    'Share the code. Fill the seats. Then fall.',
+    'Walk up, say hey, join voice.',
+    'Host hits START when the crew feels ready.',
     'Five places. One party. Start with a hello.',
-    'Closer is kinder. Locked is final.',
-    'The hall is for talking. The void is for guessing.',
+    'The lounge is for talking. The void is for guessing.',
   ]
   let h = 0
   for (let i = 0; i < roomCode.length; i++) h = (h + roomCode.charCodeAt(i) * (i + 1)) % lines.length

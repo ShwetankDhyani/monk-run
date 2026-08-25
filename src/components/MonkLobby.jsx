@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { dirFromDelta, drawMonkTopDown } from '../lib/avatarDraw.js'
-import { FLOOR, PLAYER_R, drawBlackHole } from '../lib/templeRoom.js'
+import { FLOOR, drawBlackHole } from '../lib/templeRoom.js'
 import {
   HANGOUT,
+  LOBBY_PLAYER_R,
+  LOBBY_CHAR_SCALE,
   drawHangoutRoom,
   drawVoiceAura,
   drawSpeechBubble,
@@ -13,6 +15,8 @@ import {
 
 const WORLD = { w: 1280, h: 720 }
 const SPEED = HANGOUT.moveSpeed
+const PLAYER_R = HANGOUT.playerR || LOBBY_PLAYER_R
+const CHAR_SCALE = HANGOUT.charScale || LOBBY_CHAR_SCALE
 
 const KEY = {
   ArrowUp: { x: 0, y: -1 },
@@ -458,18 +462,19 @@ export function MonkLobby({
           ctx.translate(-pose.x, -pose.y)
         }
         if (speakLvl > 0.04) drawVoiceAura(ctx, pose.x, pose.y + bob, speakLvl, t)
-        drawMonkTopDown(ctx, pose.x, pose.y + bob, look, pose.dir || 'down', pose.walk || 0, sx, sy)
+        drawMonkTopDown(ctx, pose.x, pose.y + bob, look, pose.dir || 'down', pose.walk || 0, sx * CHAR_SCALE, sy * CHAR_SCALE)
         if (!sucking || suck < 0.9) {
           drawSocialNameplate(ctx, pose.x, pose.y + bob, pl?.name, {
             isSelf,
             speaking: speakLvl > 0.05,
             host: !!pl?.isHost,
+            color: look.robe || '#d4a574',
           })
         }
         if (pose.emote && pose.emoteUntil > now) {
           ctx.font = '20px serif'
           ctx.textAlign = 'center'
-          ctx.fillText({ wave: '👋', bow: '🙇', laugh: '😆', shock: '😲' }[pose.emote] || '✨', pose.x, pose.y - 58 + bob)
+          ctx.fillText({ wave: '👋', bow: '🙇', laugh: '😆', shock: '😲' }[pose.emote] || '✨', pose.x, pose.y - 78 + bob)
         }
         const bubble = bubbles.get(id)
         if (bubble && (!sucking || suck < 0.5)) drawSpeechBubble(ctx, pose.x, pose.y + bob, bubble.text)
@@ -506,9 +511,9 @@ export function MonkLobby({
         </div>
         {!portalActive && !portalHold && (
           <div className="rounded-md border border-white/10 bg-black/55 px-2.5 py-1.5 text-right backdrop-blur-sm">
-            <p className="text-[11px] text-fog">Walk · talk · hang out</p>
+            <p className="text-[11px] text-fog">Waiting for the crew</p>
             <p className="text-[9px] uppercase tracking-[0.16em] text-muted">
-              WASD · Space nudge · 1–4 emotes · voice
+              Move · chat · voice · host starts
             </p>
           </div>
         )}

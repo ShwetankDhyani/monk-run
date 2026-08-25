@@ -1,84 +1,148 @@
 /**
- * Gathering hall — one social hangout. Presence over toys.
+ * Waiting lounge — Among Us–style party lobby energy:
+ * open floor, characters first, almost no clutter.
+ * Original art in monk.run palette (not a clone of any IP).
  */
-import {
-  FLOOR,
-  ROOM,
-  STATIC_COLLIDERS,
-  drawLivingRoom,
-  drawLivingProp,
-  makeLivingRoomProps,
-  PLAYER_R,
-} from './templeRoom.js'
+import { FLOOR, ROOM, PLAYER_R } from './templeRoom.js'
 
 export { FLOOR, ROOM, PLAYER_R }
 
-export const GATHER_CIRCLES = [
-  { x: ROOM.x + 340, y: ROOM.y + 400, r: 78, label: 'Hearth' },
-  { x: ROOM.x + 780, y: ROOM.y + 400, r: 72, label: 'Window' },
-  { x: ROOM.x + 560, y: ROOM.y + 500, r: 64, label: 'Rug' },
+/** Walls only — open floor so the party can actually stand together. */
+export const LOBBY_WALLS = [
+  { x: FLOOR.x, y: FLOOR.y - 18, w: FLOOR.w, h: 18 },
+  { x: FLOOR.x, y: FLOOR.y + FLOOR.h, w: FLOOR.w, h: 18 },
+  { x: FLOOR.x - 18, y: FLOOR.y, w: 18, h: FLOOR.h },
+  { x: FLOOR.x + FLOOR.w, y: FLOOR.y, w: 18, h: FLOOR.h },
 ]
 
+/** Visual scale for lobby monks — readable like party-game beans. */
+export const LOBBY_CHAR_SCALE = 1.72
+export const LOBBY_PLAYER_R = 26
+
 export const HANGOUT = {
-  id: 'hall',
-  name: 'Gathering hall',
-  tagline: 'Talk first. Fall when you’re ready.',
-  accent: '#d4a574',
-  moveSpeed: 170,
-  colliders: STATIC_COLLIDERS,
-  makeProps: makeLivingRoomProps,
-  drawProp: drawLivingProp,
+  id: 'lounge',
+  name: 'Waiting lounge',
+  tagline: 'Crew up. Talk. Drop when ready.',
+  accent: '#5ec4b6',
+  moveSpeed: 210,
+  colliders: LOBBY_WALLS,
+  charScale: LOBBY_CHAR_SCALE,
+  playerR: LOBBY_PLAYER_R,
+  makeProps: () => [],
+  drawProp: () => {},
 }
 
-/** @deprecated alias — keep old call sites from exploding during transition */
 export function getLobbyWorld() {
   return HANGOUT
 }
 
-export const LOBBY_THEME_IDS = ['hall']
-export const LOBBY_WORLDS = { hall: HANGOUT }
+export const LOBBY_THEME_IDS = ['lounge']
+export const LOBBY_WORLDS = { lounge: HANGOUT }
 
-function drawGatherCircles(ctx, t) {
-  for (const c of GATHER_CIRCLES) {
-    const pulse = 0.55 + Math.sin(t * 1.2 + c.x * 0.01) * 0.08
-    ctx.save()
-    ctx.beginPath()
-    ctx.ellipse(c.x, c.y, c.r, c.r * 0.42, 0, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(212, 165, 116, ${0.07 * pulse})`
-    ctx.fill()
-    ctx.strokeStyle = `rgba(212, 165, 116, ${0.2 * pulse})`
-    ctx.lineWidth = 1.5
-    ctx.setLineDash([6, 8])
-    ctx.stroke()
-    ctx.setLineDash([])
-    ctx.font = '500 10px Outfit, system-ui, sans-serif'
-    ctx.fillStyle = 'rgba(230, 220, 200, 0.38)'
-    ctx.textAlign = 'center'
-    ctx.fillText(c.label, c.x, c.y + 4)
-    ctx.restore()
-  }
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.roundRect(x, y, w, h, r)
 }
 
-function drawLanternMotes(ctx, t, voiceLevel = 0) {
-  const n = 10 + Math.floor(voiceLevel * 10)
-  for (let i = 0; i < n; i++) {
-    const seed = i * 97.13
-    const x = FLOOR.x + ((seed * 13 + t * (8 + voiceLevel * 22)) % FLOOR.w)
-    const y = FLOOR.y + 30 + ((seed * 7 + Math.sin(t * 0.5 + i) * 24) % (FLOOR.h - 50))
-    const a = 0.08 + voiceLevel * 0.22 + (Math.sin(t * 1.5 + i) + 1) * 0.04
-    ctx.fillStyle = `rgba(240, 200, 140, ${a})`
-    ctx.beginPath()
-    ctx.arc(x, y, 2 + voiceLevel * 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
-}
-
+/** Clean waiting room: open floor, soft walls, center meet pad. */
 export function drawHangoutRoom(ctx, t, ambience = {}) {
-  drawLivingRoom(ctx, t)
-  drawGatherCircles(ctx, t)
-  drawLanternMotes(ctx, t, ambience.voiceLevel || 0)
+  const voice = ambience.voiceLevel || 0
+
+  // Outer void
+  ctx.fillStyle = '#07090f'
+  ctx.fillRect(0, 0, 1280, 720)
+
+  // Room shell
+  const grad = ctx.createLinearGradient(ROOM.x, ROOM.y, ROOM.x, ROOM.y + ROOM.h)
+  grad.addColorStop(0, '#152028')
+  grad.addColorStop(0.45, '#1a2832')
+  grad.addColorStop(1, '#121c24')
+  ctx.fillStyle = grad
+  roundRect(ctx, ROOM.x - 8, ROOM.y - 8, ROOM.w + 16, ROOM.h + 16, 18)
+  ctx.fill()
+
+  // Inner wall trim
+  ctx.strokeStyle = 'rgba(94, 196, 182, 0.22)'
+  ctx.lineWidth = 3
+  roundRect(ctx, ROOM.x + 6, ROOM.y + 6, ROOM.w - 12, ROOM.h - 12, 14)
+  ctx.stroke()
+
+  // Back wall window strip (party-game “looking out”)
+  const winY = ROOM.y + 28
+  const winH = 72
+  const sky = ctx.createLinearGradient(0, winY, 0, winY + winH)
+  sky.addColorStop(0, '#1a3040')
+  sky.addColorStop(1, '#0c1822')
+  ctx.fillStyle = sky
+  roundRect(ctx, ROOM.x + 80, winY, ROOM.w - 160, winH, 10)
+  ctx.fill()
+  // Soft stars / distant lights
+  for (let i = 0; i < 18; i++) {
+    const sx = ROOM.x + 100 + ((i * 73 + t * 4) % (ROOM.w - 200))
+    const sy = winY + 12 + (i % 5) * 11
+    ctx.fillStyle = `rgba(200, 230, 240, ${0.25 + (Math.sin(t + i) + 1) * 0.15})`
+    ctx.beginPath()
+    ctx.arc(sx, sy, 1.2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.strokeStyle = 'rgba(212, 165, 116, 0.2)'
+  ctx.lineWidth = 2
+  roundRect(ctx, ROOM.x + 80, winY, ROOM.w - 160, winH, 10)
+  ctx.stroke()
+
+  // Floor — clean tiles, high readability
+  ctx.fillStyle = '#243038'
+  ctx.fillRect(FLOOR.x, FLOOR.y, FLOOR.w, FLOOR.h)
+  ctx.strokeStyle = 'rgba(255,255,255,0.035)'
+  ctx.lineWidth = 1
+  const tile = 48
+  for (let x = FLOOR.x; x < FLOOR.x + FLOOR.w; x += tile) {
+    ctx.beginPath()
+    ctx.moveTo(x, FLOOR.y)
+    ctx.lineTo(x, FLOOR.y + FLOOR.h)
+    ctx.stroke()
+  }
+  for (let y = FLOOR.y; y < FLOOR.y + FLOOR.h; y += tile) {
+    ctx.beginPath()
+    ctx.moveTo(FLOOR.x, y)
+    ctx.lineTo(FLOOR.x + FLOOR.w, y)
+    ctx.stroke()
+  }
+
+  // Center meet pad — social gravity (Among Us table energy, original art)
+  const cx = FLOOR.x + FLOOR.w / 2
+  const cy = FLOOR.y + FLOOR.h * 0.52
+  ctx.beginPath()
+  ctx.ellipse(cx, cy, 150, 70, 0, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(94, 196, 182, 0.1)'
+  ctx.fill()
+  ctx.strokeStyle = `rgba(94, 196, 182, ${0.35 + Math.sin(t * 1.5) * 0.08 + voice * 0.15})`
+  ctx.lineWidth = 3
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.ellipse(cx, cy, 118, 52, 0, 0, Math.PI * 2)
+  ctx.strokeStyle = 'rgba(212, 165, 116, 0.28)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([8, 10])
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  ctx.font = '600 13px Outfit, system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(230, 236, 232, 0.45)'
+  ctx.textAlign = 'center'
+  ctx.fillText('GATHER HERE', cx, cy + 5)
+
+  // Soft floor glow when people talk
+  if (voice > 0.05) {
+    const g = ctx.createRadialGradient(cx, cy, 20, cx, cy, 200)
+    g.addColorStop(0, `rgba(94, 196, 182, ${voice * 0.12})`)
+    g.addColorStop(1, 'rgba(94, 196, 182, 0)')
+    ctx.fillStyle = g
+    ctx.fillRect(FLOOR.x, FLOOR.y, FLOOR.w, FLOOR.h)
+  }
+
   if ((ambience.pulse || 0) > 0) {
-    ctx.fillStyle = `rgba(255, 200, 120, ${ambience.pulse * 0.1})`
+    ctx.fillStyle = `rgba(94, 196, 182, ${ambience.pulse * 0.12})`
     ctx.fillRect(ROOM.x, ROOM.y, ROOM.w, ROOM.h)
   }
 }
@@ -87,85 +151,97 @@ export function drawVoiceAura(ctx, x, y, level, t) {
   if (level < 0.04) return
   const rings = 2 + Math.floor(level * 3)
   for (let i = 0; i < rings; i++) {
-    const r = 22 + level * 28 + i * 10 + Math.sin(t * 6 + i) * 2
+    const r = 28 + level * 32 + i * 12 + Math.sin(t * 6 + i) * 2
     ctx.beginPath()
-    ctx.arc(x, y + 4, r, 0, Math.PI * 2)
-    ctx.strokeStyle = `rgba(94, 196, 182, ${(0.34 - i * 0.09) * Math.min(1, level * 2)})`
-    ctx.lineWidth = 2
+    ctx.arc(x, y + 6, r, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(94, 196, 182, ${(0.4 - i * 0.1) * Math.min(1, level * 2)})`
+    ctx.lineWidth = 2.5
     ctx.stroke()
   }
 }
 
 export function drawSpeechBubble(ctx, x, y, text) {
-  const label = String(text || '').slice(0, 42)
+  const label = String(text || '').slice(0, 36)
   if (!label) return
   ctx.save()
-  ctx.font = '500 12px Outfit, system-ui, sans-serif'
-  const tw = Math.min(200, ctx.measureText(label).width)
-  const w = tw + 18
-  const h = 26
+  ctx.font = '600 13px Outfit, system-ui, sans-serif'
+  const tw = Math.min(220, ctx.measureText(label).width)
+  const w = tw + 20
+  const h = 28
   const bx = x - w / 2
-  const by = y - 74
-  ctx.fillStyle = 'rgba(12, 14, 20, 0.92)'
-  ctx.strokeStyle = 'rgba(212, 165, 116, 0.45)'
-  ctx.lineWidth = 1.5
+  const by = y - 92
+  ctx.fillStyle = 'rgba(14, 18, 26, 0.94)'
+  ctx.strokeStyle = 'rgba(94, 196, 182, 0.55)'
+  ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.roundRect(bx, by, w, h, 8)
+  ctx.roundRect(bx, by, w, h, 10)
   ctx.fill()
   ctx.stroke()
   ctx.beginPath()
-  ctx.moveTo(x - 6, by + h)
-  ctx.lineTo(x, by + h + 8)
-  ctx.lineTo(x + 6, by + h)
+  ctx.moveTo(x - 7, by + h)
+  ctx.lineTo(x, by + h + 9)
+  ctx.lineTo(x + 7, by + h)
   ctx.closePath()
   ctx.fill()
-  ctx.fillStyle = '#f2ebe0'
+  ctx.fillStyle = '#eef4f0'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(label, x, by + h / 2)
   ctx.restore()
 }
 
-export function drawNameplate(ctx, x, y, name, opts = {}) {
-  const { isSelf = false, speaking = false, host = false } = opts
-  const label = (name || 'Monk').slice(0, 14)
-  ctx.font = '600 13px Fraunces, Georgia, serif'
+/** Fat readable name chip — party-game style. */
+export function drawSocialNameplate(ctx, x, y, name, opts = {}) {
+  const { isSelf = false, speaking = false, host = false, color = '#d4a574' } = opts
+  const label = (name || 'Monk').slice(0, 12)
+  ctx.save()
+  ctx.font = '700 14px Outfit, system-ui, sans-serif'
   const tw = ctx.measureText(label).width
-  const badge = host ? 28 : 0
-  const w = tw + 16 + badge
+  const hostW = host ? 36 : 0
+  const w = tw + 28 + hostW
+  const h = 24
   const hx = x - w / 2
-  const hy = y - 48
-  ctx.fillStyle = 'rgba(8, 10, 16, 0.9)'
-  ctx.strokeStyle = speaking ? '#5ec4b6' : isSelf ? '#f0c98a' : 'rgba(200,160,100,0.55)'
-  ctx.lineWidth = speaking ? 2.5 : 1.75
+  const hy = y - 62
+
+  ctx.fillStyle = 'rgba(8, 12, 18, 0.88)'
   ctx.beginPath()
-  ctx.roundRect(hx, hy, w, 20, 6)
+  ctx.roundRect(hx, hy, w, h, 12)
   ctx.fill()
+
+  ctx.strokeStyle = speaking ? '#5ec4b6' : isSelf ? '#f0c98a' : 'rgba(255,255,255,0.14)'
+  ctx.lineWidth = speaking ? 2.5 : 1.5
   ctx.stroke()
-  ctx.fillStyle = '#f5efe4'
+
+  // Color pip
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.arc(hx + 12, hy + h / 2, 5, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.fillStyle = '#f4f7f5'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
-  ctx.fillText(label, hx + 8, hy + 10)
+  ctx.fillText(label, hx + 22, hy + h / 2 + 0.5)
+
   if (host) {
-    ctx.font = '600 8px Outfit, system-ui, sans-serif'
+    ctx.font = '800 8px Outfit, system-ui, sans-serif'
     ctx.fillStyle = '#f0c98a'
     ctx.textAlign = 'right'
-    ctx.fillText('HOST', hx + w - 6, hy + 10)
+    ctx.fillText('HOST', hx + w - 8, hy + h / 2)
   }
+  ctx.restore()
 }
 
 export function drawNearnessBond(ctx, ax, ay, bx, by) {
   const d = Math.hypot(bx - ax, by - ay)
-  if (d < 28 || d > 100) return
-  const a = 0.22 * (1 - (d - 28) / 72)
+  if (d < 36 || d > 120) return
+  const a = 0.2 * (1 - (d - 36) / 84)
   ctx.strokeStyle = `rgba(94, 196, 182, ${a})`
-  ctx.lineWidth = 1.5
-  ctx.setLineDash([4, 6])
+  ctx.lineWidth = 2
+  ctx.setLineDash([5, 7])
   ctx.beginPath()
   ctx.moveTo(ax, ay)
   ctx.lineTo(bx, by)
   ctx.stroke()
   ctx.setLineDash([])
 }
-
-export const drawSocialNameplate = drawNameplate
