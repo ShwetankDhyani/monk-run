@@ -28,6 +28,7 @@ export const COPY = {
     settings: 'Settings',
     privacy: 'Privacy',
     terms: 'Terms',
+    board: 'All-time board',
   },
 
   connecting: 'Crossing…',

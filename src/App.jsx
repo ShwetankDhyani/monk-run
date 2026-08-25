@@ -21,6 +21,7 @@ import { HowToPlayModal } from './components/HowToPlayModal.jsx'
 import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
+
 import { sfx } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
 
@@ -433,119 +434,123 @@ export default function App() {
   if (screen === 'landing' && !busy && (!room || room.phase === 'boot')) {
     const pinReady = normalizeRoomPin(joinCode).length === 6
     return (
-      <div className="landing">
+      <div className={`landing ${gateMode ? 'landing--gate' : ''}`}>
         <Atmosphere />
         <div className="landing-stage">
-          <div className="landing-brand">
-            <BrandMark className="landing-mark" />
-            <h1 className="landing-title">{COPY.brand}</h1>
-            <p className="landing-tag">{COPY.landing.tag}</p>
+          <div className="landing-hero">
+            <div className="landing-brand">
+              <BrandMark className="landing-mark" />
+              <h1 className="landing-title">{COPY.brand}</h1>
+              <p className="landing-tag">{COPY.landing.tag}</p>
+            </div>
+
+            {!gateMode && (
+              <div className="landing-ctas">
+                <button type="button" className="btn btn-primary" onClick={() => setGateMode('create')}>
+                  {COPY.landing.create}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setGateMode('join')}>
+                  {COPY.landing.join}
+                </button>
+              </div>
+            )}
+
+            {gateMode && (
+              <div className="landing-gate">
+                <button
+                  type="button"
+                  className="landing-back"
+                  onClick={() => setGateMode(null)}
+                >
+                  {COPY.landing.back}
+                </button>
+
+                <label className="landing-label">{COPY.landing.nameLabel}</label>
+                <input
+                  className="input-clean mt-1"
+                  maxLength={18}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={COPY.landing.namePlaceholder}
+                  autoFocus
+                />
+
+                {gateMode === 'create' && (
+                  <>
+                    <p className="landing-label mt-6">{COPY.landing.scoutLabel}</p>
+                    <AvatarPicker
+                      value={avatar}
+                      onChange={(id) => {
+                        setAvatar(id)
+                        localStorage.setItem('monk-avatar', id)
+                      }}
+                    />
+                    <p className="landing-hint">{COPY.landing.scoutHint}</p>
+                    <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
+                      {COPY.landing.openTemple}
+                    </button>
+                  </>
+                )}
+
+                {gateMode === 'join' && (
+                  <>
+                    <p className="landing-label mt-5">{COPY.landing.scoutLabel}</p>
+                    <AvatarPicker
+                      value={avatar}
+                      onChange={(id) => {
+                        setAvatar(id)
+                        localStorage.setItem('monk-avatar', id)
+                      }}
+                    />
+                    <label className="landing-label mt-6">{COPY.landing.pinLabel}</label>
+                    <input
+                      className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && pinReady && !busy) join()
+                      }}
+                      placeholder="000000"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-primary mt-5 w-full"
+                      disabled={busy || !pinReady}
+                      onClick={join}
+                    >
+                      {COPY.landing.stepInside}
+                    </button>
+                  </>
+                )}
+
+                {error && (
+                  <div className="notice-soft" role="status">
+                    <p>{playerError(error)}</p>
+                    <button
+                      type="button"
+                      className="landing-back mt-2"
+                      onClick={() => setError('')}
+                    >
+                      {COPY.landing.dismiss}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {!gateMode && (
-            <div className="landing-ctas">
-              <button type="button" className="btn btn-primary" onClick={() => setGateMode('create')}>
-                {COPY.landing.create}
-              </button>
-              <button type="button" className="btn btn-ghost" onClick={() => setGateMode('join')}>
-                {COPY.landing.join}
-              </button>
+          <div className="landing-below">
+            <div className="landing-foot">
+              <button type="button" onClick={() => setShowHowTo(true)}>{COPY.landing.howTo}</button>
+              <button type="button" onClick={() => setShowSettings(true)}>{COPY.landing.settings}</button>
+              <button type="button" onClick={() => setLegal('privacy')}>{COPY.landing.privacy}</button>
+              <button type="button" onClick={() => setLegal('terms')}>{COPY.landing.terms}</button>
             </div>
-          )}
-
-          {gateMode && (
-            <div className="landing-gate">
-              <button
-                type="button"
-                className="mb-4 text-[10px] uppercase tracking-[0.2em] text-muted hover:text-brass-bright"
-                onClick={() => setGateMode(null)}
-              >
-                {COPY.landing.back}
-              </button>
-
-              <label className="landing-label">{COPY.landing.nameLabel}</label>
-              <input
-                className="input-clean mt-1"
-                maxLength={18}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={COPY.landing.namePlaceholder}
-                autoFocus
-              />
-
-              {gateMode === 'create' && (
-                <>
-                  <p className="landing-label mt-6">{COPY.landing.scoutLabel}</p>
-                  <AvatarPicker
-                    value={avatar}
-                    onChange={(id) => {
-                      setAvatar(id)
-                      localStorage.setItem('monk-avatar', id)
-                    }}
-                  />
-                  <p className="landing-hint">{COPY.landing.scoutHint}</p>
-                  <button type="button" className="btn btn-primary mt-6 w-full" disabled={busy} onClick={create}>
-                    {COPY.landing.openTemple}
-                  </button>
-                </>
-              )}
-
-              {gateMode === 'join' && (
-                <>
-                  <p className="landing-label mt-5">{COPY.landing.scoutLabel}</p>
-                  <AvatarPicker
-                    value={avatar}
-                    onChange={(id) => {
-                      setAvatar(id)
-                      localStorage.setItem('monk-avatar', id)
-                    }}
-                  />
-                  <label className="landing-label mt-6">{COPY.landing.pinLabel}</label>
-                  <input
-                    className="input-clean mt-1 text-center font-mono text-2xl tracking-[0.35em]"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && pinReady && !busy) join()
-                    }}
-                    placeholder="000000"
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-primary mt-5 w-full"
-                    disabled={busy || !pinReady}
-                    onClick={join}
-                  >
-                    {COPY.landing.stepInside}
-                  </button>
-                </>
-              )}
-
-              {error && (
-                <div className="notice-soft" role="status">
-                  <p>{playerError(error)}</p>
-                  <button
-                    type="button"
-                    className="mt-2 text-[10px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
-                    onClick={() => setError('')}
-                  >
-                    {COPY.landing.dismiss}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="landing-foot">
-            <button type="button" onClick={() => setShowHowTo(true)}>{COPY.landing.howTo}</button>
-            <button type="button" onClick={() => setShowSettings(true)}>{COPY.landing.settings}</button>
-            <button type="button" onClick={() => setLegal('privacy')}>{COPY.landing.privacy}</button>
-            <button type="button" onClick={() => setLegal('terms')}>{COPY.landing.terms}</button>
+            <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="landing-board" />
           </div>
-          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4 shrink-0 self-center" />
         </div>
 
         <HowToPlayModal open={showHowTo} onClose={() => setShowHowTo(false)} />
@@ -651,7 +656,8 @@ export default function App() {
           </div>
         </header>
 
-        <div className="relative z-10 grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[1fr_280px]">
+        <div className="lobby-main">
+          <div className="lobby-canvas-wrap">
           <MonkLobby
             selfId={room.selfId}
             players={room.players}
@@ -668,6 +674,7 @@ export default function App() {
             blackHoleY={room.blackHoleY ?? 380}
             focused={!inPortal}
           />
+          </div>
           <aside className="panel flex min-h-0 flex-col gap-3 p-4">
             <p className="landing-label">{COPY.lobby.players}</p>
             <ul className="space-y-2">
@@ -955,11 +962,11 @@ export default function App() {
   // Playing: Street View + always-visible world map (never hide the map behind a button)
   return (
     <Fragment>
-    <div className="screen-enter flex h-full min-h-full flex-col overflow-hidden bg-void md:flex-row">
-      <div className="relative min-h-0 flex-1">
+    <div className="play-shell screen-enter">
+      <div className="play-view">
         {room.viewToken && <StreetView viewToken={room.viewToken} />}
 
-        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
+        <header className="play-hud">
           <div className="pointer-events-auto hud-chip px-3 py-2">
             <p className="font-display text-lg font-medium">monk.run</p>
             <p className="text-[10px] text-muted">
@@ -972,7 +979,7 @@ export default function App() {
               {roundLeft}s
             </p>
           </div>
-          <div className="pointer-events-auto hud-chip max-w-[150px] px-3 py-2">
+          <div className="pointer-events-auto hud-chip hud-chip--scores max-w-[150px] px-3 py-2">
             {ranked.slice(0, 3).map((p) => (
               <div key={p.id} className="flex justify-between gap-2 text-[10px]">
                 <span className="truncate text-muted">{p.name}</span>
@@ -999,7 +1006,7 @@ export default function App() {
         {room.isHost && (
           <button
             type="button"
-            className="btn btn-ghost absolute bottom-3 left-3 z-20"
+            className="btn btn-ghost play-end"
             onClick={() => ctrlRef.current.revealRound()}
           >
             {COPY.play.endRound}
@@ -1007,7 +1014,7 @@ export default function App() {
         )}
       </div>
 
-      <aside className="z-30 flex max-h-[48vh] w-full shrink-0 flex-col border-t border-brass/25 bg-panel/95 p-3 md:max-h-none md:w-[min(42vw,460px)] md:border-l md:border-t-0">
+      <aside className="play-map">
         {!selfGuessed ? (
           <>
             <div className="mb-2">
