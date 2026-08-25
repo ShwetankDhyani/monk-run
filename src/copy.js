@@ -188,7 +188,7 @@ export const COPY = {
     copy: 'Couldn’t copy the PIN',
     voice: 'Voice unavailable right now.',
     voiceNat:
-      'Voice couldn’t reach everyone — often a strict network or firewall. Try again, or play on the same Wi‑Fi.',
+      'Voice couldn’t reach everyone — often a phone network or strict firewall. Try same Wi‑Fi, or ask the host to set a TURN server (VITE_ICE_SERVERS).',
   },
 }
 

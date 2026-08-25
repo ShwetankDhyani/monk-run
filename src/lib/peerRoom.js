@@ -12,6 +12,7 @@ export const INTERMISSION_MS = 4_500
 
 const DEFAULT_ICE = [
   { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:global.stun.twilio.com:3478' },
 ]
 
@@ -475,7 +476,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.isHost = true
     state.localOnly = true
     state.selfId = `solo-${Math.random().toString(36).slice(2, 9)}`
-    state.message = 'Playing solo — voice chat will join when friends connect.'
+    state.message = 'Playing solo — PeerJS broker unreachable; voice needs a live peer connection.'
     state.scores[state.selfId] = 0
     upsertPlayer({ id: state.selfId, name, avatar: migrateVibeToAvatar(avatar || vibe), vibe, connected: true, isHost: true })
     state.lobby[state.selfId] = assignSpawn(state.lobby, state.selfId)

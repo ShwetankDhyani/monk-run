@@ -329,6 +329,8 @@ export default function App() {
     try {
       await voiceRef.current.enableMic()
       voiceRef.current.setMuted(false)
+      // Unlock remote playback on the same user gesture (Safari / late streams)
+      voiceRef.current.unlockPlayback?.()
       voiceRef.current.refresh?.()
     } catch (err) {
       setVoice((v) => ({

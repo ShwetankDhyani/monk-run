@@ -67,7 +67,7 @@ STATIC_DIR=dist NODE_ENV=production GOOGLE_MAPS_API_KEY=... node server/leaderbo
 
 ### Voice chat
 
-Voice is optional PeerJS mesh audio. Public STUN works on many networks; **strict NATs need a TURN server** via `VITE_ICE_SERVERS` (see `.env.example`). Deploy over HTTPS so browsers allow the mic.
+Voice is optional PeerJS mesh audio. Public STUN works on many home Wi‑Fi networks; **phones on cellular and strict NATs need a TURN server** via `VITE_ICE_SERVERS` (see `.env.example`). Without TURN, guests may join the lobby but still fail to hear each other. Deploy over HTTPS so browsers allow the mic.
 
 Vite · React 19 · Tailwind 4 · Canvas lobby · PeerJS · Leaflet · Google Street View · Node integrity API
 

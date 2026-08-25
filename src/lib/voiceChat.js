@@ -2,24 +2,36 @@
  * Mesh voice chat over PeerJS media calls (room-wide).
  *
  * Hardening:
- * - Only dial connected peers; glare rule (lower id initiates)
+ * - Lower peer id dials; higher id answers (glare rule)
  * - Never answer without a local stream
- * - Retry outbound calls with short backoff
- * - Drop calls when peers leave; surface link state via onStatus
+ * - Incomplete calls (no remote stream) time out and redial
+ * - Prefer inbound when our outbound never got audio (join-order deadlock)
+ * - DOM <audio> + play retries (Safari / late streams)
  * - Mute toggles track.enabled (does not tear down the call)
- * - Local mic level (0–1) so the mute control can show when you are being heard
+ * - Local mic level (0–1) for the mute control meter
  */
 
 function resolveSelfId(selfId) {
   return typeof selfId === 'function' ? selfId() : selfId
 }
 
+const CALL_TIMEOUT_MS = 8_000
+const PLAY_RETRY_MS = 1_200
+
 export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus }) {
   let localStream = null
   let muted = true
-  const calls = new Map() // peerId -> MediaConnection
-  const remoteAudio = new Map() // peerId -> HTMLAudioElement
+  /** @type {Map<string, any>} */
+  const calls = new Map()
+  /** @type {Map<string, HTMLAudioElement>} */
+  const remoteAudio = new Map()
+  /** Peer ids that delivered a remote stream at least once this session */
+  const voiceReady = new Set()
+  /** @type {Map<string, ReturnType<typeof setTimeout>>} */
+  const callTimers = new Map()
   let answering = false
+  /** @type {((call: any) => void) | null} */
+  let callHandler = null
   /** @type {ReturnType<typeof setTimeout> | null} */
   let retryTimer = null
   let link = 'idle' // idle | live | reconnecting | blocked
@@ -30,12 +42,14 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
   let analyser = null
   let meterRaf = 0
   let lastLevelEmit = 0
+  /** @type {HTMLElement | null} */
+  let audioMount = null
 
   function emitLevel() {
     return muted || !localStream ? 0 : level
   }
 
-  function status(partial) {
+  function status(partial = {}) {
     onStatus?.({
       muted,
       active: !!localStream,
@@ -44,6 +58,17 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
       level: emitLevel(),
       ...partial,
     })
+  }
+
+  function ensureAudioMount() {
+    if (audioMount && document.body.contains(audioMount)) return audioMount
+    audioMount = document.createElement('div')
+    audioMount.setAttribute('data-monk-voice', '1')
+    audioMount.setAttribute('aria-hidden', 'true')
+    audioMount.style.cssText =
+      'position:fixed;width:0;height:0;overflow:hidden;pointer-events:none;opacity:0;left:0;top:0'
+    document.body.appendChild(audioMount)
+    return audioMount
   }
 
   function stopMeter() {
@@ -85,7 +110,6 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
       meterRaf = requestAnimationFrame(tick)
       if (!analyser) return
 
-      // Muted → decay to 0 (you are not being heard).
       if (muted || !localStream) {
         level *= 0.78
         if (level < 0.01) level = 0
@@ -97,7 +121,6 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
           sum += v * v
         }
         const rms = Math.sqrt(sum / data.length)
-        // Gate room noise, then expand into a readable 0–1 meter.
         const gated = Math.max(0, rms - 0.018)
         const next = Math.min(1, gated * 4.2)
         level = level * 0.55 + next * 0.45
@@ -112,16 +135,236 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     tick()
   }
 
+  /** Resume AudioContext + retry remote playback (Safari / late streams). */
+  function unlockPlayback() {
+    audioCtx?.resume?.().catch(() => {})
+    for (const el of remoteAudio.values()) {
+      el.play().catch(() => {})
+    }
+  }
+
   function shouldInitiate(remoteId) {
     const me = String(resolveSelfId(selfId) || '')
     const them = String(remoteId || '')
     if (!me || !them) return true
-    // Lower peer id dials; higher id only answers — avoids dual-call glare.
     return me < them
   }
 
+  function clearCallTimer(peerId) {
+    const t = callTimers.get(peerId)
+    if (t) {
+      clearTimeout(t)
+      callTimers.delete(peerId)
+    }
+  }
+
+  function hangUp(peerId) {
+    clearCallTimer(peerId)
+    const call = calls.get(peerId)
+    if (call) {
+      try {
+        call.close()
+      } catch {
+        /* */
+      }
+      calls.delete(peerId)
+    }
+    const el = remoteAudio.get(peerId)
+    if (el) {
+      try {
+        el.pause()
+      } catch {
+        /* */
+      }
+      el.srcObject = null
+      el.remove()
+      remoteAudio.delete(peerId)
+    }
+    status()
+  }
+
+  /**
+   * Tear down a call that never received a remote stream so retry can redial.
+   * Fixes join-order deadlock: early outbound stays in `calls` and blocks redial.
+   */
+  function armCallTimeout(peerId) {
+    clearCallTimer(peerId)
+    callTimers.set(
+      peerId,
+      setTimeout(() => {
+        callTimers.delete(peerId)
+        if (!remoteAudio.has(peerId) && calls.has(peerId)) {
+          hangUp(peerId)
+          scheduleRetry()
+        }
+      }, CALL_TIMEOUT_MS),
+    )
+  }
+
+  function attachRemote(peerId, stream) {
+    clearCallTimer(peerId)
+    voiceReady.add(peerId)
+    let el = remoteAudio.get(peerId)
+    if (!el) {
+      el = document.createElement('audio')
+      el.autoplay = true
+      el.playsInline = true
+      el.setAttribute('playsinline', 'true')
+      el.setAttribute('autoplay', 'true')
+      ensureAudioMount().appendChild(el)
+      remoteAudio.set(peerId, el)
+    }
+    if (el.srcObject !== stream) el.srcObject = stream
+
+    const tryPlay = () => {
+      el.play().catch(() => {
+        setTimeout(() => {
+          el.play().catch(() => {})
+        }, PLAY_RETRY_MS)
+      })
+    }
+    tryPlay()
+    el.onloadedmetadata = tryPlay
+
+    link = 'live'
+    status({ error: null })
+  }
+
+  function bindCall(peerId, call) {
+    calls.set(peerId, call)
+    armCallTimeout(peerId)
+    call.on('stream', (stream) => attachRemote(peerId, stream))
+    call.on('close', () => {
+      hangUp(peerId)
+      scheduleRetry()
+    })
+    call.on('error', () => {
+      hangUp(peerId)
+      scheduleRetry()
+    })
+  }
+
+  function pruneMissingPeers() {
+    const live = new Set(getRemotePeerIds?.() || [])
+    for (const id of [...calls.keys()]) {
+      if (!live.has(id)) {
+        voiceReady.delete(id)
+        hangUp(id)
+      }
+    }
+    for (const id of [...voiceReady]) {
+      if (!live.has(id)) voiceReady.delete(id)
+    }
+  }
+
+  function wireIncoming() {
+    const peer = getPeer?.()
+    if (!peer || answering) return
+    answering = true
+    callHandler = (call) => {
+      if (!localStream) {
+        try {
+          call.close()
+        } catch {
+          /* */
+        }
+        return
+      }
+
+      const existing = calls.get(call.peer)
+      // Incomplete outbound (no audio yet) — prefer this inbound and replace.
+      if (existing && !remoteAudio.has(call.peer)) {
+        hangUp(call.peer)
+      } else if (existing && shouldInitiate(call.peer)) {
+        // We already have (or had) an outbound toward this peer — drop glare.
+        try {
+          call.close()
+        } catch {
+          /* */
+        }
+        return
+      }
+
+      try {
+        call.answer(localStream)
+      } catch {
+        return
+      }
+      bindCall(call.peer, call)
+    }
+    peer.on('call', callHandler)
+  }
+
+  function connectToPeers() {
+    const peer = getPeer?.()
+    if (!peer || !localStream) return
+    pruneMissingPeers()
+    unlockPlayback()
+    const ids = getRemotePeerIds?.() || []
+    for (const id of ids) {
+      if (!id || id === resolveSelfId(selfId) || String(id).startsWith('solo-')) continue
+      if (!shouldInitiate(id)) continue
+
+      if (calls.has(id) && remoteAudio.has(id)) continue
+      if (calls.has(id) && !remoteAudio.has(id)) hangUp(id)
+
+      try {
+        const call = peer.call(id, localStream)
+        if (!call) continue
+        bindCall(id, call)
+      } catch {
+        /* peer may not be ready */
+      }
+    }
+  }
+
+  function scheduleRetry() {
+    if (!localStream) return
+    if (retryTimer) return
+    let attempts = 0
+    const tick = () => {
+      retryTimer = null
+      if (!localStream) return
+      pruneMissingPeers()
+      connectToPeers()
+      attempts += 1
+
+      const roster = (getRemotePeerIds?.() || []).filter(
+        (id) => id && id !== resolveSelfId(selfId) && !String(id).startsWith('solo-'),
+      )
+      const linked = remoteAudio.size
+      const awaiting = [...calls.keys()].filter((id) => !remoteAudio.has(id))
+
+      if (awaiting.length) {
+        link = 'reconnecting'
+        status(
+          attempts >= 6
+            ? { error: 'voice-nat', link: 'reconnecting' }
+            : { error: null, link: 'reconnecting' },
+        )
+        retryTimer = setTimeout(tick, Math.min(900 * attempts, 5000))
+        return
+      }
+
+      // Soft wait while party exists but nobody else joined voice yet
+      if (roster.length && linked === 0 && attempts < 4) {
+        link = 'reconnecting'
+        status({ error: null, link: 'reconnecting' })
+        retryTimer = setTimeout(tick, Math.min(900 * attempts, 4000))
+        return
+      }
+
+      link = 'live'
+      status({ error: null })
+    }
+    retryTimer = setTimeout(tick, 700)
+  }
+
   async function enableMic() {
-    if (localStream) return localStream
+    if (localStream) {
+      unlockPlayback()
+      return localStream
+    }
     link = 'reconnecting'
     status({ error: null })
     try {
@@ -145,6 +388,7 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     link = 'live'
     status({ error: null, level: 0 })
     startMeter()
+    unlockPlayback()
     wireIncoming()
     connectToPeers()
     scheduleRetry()
@@ -159,6 +403,7 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
       })
     }
     if (muted) level = 0
+    else unlockPlayback()
     status({ level: emitLevel() })
   }
 
@@ -167,149 +412,9 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     setMuted(!muted)
   }
 
-  function attachRemote(peerId, stream) {
-    let el = remoteAudio.get(peerId)
-    if (!el) {
-      el = new Audio()
-      el.autoplay = true
-      el.setAttribute('playsinline', 'true')
-      remoteAudio.set(peerId, el)
-    }
-    el.srcObject = stream
-    el.play().catch(() => {
-      /* autoplay may need gesture — Join voice covers this */
-    })
-    link = 'live'
-    status({ error: null })
-  }
-
-  function hangUp(peerId) {
-    const call = calls.get(peerId)
-    if (call) {
-      try {
-        call.close()
-      } catch {
-        /* */
-      }
-      calls.delete(peerId)
-    }
-    const el = remoteAudio.get(peerId)
-    if (el) {
-      el.srcObject = null
-      remoteAudio.delete(peerId)
-    }
-    status()
-  }
-
-  function pruneMissingPeers() {
-    const live = new Set(getRemotePeerIds?.() || [])
-    for (const id of [...calls.keys()]) {
-      if (!live.has(id)) hangUp(id)
-    }
-  }
-
-  function wireIncoming() {
-    const peer = getPeer?.()
-    if (!peer || answering) return
-    answering = true
-    peer.on('call', (call) => {
-      if (!localStream) {
-        // Don't answer empty — remote will retry after we enable mic.
-        try {
-          call.close()
-        } catch {
-          /* */
-        }
-        return
-      }
-      // If we already initiated toward this peer, drop the inbound glare call.
-      if (calls.has(call.peer) && shouldInitiate(call.peer)) {
-        try {
-          call.close()
-        } catch {
-          /* */
-        }
-        return
-      }
-      call.answer(localStream)
-      calls.set(call.peer, call)
-      call.on('stream', (stream) => attachRemote(call.peer, stream))
-      call.on('close', () => {
-        hangUp(call.peer)
-        scheduleRetry()
-      })
-      call.on('error', () => {
-        hangUp(call.peer)
-        scheduleRetry()
-      })
-    })
-  }
-
-  function connectToPeers() {
-    const peer = getPeer?.()
-    if (!peer || !localStream) return
-    pruneMissingPeers()
-    const ids = getRemotePeerIds?.() || []
-    for (const id of ids) {
-      if (!id || id === resolveSelfId(selfId) || calls.has(id) || String(id).startsWith('solo-')) continue
-      if (!shouldInitiate(id)) continue
-      try {
-        const call = peer.call(id, localStream)
-        if (!call) continue
-        calls.set(id, call)
-        call.on('stream', (stream) => attachRemote(id, stream))
-        call.on('close', () => {
-          hangUp(id)
-          scheduleRetry()
-        })
-        call.on('error', () => {
-          hangUp(id)
-          scheduleRetry()
-        })
-      } catch {
-        /* peer may not be ready */
-      }
-    }
-  }
-
-  function scheduleRetry() {
-    if (!localStream) return
-    if (retryTimer) return
-    let attempts = 0
-    const tick = () => {
-      retryTimer = null
-      if (!localStream) return
-      const want = (getRemotePeerIds?.() || []).filter(
-        (id) => id && id !== resolveSelfId(selfId) && !String(id).startsWith('solo-'),
-      )
-      connectToPeers()
-      attempts += 1
-      const linked = remoteAudio.size
-      if (want.length && linked < want.length) {
-        link = 'reconnecting'
-        // After several failed mesh attempts, hint at NAT/firewall (TURN).
-        status(
-          attempts >= 5
-            ? { error: 'voice-nat', link: 'reconnecting' }
-            : { error: null, link: 'reconnecting' },
-        )
-        // Keep trying while the party is together — NAT paths can open late.
-        retryTimer = setTimeout(tick, Math.min(900 * attempts, 5000))
-        return
-      }
-      if (linked) {
-        link = 'live'
-        status({ error: null })
-      } else if (!want.length) {
-        link = 'live'
-        status({ error: null })
-      }
-    }
-    retryTimer = setTimeout(tick, 700)
-  }
-
   function refresh() {
     if (!localStream) return
+    unlockPlayback()
     const want = (getRemotePeerIds?.() || []).length
     link = remoteAudio.size || !want ? 'live' : 'reconnecting'
     status({ error: null })
@@ -322,16 +427,35 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
       clearTimeout(retryTimer)
       retryTimer = null
     }
+    for (const id of [...callTimers.keys()]) clearCallTimer(id)
     stopMeter()
     for (const id of [...calls.keys()]) hangUp(id)
+    voiceReady.clear()
     if (localStream) {
       localStream.getTracks().forEach((t) => t.stop())
       localStream = null
     }
+    const peer = getPeer?.()
+    if (peer && callHandler) {
+      try {
+        peer.off('call', callHandler)
+      } catch {
+        try {
+          peer.removeListener?.('call', callHandler)
+        } catch {
+          /* */
+        }
+      }
+    }
+    callHandler = null
     answering = false
     muted = true
     link = 'idle'
     level = 0
+    if (audioMount) {
+      audioMount.remove()
+      audioMount = null
+    }
     status({ active: false, peers: [], error: null, level: 0 })
   }
 
@@ -341,6 +465,7 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     toggleMute,
     refresh,
     destroy,
+    unlockPlayback,
     isMuted: () => muted,
     hasMic: () => !!localStream,
     getLevel: () => emitLevel(),
