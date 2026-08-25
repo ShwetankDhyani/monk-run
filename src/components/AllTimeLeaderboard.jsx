@@ -167,16 +167,22 @@ function HallsModal({ onClose, refreshKey }) {
   )
 }
 
-export function AllTimeLeaderboardButton({ refreshKey = 0, className = '' }) {
+export function AllTimeLeaderboardButton({ refreshKey = 0, className = '', inline = false }) {
   const [open, setOpen] = useState(false)
+
+  const button = (
+    <button type="button" className="lb-footlink" onClick={() => setOpen(true)}>
+      {COPY.leaderboard.link}
+    </button>
+  )
 
   return (
     <>
-      <div className={`flex justify-center ${className}`}>
-        <button type="button" className="lb-footlink" onClick={() => setOpen(true)}>
-          {COPY.leaderboard.link}
-        </button>
-      </div>
+      {inline ? (
+        <span className={className}>{button}</span>
+      ) : (
+        <div className={`flex justify-center ${className}`}>{button}</div>
+      )}
       {open && <HallsModal onClose={() => setOpen(false)} refreshKey={refreshKey} />}
     </>
   )

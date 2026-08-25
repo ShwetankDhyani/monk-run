@@ -229,6 +229,30 @@
   .lb-footlink:hover {
     color: rgba(240, 201, 138, 0.92);
   }
+  .lobby-board-link .lb-footlink {
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid rgba(212, 165, 116, 0.22);
+    border-radius: 0.45rem;
+    background: rgba(0, 0, 0, 0.28);
+  }
+  .lobby-board-link .lb-footlink:hover {
+    border-color: rgba(240, 201, 138, 0.4);
+    background: rgba(240, 201, 138, 0.08);
+  }
+  .play-hall-link {
+    position: absolute;
+    z-index: 41;
+    right: max(0.65rem, env(safe-area-inset-right));
+    bottom: max(0.65rem, env(safe-area-inset-bottom));
+    pointer-events: auto;
+  }
+  @media (max-width: 767px) {
+    .play-hall-link {
+      bottom: max(4.5rem, calc(env(safe-area-inset-bottom) + 3.5rem));
+    }
+  }
 
   .hall-grid {
     display: grid;

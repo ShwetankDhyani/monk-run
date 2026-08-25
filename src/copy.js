@@ -131,7 +131,6 @@ export const COPY = {
 
   podium: {
     title: 'Match results',
-    subtitle: (code) => `room ${code} · this match only`,
     playAgain: 'Back to lobby',
     waitingHost: 'Waiting for the host to reopen the lobby…',
     leaveParty: 'Leave party',

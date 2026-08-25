@@ -16,6 +16,7 @@ import { AvatarPicker } from './components/AvatarPicker.jsx'
 import { CinematicOverlay } from './components/CinematicOverlay.jsx'
 import { AllTimeLeaderboardButton } from './components/AllTimeLeaderboard.jsx'
 import { PodiumStage } from './components/PodiumStage.jsx'
+import { submitScore } from './lib/leaderboard.js'
 import { playerError } from './lib/playerErrors.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
 import { HowToPlayModal } from './components/HowToPlayModal.jsx'
@@ -148,6 +149,8 @@ export default function App() {
   const [portalHold, setPortalHold] = useState(false)
   const prevPhaseRef = useRef(null)
   const prevRoundIndexRef = useRef(-1)
+  const [leaderboardKey, setLeaderboardKey] = useState(0)
+  const scoreSubmittedRef = useRef(false)
 
   const ctrlRef = useRef(null)
   const voiceRef = useRef(null)
@@ -250,6 +253,7 @@ export default function App() {
 
     if (room.phase === 'podium' && prev !== 'podium') {
       setCinPhase('enter-podium')
+      scoreSubmittedRef.current = false
       const t = setTimeout(() => setCinPhase(null), 1200)
       return () => clearTimeout(t)
     }
@@ -280,9 +284,37 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [room?.chat?.length])
 
+  useEffect(() => {
+    if (room?.phase !== 'podium' || scoreSubmittedRef.current) return
+    const me = room.players.find((p) => p.id === room.selfId)
+    const score = room.scores?.[room.selfId] || 0
+    if (!me) return
+    const commit =
+      room.myCommit?.commitToken
+        ? room.myCommit
+        : {
+            sessionId: commitRef.current.sessionId,
+            commitToken: commitRef.current.tokens[room.selfId] || '',
+          }
+    if (!commit.commitToken) return
+    scoreSubmittedRef.current = true
+    submitScore({
+      name: me.name,
+      score,
+      roomCode: room.roomCode,
+      avatarId: me.avatar || me.vibe,
+      sessionId: commit.sessionId || '',
+      playerId: room.selfId,
+      commitToken: commit.commitToken || '',
+    }).then(() => {
+      setLeaderboardKey((k) => k + 1)
+    })
+  }, [room?.phase, room?.selfId, room?.scores, room?.players, room?.roomCode, room?.myCommit])
+
   // Rematch: when the party returns to the temple, keep voice mesh warm.
   useEffect(() => {
     if (room?.phase !== 'lobby') return
+    scoreSubmittedRef.current = false
     commitRef.current = { sessionId: '', tokens: {} }
     voiceRef.current?.refresh?.()
   }, [room?.phase])
@@ -611,7 +643,7 @@ export default function App() {
               <button type="button" onClick={() => setLegal('privacy')}>{COPY.landing.privacy}</button>
               <button type="button" onClick={() => setLegal('terms')}>{COPY.landing.terms}</button>
             </div>
-            <AllTimeLeaderboardButton className="landing-board" />
+            <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="landing-board" />
           </div>
         </div>
 
@@ -714,6 +746,7 @@ export default function App() {
               <p className="text-[9px] text-jade-bright">{copied ? COPY.lobby.copied : COPY.lobby.tapCopy}</p>
             </button>
             <div className="waiting-actions flex flex-wrap items-center justify-end gap-2">
+              <AllTimeLeaderboardButton refreshKey={leaderboardKey} inline className="lobby-board-link" />
               <VoiceMuteButton
                 active={voice.active}
                 muted={voice.muted}
@@ -926,7 +959,6 @@ export default function App() {
         <div className="relative z-10 w-full max-w-3xl px-2 md:px-4">
           <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
           <h2 className="text-center font-display text-4xl font-medium text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
-          <p className="mt-2 text-center text-xs uppercase tracking-[0.25em] text-muted">{COPY.podium.subtitle(room.roomCode)}</p>
 
           <PodiumStage ranked={ranked} />
 
@@ -1001,6 +1033,7 @@ export default function App() {
           >
             {COPY.podium.leaveParty}
           </button>
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
         </div>
       </div>
       <CinematicOverlay phase={cinPhase} />
@@ -1088,6 +1121,7 @@ export default function App() {
               ) : (
                 <p className="mt-4 text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
               )}
+              <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4" />
             </div>
           </div>
         </div>
@@ -1124,6 +1158,7 @@ export default function App() {
               {COPY.loading.retryScore}
             </button>
           )}
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-6" />
         </div>
         {room.viewToken && room.phase === 'loading-round' && (
           <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>
@@ -1200,6 +1235,9 @@ export default function App() {
             {COPY.play.endRound}
           </button>
         )}
+        <div className="play-hall-link">
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} inline />
+        </div>
       </div>
 
       <aside className="play-map hidden md:grid" id="play-map-panel">
