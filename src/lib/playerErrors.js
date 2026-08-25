@@ -11,6 +11,7 @@ const RULES = [
   [/Host not found|Check the room PIN|Host disconnected/i, null],
   [/PIN already in use/i, () => COPY.errors.pinTaken],
   [/Mic|permission|NotAllowedError/i, () => COPY.errors.mic],
+  [/voice-nat|TURN|candidate/i, () => COPY.errors.voiceNat],
   [/Peer|broker|WebRTC|ice/i, () => COPY.errors.peer],
 ]
 
