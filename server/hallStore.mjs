@@ -48,7 +48,11 @@ function kvEnv() {
 }
 
 function blobConfigured() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN)
+  // Read-write token (local / seed) OR Vercel OIDC connection (BLOB_STORE_ID on Vercel)
+  return Boolean(
+    process.env.BLOB_READ_WRITE_TOKEN ||
+      (process.env.VERCEL && process.env.BLOB_STORE_ID),
+  )
 }
 
 /** @returns {'blob' | 'kv' | 'file' | 'ephemeral'} */
