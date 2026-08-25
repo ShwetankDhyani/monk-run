@@ -1,5 +1,6 @@
 /**
- * Fully random Street View — no place lists.
+ * Street View place picker — biased toward interesting city hubs
+ * (pure globe sampling mostly yields empty highways).
  * Requires a first-party Google Maps API key (no key scraping).
  */
 import { randomBytes } from 'node:crypto'
@@ -7,6 +8,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { INTERESTING_SEEDS } from './interestingSeeds.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const USED_FILE = join(__dirname, '..', 'data', 'used-places.json')
@@ -98,11 +100,49 @@ export async function resolveMapsKey(preferred = '', { forceScrape = false } = {
   return scrapeEmbedMapsKey()
 }
 
-/** Uniform random point on the globe. */
+/** Uniform random point on the globe (rare wildcard — usually empty road). */
 function randomGlobePoint() {
   const lng = Math.random() * 360 - 180
   const lat = (Math.acos(2 * Math.random() - 1) * 180) / Math.PI - 90
   return { lat, lng }
+}
+
+/** Haversine distance in km. */
+function kmBetween(a, b) {
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+/**
+ * Jitter around a curated city hub (~1–28 km) so rounds feel lived-in,
+ * not random freeway shoulders in the middle of nowhere.
+ */
+function randomInterestingSeed() {
+  const hub = INTERESTING_SEEDS[Math.floor(Math.random() * INTERESTING_SEEDS.length)]
+  const jitterKm = 1 + Math.random() * 27
+  const bearing = Math.random() * Math.PI * 2
+  const dLat = (jitterKm / 111.32) * Math.cos(bearing)
+  const cosLat = Math.cos((hub.lat * Math.PI) / 180)
+  const dLng = (jitterKm / (111.32 * Math.max(0.2, cosLat))) * Math.sin(bearing)
+  return {
+    lat: hub.lat + dLat,
+    lng: hub.lng + dLng,
+    hub: hub.name,
+    hubLat: hub.lat,
+    hubLng: hub.lng,
+  }
+}
+
+function randomSeedPoint() {
+  // Almost always near cities / dense coverage — pure globe sampling = empty highways
+  if (Math.random() < 0.95) return randomInterestingSeed()
+  return { ...randomGlobePoint(), hub: '', hubLat: null, hubLng: null }
 }
 
 /** Thrown when Google rejects the configured Maps key (fail fast — don't spin 200 misses). */
@@ -226,12 +266,13 @@ function markUsed(panoId, lat, lng, sessionKeys) {
 }
 
 async function pickOneRandom(apiKey, sessionKeys) {
-  const radii = [10000, 25000, 50000, 100000]
-  const maxAttempts = 200
+  // Keep search tight so Google doesn't snap us onto a distant empty highway
+  const radii = [300, 900, 2500, 6000, 12000]
+  const maxAttempts = 240
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const seed = randomGlobePoint()
-    const radius = radii[Math.min(radii.length - 1, Math.floor(attempt / 40))]
+    const seed = randomSeedPoint()
+    const radius = radii[Math.min(radii.length - 1, Math.floor(attempt / 48))]
     let meta
     try {
       meta = await streetViewMeta(seed.lat, seed.lng, apiKey, radius)
@@ -242,6 +283,15 @@ async function pickOneRandom(apiKey, sessionKeys) {
     if (!meta) continue
     if (isUsed(meta.panoId, meta.lat, meta.lng, sessionKeys)) continue
 
+    // If we started near a city, reject snaps that wandered too far out of town
+    if (seed.hubLat != null && seed.hubLng != null) {
+      const fromHub = kmBetween(
+        { lat: seed.hubLat, lng: seed.hubLng },
+        { lat: meta.lat, lng: meta.lng },
+      )
+      if (fromHub > 35) continue
+    }
+
     markUsed(meta.panoId, meta.lat, meta.lng, sessionKeys)
     return {
       id: `rnd-${randomBytes(8).toString('hex')}`,
@@ -249,9 +299,9 @@ async function pickOneRandom(apiKey, sessionKeys) {
       lng: meta.lng,
       panoId: meta.panoId,
       country: 'Unknown',
-      city: '',
+      city: seed.hub || '',
       code: '',
-      biome: 'global-random',
+      biome: seed.hub ? 'city-seed' : 'global-random',
       hint: '',
       needsGeocode: true,
     }
