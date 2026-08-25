@@ -8,6 +8,7 @@ import {
   scoreRound,
   renderStreetViewHtml,
   buildStreetViewEmbedUrl,
+  streetViewEmbedHtml,
   sendHtml,
   mapsConfigured,
   consumeLeaderboardCommit,
@@ -291,12 +292,7 @@ export async function handleApi(req, res) {
     // Default: Google embed redirect — always renders (metadata keys often fail Maps JS in-browser).
     // Set MONK_STREETVIEW_JS=1 + ALLOW_MAPS_KEY_SCRAPE=0 when Maps JavaScript API is fully enabled.
     if (!MAPS_KEY || forceEmbed || !streetViewJs) {
-      res.writeHead(302, {
-        Location: buildStreetViewEmbedUrl(view),
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Referrer-Policy': 'no-referrer',
-      })
-      res.end()
+      sendHtml(res, 200, streetViewEmbedHtml(buildStreetViewEmbedUrl(view)))
       return
     }
     sendHtml(res, 200, renderStreetViewHtml(view, MAPS_KEY, true))

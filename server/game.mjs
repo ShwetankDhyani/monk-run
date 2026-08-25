@@ -31,14 +31,58 @@ function purgeExpired() {
 }
 
 function mintViewToken(loc) {
-  const viewToken = randomBytes(24).toString('hex')
+  const payload = {
+    lat: Number(loc.lat),
+    lng: Number(loc.lng),
+    panoId: String(loc.panoId || '').slice(0, 128),
+    exp: Date.now() + VIEW_TTL_MS,
+  }
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  const sig = createHmac('sha256', SCORE_SECRET()).update(body).digest('base64url')
+  const viewToken = `${body}.${sig}`
+  // Legacy map — helps local dev / warm instances; not required on Vercel.
   viewTokens.set(viewToken, {
-    lat: loc.lat,
-    lng: loc.lng,
-    panoId: loc.panoId || '',
-    expiresAt: Date.now() + VIEW_TTL_MS,
+    lat: payload.lat,
+    lng: payload.lng,
+    panoId: payload.panoId,
+    expiresAt: payload.exp,
   })
   return viewToken
+}
+
+function parseViewToken(token) {
+  const t = String(token || '').trim()
+  if (!t) return null
+
+  // Stateless signed token (works across Vercel serverless instances).
+  const dot = t.indexOf('.')
+  if (dot > 0) {
+    const body = t.slice(0, dot)
+    const sig = t.slice(dot + 1)
+    if (!body || !sig) return null
+    const expected = createHmac('sha256', SCORE_SECRET()).update(body).digest('base64url')
+    if (!safeEqual(sig, expected)) return null
+    try {
+      const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+      if (!payload?.exp || Date.now() > Number(payload.exp)) return null
+      const lat = Number(payload.lat)
+      const lng = Number(payload.lng)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+      return {
+        lat,
+        lng,
+        panoId: String(payload.panoId || ''),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  // Legacy hex tokens (same-instance only).
+  purgeExpired()
+  const v = viewTokens.get(t)
+  if (!v || Date.now() > v.expiresAt) return null
+  return v
 }
 
 function safeEqual(a, b) {
@@ -120,7 +164,7 @@ export function openRoundView(sessionId, roundIndex) {
   if (!loc) return null
 
   let viewToken = session.roundTokens?.[roundIndex]
-  if (!viewToken || !viewTokens.has(viewToken)) {
+  if (!viewToken || !parseViewToken(viewToken)) {
     viewToken = mintViewToken(loc)
     if (!session.roundTokens) session.roundTokens = []
     session.roundTokens[roundIndex] = viewToken
@@ -129,10 +173,7 @@ export function openRoundView(sessionId, roundIndex) {
 }
 
 export function getViewForToken(token) {
-  purgeExpired()
-  const v = viewTokens.get(token)
-  if (!v || Date.now() > v.expiresAt) return null
-  return v
+  return parseViewToken(token)
 }
 
 function assertHost(sessionId, hostToken) {
@@ -267,7 +308,7 @@ export function buildStreetViewEmbedUrl(view, heading = Math.floor(Math.random()
   return streetViewEmbedSrc(panoId, latS, lngS, heading)
 }
 
-function streetViewEmbedHtml(embedSrc) {
+export function streetViewEmbedHtml(embedSrc) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
