@@ -13,6 +13,21 @@ export default function StreetView({ viewToken }) {
 
   const src = `/api/game/sv/${encodeURIComponent(viewToken)}`
 
+  const blockCheatUi = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const guardProps = {
+    className: 'play-sv-cheat-guard-block',
+    onPointerDown: blockCheatUi,
+    onPointerUp: blockCheatUi,
+    onTouchStart: blockCheatUi,
+    onTouchEnd: blockCheatUi,
+    onClick: blockCheatUi,
+    onContextMenu: blockCheatUi,
+  }
+
   return (
     <div
       className="play-sv-root absolute inset-0 h-full min-h-0 w-full overflow-hidden bg-ink"
@@ -25,12 +40,16 @@ export default function StreetView({ viewToken }) {
         className="play-sv-frame h-full w-full border-0"
         referrerPolicy="no-referrer"
         allow="accelerometer; gyroscope; magnetometer; fullscreen; xr-spatial-tracking"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-orientation-lock"
       />
-      {/* Slim top gradient — hides Google's location label without blocking the view. */}
-      <div
-        className="play-sv-spoiler-shield pointer-events-none absolute inset-x-0 top-0 z-20 h-12 bg-gradient-to-b from-[#06080e]/95 to-transparent"
-        aria-hidden
-      />
+      {/* Blocks Google location bar + map escape — must capture pointer events. */}
+      <div className="play-sv-cheat-guard" aria-hidden>
+        <div className="play-sv-cheat-guard-top" {...guardProps} />
+        <div className="play-sv-cheat-guard-band" {...guardProps} />
+        <div className="play-sv-cheat-guard-right" {...guardProps} />
+        <div className="play-sv-cheat-guard-google" {...guardProps} />
+        <div className="play-sv-cheat-guard-terms" {...guardProps} />
+      </div>
     </div>
   )
 }

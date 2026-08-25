@@ -308,25 +308,69 @@ export function buildStreetViewEmbedUrl(view, heading = Math.floor(Math.random()
   return streetViewEmbedSrc(panoId, latS, lngS, heading)
 }
 
+const SV_CHEAT_GUARD_CSS = `
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#06080e;-webkit-touch-callout:none;user-select:none}
+    .wrap{position:relative;width:100%;height:100%;overflow:hidden;background:#06080e;touch-action:manipulation}
+    iframe#sv,.sv-pano{
+      position:absolute;
+      left:-1.25rem;
+      top:calc(-6rem - env(safe-area-inset-top,0px));
+      width:calc(100% + 2.5rem);
+      height:calc(100% + 6rem + 2.75rem + env(safe-area-inset-top,0px));
+      border:0;
+      display:block;
+      touch-action:pan-x pan-y pinch-zoom;
+    }
+    .cheat-guard{position:absolute;inset:0;z-index:5;pointer-events:none}
+    .cheat-guard-top{position:absolute;inset-inline:0;top:0;height:calc(6.75rem + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px);pointer-events:auto;touch-action:none;background:#06080e}
+    .cheat-guard-band{position:absolute;top:calc(0.15rem + env(safe-area-inset-top,0px));left:0;right:0;height:3.35rem;pointer-events:auto;touch-action:none;background:#06080e}
+    .cheat-guard-right{position:absolute;top:0;right:0;width:5rem;height:calc(4.5rem + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px);pointer-events:auto;touch-action:none;background:linear-gradient(270deg,#06080e 55%,transparent 100%)}
+    .cheat-guard-google{position:absolute;left:0;bottom:0;width:9rem;height:2.75rem;pointer-events:auto;touch-action:none;background:#06080e}
+    .cheat-guard-terms{position:absolute;right:0;bottom:0;width:8rem;height:2.75rem;pointer-events:auto;touch-action:none;background:linear-gradient(90deg,transparent 0%,#06080e 45%)}
+`
+
+function cheatGuardHtml() {
+  return `<div class="cheat-guard" aria-hidden="true">
+    <div class="cheat-guard-top"></div>
+    <div class="cheat-guard-band"></div>
+    <div class="cheat-guard-right"></div>
+    <div class="cheat-guard-google"></div>
+    <div class="cheat-guard-terms"></div>
+  </div>`
+}
+
+function cheatGuardScript() {
+  return `<script>
+(function(){
+  function block(e){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();return false}
+  var nodes=document.querySelectorAll('.cheat-guard-top,.cheat-guard-band,.cheat-guard-right,.cheat-guard-google,.cheat-guard-terms');
+  var types=['pointerdown','pointerup','mousedown','mouseup','touchstart','touchend','touchmove','click','contextmenu','dblclick','auxclick'];
+  nodes.forEach(function(el){
+    types.forEach(function(type){
+      el.addEventListener(type,block,{capture:true,passive:false});
+    });
+  });
+  document.addEventListener('contextmenu',function(e){e.preventDefault()},false);
+})();
+</script>`
+}
+
 export function streetViewEmbedHtml(embedSrc) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.google.com https://maps.google.com https://maps.gstatic.com; frame-src https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none';" />
-  <style>
-    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#06080e}
-    .wrap{position:relative;width:100%;height:100%;overflow:hidden;background:#06080e}
-    iframe{border:0;width:100%;height:100%;display:block}
-    .shield-top{position:absolute;inset:0 0 auto 0;height:48px;background:linear-gradient(180deg,rgba(6,8,14,0.95) 0%,transparent 100%);pointer-events:none;z-index:2}
-  </style>
+  <style>${SV_CHEAT_GUARD_CSS}</style>
 </head>
 <body oncontextmenu="return false">
   <div class="wrap">
-    <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope; magnetometer; fullscreen" src="${embedSrc}"></iframe>
-    <div class="shield-top" aria-hidden="true"></div>
+    <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope; magnetometer; fullscreen" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-orientation-lock" src="${embedSrc}"></iframe>
+    ${cheatGuardHtml()}
   </div>
+  ${cheatGuardScript()}
 </body>
 </html>`
 }
@@ -367,11 +411,14 @@ export function renderStreetViewHtml(view, apiKey = '', forceEmbedFallback = tru
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src https://www.google.com https://maps.google.com; object-src 'none';" />
-  <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#06080e}#pano{position:absolute;inset:0}.shield-top{position:absolute;inset:0 0 auto 0;height:48px;background:linear-gradient(180deg,rgba(6,8,14,0.95) 0%,transparent 100%);pointer-events:none;z-index:2}</style>
+  <style>${SV_CHEAT_GUARD_CSS}.wrap{position:relative;width:100%;height:100%}.sv-pano{position:absolute}</style>
 </head>
 <body oncontextmenu="return false">
-  <div id="pano"></div>
-  <div class="shield-top" aria-hidden="true"></div>
+  <div class="wrap">
+    <div id="pano" class="sv-pano"></div>
+    ${cheatGuardHtml()}
+  </div>
+  ${cheatGuardScript()}
   <script>
     ${authFallback}
     function init() {
@@ -380,16 +427,17 @@ export function renderStreetViewHtml(view, apiKey = '', forceEmbedFallback = tru
         pov: { heading: ${heading}, pitch: 0 },
         zoom: 1,
         addressControl: false,
-        linksControl: true,
+        linksControl: false,
         panControl: false,
-        zoomControl: true,
+        zoomControl: false,
         fullscreenControl: false,
         motionTracking: true,
-        motionTrackingControl: true,
+        motionTrackingControl: false,
         enableCloseButton: false,
         showRoadLabels: false,
-        clickToGo: true,
+        clickToGo: false,
         scrollwheel: true,
+        disableDefaultUI: true,
         gestureHandling: 'greedy',
       });
     }
@@ -405,11 +453,14 @@ export function renderStreetViewHtml(view, apiKey = '', forceEmbedFallback = tru
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src https://www.google.com https://maps.google.com; object-src 'none';" />
-  <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#06080e}#pano{position:absolute;inset:0}.shield-top{position:absolute;inset:0 0 auto 0;height:48px;background:linear-gradient(180deg,rgba(6,8,14,0.95) 0%,transparent 100%);pointer-events:none;z-index:2}</style>
+  <style>${SV_CHEAT_GUARD_CSS}.wrap{position:relative;width:100%;height:100%}.sv-pano{position:absolute}</style>
 </head>
 <body oncontextmenu="return false">
-  <div id="pano"></div>
-  <div class="shield-top" aria-hidden="true"></div>
+  <div class="wrap">
+    <div id="pano" class="sv-pano"></div>
+    ${cheatGuardHtml()}
+  </div>
+  ${cheatGuardScript()}
   <script>
     ${authFallback}
     function init() {
@@ -418,16 +469,17 @@ export function renderStreetViewHtml(view, apiKey = '', forceEmbedFallback = tru
         pov: { heading: ${heading}, pitch: 0 },
         zoom: 1,
         addressControl: false,
-        linksControl: true,
+        linksControl: false,
         panControl: false,
-        zoomControl: true,
+        zoomControl: false,
         fullscreenControl: false,
         motionTracking: true,
-        motionTrackingControl: true,
+        motionTrackingControl: false,
         enableCloseButton: false,
         showRoadLabels: false,
-        clickToGo: true,
+        clickToGo: false,
         scrollwheel: true,
+        disableDefaultUI: true,
         gestureHandling: 'greedy',
       });
       var svc = new google.maps.StreetViewService();

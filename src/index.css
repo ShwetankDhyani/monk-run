@@ -1325,6 +1325,63 @@
     touch-action: pan-x pan-y pinch-zoom;
     pointer-events: auto;
   }
+  .play-sv-cheat-guard {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
+  }
+  .play-sv-cheat-guard-top {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: calc(6.75rem + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    pointer-events: auto;
+    touch-action: none;
+    background: #06080e;
+  }
+  .play-sv-cheat-guard-band {
+    position: absolute;
+    top: calc(0.15rem + env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    height: 3.35rem;
+    pointer-events: auto;
+    touch-action: none;
+    background: #06080e;
+  }
+  .play-sv-cheat-guard-right {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 5rem;
+    height: calc(4.5rem + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    pointer-events: auto;
+    touch-action: none;
+    background: linear-gradient(270deg, #06080e 55%, transparent 100%);
+  }
+  .play-sv-cheat-guard-google {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 9rem;
+    height: 2.75rem;
+    pointer-events: auto;
+    touch-action: none;
+    background: #06080e;
+  }
+  .play-sv-cheat-guard-terms {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 8rem;
+    height: 2.75rem;
+    pointer-events: auto;
+    touch-action: none;
+    background: linear-gradient(90deg, transparent 0%, #06080e 45%);
+  }
   .play-end-chip {
     appearance: none;
     flex-shrink: 0;
@@ -1514,7 +1571,7 @@
     position: absolute;
     inset-inline: 0;
     top: 0;
-    z-index: 20;
+    z-index: 40;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
