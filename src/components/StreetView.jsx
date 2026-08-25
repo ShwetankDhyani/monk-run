@@ -13,7 +13,7 @@ export default function StreetView({ viewToken }) {
 
   return (
     <div
-      className="absolute inset-0 h-full min-h-0 w-full overflow-hidden bg-ink"
+      className="play-sv-root absolute inset-0 h-full min-h-0 w-full overflow-hidden bg-ink"
       onContextMenu={(e) => e.preventDefault()}
     >
       <iframe
@@ -25,11 +25,9 @@ export default function StreetView({ viewToken }) {
         allow="accelerometer; gyroscope"
         sandbox="allow-scripts allow-same-origin"
       />
-      <div className="play-sv-badge pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-3 max-md:hidden">
-        <span className="rounded-full bg-black/60 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-white/70">
-          Locked view · explore only
-        </span>
-      </div>
+      {/* Block Google's location label that appears over the panorama (anti-spoiler). */}
+      <div className="play-sv-spoiler-shield pointer-events-none absolute inset-x-0 top-0 z-20 h-[4.75rem] bg-gradient-to-b from-[#06080e] via-[#06080e]/92 to-transparent" aria-hidden />
+      <div className="play-sv-spoiler-shield-center pointer-events-none absolute inset-x-[12%] top-2 z-20 h-12 rounded-md bg-[#06080e]/88" aria-hidden />
     </div>
   )
 }

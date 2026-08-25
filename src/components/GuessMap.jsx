@@ -152,17 +152,44 @@ export default function GuessMap({
   onCountry,
   tall = false,
   compact = false,
+  sheet = false,
+  active = true,
   onPinFocus,
 }) {
   const [countryFilter, setCountryFilter] = useState('')
   const [placeQuery, setPlaceQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const [mapLive, setMapLive] = useState(() => !sheet && active)
   const mapSurfaceRef = useRef(null)
+
+  useEffect(() => {
+    if (!active) {
+      setMapLive(false)
+      return undefined
+    }
+    if (!sheet) {
+      setMapLive(true)
+      return undefined
+    }
+    let cancelled = false
+    let t2 = 0
+    const t1 = requestAnimationFrame(() => {
+      t2 = window.setTimeout(() => {
+        if (!cancelled) setMapLive(true)
+      }, 80)
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(t1)
+      if (t2) window.clearTimeout(t2)
+      setMapLive(false)
+    }
+  }, [sheet, active])
 
   const focusPinMap = () => {
     onPinFocus?.()
-    // Keep the Leaflet surface on-screen after keyboard / layout shifts
+    if (sheet) return
     requestAnimationFrame(() => {
       mapSurfaceRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     })
@@ -198,12 +225,16 @@ export default function GuessMap({
   }
 
   const center = guess ? [guess.lat, guess.lng] : [20, 0]
-  const mapH = tall ? 'min-h-[100px] flex-1 overflow-hidden' : 'h-[280px]'
+  const mapH = sheet
+    ? 'min-h-[200px] flex-1'
+    : tall
+      ? 'min-h-[100px] flex-1 overflow-hidden'
+      : 'h-[280px]'
 
   return (
-    <div className={`guess-map flex flex-col gap-2 ${tall ? 'h-full min-h-0' : ''}`}>
+    <div className={`guess-map flex flex-col gap-2 ${tall || sheet ? 'h-full min-h-0' : ''}`}>
       {mode === 'guess' && !compact && (
-        <div className="guess-map-controls flex shrink-0 flex-col gap-2">
+        <div className={`guess-map-controls flex shrink-0 flex-col gap-2 ${sheet ? 'guess-map-controls--sheet' : ''}`}>
           <form className="flex flex-wrap items-center gap-2" onSubmit={runPlaceSearch}>
             <input
               value={placeQuery}
@@ -215,6 +246,8 @@ export default function GuessMap({
               className="input-clean min-w-[120px] flex-[2]"
               disabled={locked || searching}
               onFocus={focusPinMap}
+              enterKeyHint="search"
+              autoComplete="off"
             />
             <button
               type="submit"
@@ -225,40 +258,49 @@ export default function GuessMap({
             </button>
           </form>
           {searchError && <p className="text-[11px] text-coral">{searchError}</p>}
-          <div className="guess-map-countries flex flex-wrap items-center gap-2">
-            <input
-              value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              placeholder={COPY.map.filterCountries}
-              className="input-clean min-w-[100px] flex-1"
-              disabled={locked}
-            />
-            <select
-              className="input-clean min-w-[120px] flex-[2]"
-              value={country}
-              disabled={locked}
-              onChange={(e) => onCountry?.(e.target.value)}
-            >
-              <option value="">{COPY.map.countryOptional}</option>
-              {filteredCountries.length === 0 ? (
-                <option value="" disabled>
-                  No countries match
-                </option>
-              ) : (
-                filteredCountries.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-          <p className="guess-map-hint text-[11px] text-muted">
-            Search a city to drop a pin, or click the map directly.
-            {countryFilter.trim() && filteredCountries.length > 0 && (
-              <span className="text-sky"> · {filteredCountries.length} countries</span>
-            )}
-          </p>
+          {!sheet && (
+            <>
+              <div className="guess-map-countries flex flex-wrap items-center gap-2">
+                <input
+                  value={countryFilter}
+                  onChange={(e) => setCountryFilter(e.target.value)}
+                  placeholder={COPY.map.filterCountries}
+                  className="input-clean min-w-[100px] flex-1"
+                  disabled={locked}
+                />
+                <select
+                  className="input-clean min-w-[120px] flex-[2]"
+                  value={country}
+                  disabled={locked}
+                  onChange={(e) => onCountry?.(e.target.value)}
+                >
+                  <option value="">{COPY.map.countryOptional}</option>
+                  {filteredCountries.length === 0 ? (
+                    <option value="" disabled>
+                      No countries match
+                    </option>
+                  ) : (
+                    filteredCountries.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <p className="guess-map-hint text-[11px] text-muted">
+                Search a city to drop a pin, or click the map directly.
+                {countryFilter.trim() && filteredCountries.length > 0 && (
+                  <span className="text-sky"> · {filteredCountries.length} countries</span>
+                )}
+              </p>
+            </>
+          )}
+          {sheet && (
+            <p className="guess-map-hint text-[11px] text-muted">
+              Search a place or tap the map to drop your pin.
+            </p>
+          )}
         </div>
       )}
 
@@ -270,10 +312,11 @@ export default function GuessMap({
 
       <div
         ref={mapSurfaceRef}
-        className={`guess-map-surface relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]`}
+        className={`guess-map-surface relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]${sheet ? ' guess-map-surface--sheet' : ''}`}
         onContextMenu={mode === 'guess' ? (e) => e.preventDefault() : undefined}
         onPointerDown={() => { if (mode === 'guess' && !locked) focusPinMap() }}
       >
+        {mapLive && active ? (
         <MapContainer
           center={center}
           zoom={guess ? 4 : 2}
@@ -282,7 +325,7 @@ export default function GuessMap({
           maxBoundsViscosity={1}
           worldCopyJump={false}
           className="h-full w-full"
-          style={{ height: '100%', width: '100%', background: '#0b1220' }}
+          style={{ height: '100%', width: '100%', minHeight: sheet ? 200 : undefined, background: '#0b1220' }}
           scrollWheelZoom
         >
           <SingleWorld />
@@ -333,6 +376,11 @@ export default function GuessMap({
             </>
           )}
         </MapContainer>
+        ) : (
+          <div className="grid h-full min-h-[200px] place-items-center bg-[#0b1220]">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-muted">Loading map…</p>
+          </div>
+        )}
         {mode === 'guess' && !guess && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] text-center">
             <span className="rounded-full bg-sky px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-lg">

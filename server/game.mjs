@@ -266,10 +266,20 @@ function streetViewEmbedHtml(embedSrc) {
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.google.com https://maps.google.com https://maps.gstatic.com; frame-src https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none';" />
-  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}iframe{border:0;width:100%;height:100%}</style>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#06080e}
+    .wrap{position:relative;width:100%;height:100%;overflow:hidden;background:#06080e}
+    iframe{border:0;width:100%;height:100%;display:block}
+    .shield-top{position:absolute;inset:0 0 auto 0;height:76px;background:linear-gradient(180deg,#06080e 0%,#06080e 42%,rgba(6,8,14,0.55) 72%,transparent 100%);pointer-events:none;z-index:2}
+    .shield-mid{position:absolute;top:8px;left:12%;right:12%;height:48px;border-radius:8px;background:rgba(6,8,14,0.9);pointer-events:none;z-index:3}
+  </style>
 </head>
 <body oncontextmenu="return false">
-  <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope; fullscreen" src="${embedSrc}"></iframe>
+  <div class="wrap">
+    <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope; fullscreen" src="${embedSrc}"></iframe>
+    <div class="shield-top" aria-hidden="true"></div>
+    <div class="shield-mid" aria-hidden="true"></div>
+  </div>
 </body>
 </html>`
 }
@@ -313,10 +323,12 @@ export function renderStreetViewHtml(view, apiKey = '') {
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src https://www.google.com https://maps.google.com; object-src 'none';" />
-  <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}</style>
+  <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#06080e}#pano{position:absolute;inset:0}.shield-top{position:absolute;inset:0 0 auto 0;height:76px;background:linear-gradient(180deg,#06080e 0%,#06080e 42%,rgba(6,8,14,0.55) 72%,transparent 100%);pointer-events:none;z-index:2}.shield-mid{position:absolute;top:8px;left:12%;right:12%;height:48px;border-radius:8px;background:rgba(6,8,14,0.9);pointer-events:none;z-index:3}</style>
 </head>
 <body oncontextmenu="return false">
   <div id="pano"></div>
+  <div class="shield-top" aria-hidden="true"></div>
+  <div class="shield-mid" aria-hidden="true"></div>
   <script>
     ${authFallback}
     function init() {
@@ -349,10 +361,12 @@ export function renderStreetViewHtml(view, apiKey = '') {
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src https://www.google.com https://maps.google.com; object-src 'none';" />
-  <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}</style>
+  <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#06080e}#pano{position:absolute;inset:0}.shield-top{position:absolute;inset:0 0 auto 0;height:76px;background:linear-gradient(180deg,#06080e 0%,#06080e 42%,rgba(6,8,14,0.55) 72%,transparent 100%);pointer-events:none;z-index:2}.shield-mid{position:absolute;top:8px;left:12%;right:12%;height:48px;border-radius:8px;background:rgba(6,8,14,0.9);pointer-events:none;z-index:3}</style>
 </head>
 <body oncontextmenu="return false">
   <div id="pano"></div>
+  <div class="shield-top" aria-hidden="true"></div>
+  <div class="shield-mid" aria-hidden="true"></div>
   <script>
     ${authFallback}
     function init() {

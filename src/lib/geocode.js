@@ -30,6 +30,7 @@ export async function searchPlace(query) {
 
   const url = `/api/geocode?q=${encodeURIComponent(q)}`
   const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (res.status === 404) return null
   if (!res.ok) throw new Error('Search failed')
   const data = await res.json()
   if (data?.error) throw new Error(data.error)

@@ -19,6 +19,7 @@ import { PodiumStage } from './components/PodiumStage.jsx'
 import { PodiumHallRecords } from './components/PodiumHallRecords.jsx'
 import { submitScore } from './lib/leaderboard.js'
 import { playerError } from './lib/playerErrors.js'
+import { useMediaQuery } from './lib/useMediaQuery.js'
 import { HowToPlayModal } from './components/HowToPlayModal.jsx'
 import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
@@ -129,6 +130,7 @@ export default function App() {
   const [room, setRoom] = useState(null)
   const [guess, setGuess] = useState(null)
   const [pinSheetOpen, setPinSheetOpen] = useState(false)
+  const isDesktopMap = useMediaQuery('(min-width: 768px)')
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
@@ -324,6 +326,20 @@ export default function App() {
   useEffect(() => {
     setPinSheetOpen(false)
   }, [room?.roundIndex])
+
+  useEffect(() => {
+    if (!pinSheetOpen) {
+      document.body.classList.remove('play-pin-sheet-open')
+      return undefined
+    }
+    document.body.classList.add('play-pin-sheet-open')
+    window.dispatchEvent(new Event('monk-play-layout'))
+    const t = window.setTimeout(() => window.dispatchEvent(new Event('monk-play-layout')), 120)
+    return () => {
+      document.body.classList.remove('play-pin-sheet-open')
+      window.clearTimeout(t)
+    }
+  }, [pinSheetOpen])
 
   const selfGuessed = !!(room && room.guesses?.[room.selfId])
   const lockedCount = room ? Object.keys(room.guesses || {}).length : 0
@@ -1212,7 +1228,7 @@ export default function App() {
       </div>
 
       <aside className="play-map hidden md:grid" id="play-map-panel">
-        {!selfGuessed ? (
+        {isDesktopMap && !selfGuessed ? (
           <>
             <div className="play-map-head mb-2 flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -1229,6 +1245,7 @@ export default function App() {
                 onCountry={setCountry}
                 locked={selfGuessed}
                 tall
+                active={isDesktopMap}
               />
             </div>
             <button
@@ -1240,7 +1257,7 @@ export default function App() {
               {guess ? COPY.play.lock : COPY.play.needPin}
             </button>
           </>
-        ) : (
+        ) : isDesktopMap && selfGuessed ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <p className="font-display text-xl text-mint">{COPY.play.locked}</p>
             <p className="text-sm text-muted">
@@ -1255,7 +1272,7 @@ export default function App() {
               </p>
             )}
           </div>
-        )}
+        ) : null}
       </aside>
 
       <div className="play-mobile-dock md:hidden">
@@ -1317,6 +1334,8 @@ export default function App() {
                 onCountry={setCountry}
                 locked={selfGuessed}
                 tall
+                sheet
+                active={pinSheetOpen}
               />
             </div>
             <button

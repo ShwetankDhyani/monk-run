@@ -1411,8 +1411,9 @@
       position: relative;
       z-index: 1;
       display: flex;
+      height: min(88dvh, 720px);
       max-height: min(88dvh, 720px);
-      min-height: 0;
+      min-height: min(72dvh, 560px);
       flex-direction: column;
       overflow: hidden;
       border-top: 1px solid rgba(212, 165, 116, 0.28);
@@ -1434,19 +1435,28 @@
       flex-shrink: 0;
     }
     .play-pin-sheet-body {
-      flex: 1 1 auto;
+      flex: 1 1 0;
       min-height: 0;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-    .play-pin-sheet-body .guess-map-surface {
-      min-height: 0 !important;
-      height: 100% !important;
-      flex: 1 1 auto;
+    .play-pin-sheet-body .guess-map {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .play-pin-sheet-body .guess-map-surface,
+    .play-pin-sheet-body .guess-map-surface--sheet {
+      flex: 1 1 0;
+      min-height: 220px !important;
+      height: auto !important;
     }
     .play-pin-sheet-body .guess-map-surface .leaflet-container {
-      min-height: 0 !important;
+      min-height: 220px !important;
       height: 100% !important;
-      touch-action: none;
+      touch-action: pan-x pan-y pinch-zoom;
     }
     .play-pin-sheet-lock {
       min-height: 3rem;
@@ -1505,6 +1515,18 @@
     z-index: 20;
     left: max(0.75rem, env(safe-area-inset-left));
     bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .play-sv-spoiler-shield-center {
+    max-width: 22rem;
+    margin-inline: auto;
+  }
+
+  body.play-pin-sheet-open {
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    width: 100%;
   }
   @media (max-width: 640px) {
     .play-map {
