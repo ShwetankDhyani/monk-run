@@ -71,6 +71,28 @@ Voice is optional PeerJS mesh audio. Public STUN works on many networks; **stric
 
 Vite · React 19 · Tailwind 4 · Canvas lobby · PeerJS · Leaflet · Google Street View · Node integrity API
 
+
+
+## Deploy on Vercel
+
+1. Push this repo to GitHub (already set up for that).
+2. In [Vercel](https://vercel.com/new) → Import the GitHub repo.
+3. Framework preset: **Vite** (build `npm run build`, output `dist`).
+4. Set environment variables:
+
+| Variable | Required | Notes |
+|----------|----------|--------|
+| `GOOGLE_MAPS_API_KEY` | yes | Street View Metadata + JS API, HTTP referrer + server restrictions |
+| `MONK_SCORE_SECRET` | yes | Long random string (`openssl rand -hex 32`) |
+| `VITE_ICE_SERVERS` | optional | JSON ICE/TURN list for voice behind strict NATs |
+
+5. Deploy. The SPA and `/api/*` serverless functions ship together via `vercel.json`.
+
+**Notes**
+- Restrict the Maps key to your Vercel domain(s) plus `localhost`.
+- Leaderboard writes use `/tmp` on Vercel (ephemeral across instances).
+- Game session state is in-memory per serverless instance — fine for typical party sessions on a warm function; for always-on production multiplayer, prefer Docker/`npm start` on a persistent host.
+
 ## Compliance notes
 
 - Do **not** enable `ALLOW_MAPS_KEY_SCRAPE` in production  
