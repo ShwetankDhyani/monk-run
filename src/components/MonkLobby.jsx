@@ -137,6 +137,7 @@ export function MonkLobby({
   focused = true,
   voiceLevel = 0,
   chat = [],
+  chrome = true,
 }) {
   const canvasRef = useRef(null)
   const keysRef = useRef(new Set())
@@ -534,6 +535,7 @@ export function MonkLobby({
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#0c0e14]">
       <canvas ref={canvasRef} width={WORLD.w} height={WORLD.h} className="h-full w-full touch-none object-contain" tabIndex={0} />
+      {chrome && (
       <div className="lobby-room-hud pointer-events-none absolute left-2 top-2 right-2 z-10 flex flex-wrap items-start justify-between gap-2">
         <div className="rounded-md border border-white/10 bg-black/55 px-2.5 py-1.5 backdrop-blur-sm">
           <p className="font-display text-sm text-fog" style={{ color: HANGOUT.accent }}>
@@ -550,6 +552,7 @@ export function MonkLobby({
           </div>
         )}
       </div>
+      )}
       {!portalActive && !portalHold && (
         <div className="emote-dock pointer-events-auto absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
           {[

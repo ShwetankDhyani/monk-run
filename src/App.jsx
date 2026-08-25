@@ -132,6 +132,7 @@ export default function App() {
   const [chatDraft, setChatDraft] = useState('')
   const [chatFocused, setChatFocused] = useState(false)
   const [hostMuteToast, setHostMuteToast] = useState('')
+  const [lobbyDock, setLobbyDock] = useState('crew') // mobile: 'crew' | 'chat'
   const chatEndRef = useRef(null)
   const [voice, setVoice] = useState({
     muted: true,
@@ -694,6 +695,7 @@ export default function App() {
             focused={!inPortal && !chatFocused}
             voiceLevel={voice.level || 0}
             chat={room.chat || []}
+            chrome={false}
           />
 
           <header className="waiting-float-bar">
@@ -708,7 +710,7 @@ export default function App() {
               className="code-plate code-plate--compact"
               onClick={copyPin}
               disabled={inPortal}
-              title="Copy code"
+              title="Copy room PIN"
             >
               <p className="text-[8px] uppercase tracking-[0.28em] text-muted">{COPY.lobby.pinLabel}</p>
               <p className="font-mono text-2xl font-bold tracking-[0.22em] text-amber md:text-3xl">
@@ -750,13 +752,37 @@ export default function App() {
             </div>
           </header>
 
-          <aside className="crew-rail" aria-label={COPY.lobby.crew}>
+          <div className="lobby-dock-tabs" role="tablist" aria-label="Lobby panels">
+            <button
+              type="button"
+              role="tab"
+              className={`lobby-dock-tab${lobbyDock === 'crew' ? ' is-active' : ''}`}
+              aria-selected={lobbyDock === 'crew'}
+              onClick={() => setLobbyDock('crew')}
+            >
+              {COPY.lobby.crew}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className={`lobby-dock-tab${lobbyDock === 'chat' ? ' is-active' : ''}`}
+              aria-selected={lobbyDock === 'chat'}
+              onClick={() => setLobbyDock('chat')}
+            >
+              {COPY.lobby.conversation}
+            </button>
+          </div>
+
+          <aside
+            className={`crew-rail${lobbyDock === 'crew' ? ' is-dock-active' : ''}`}
+            aria-label={COPY.lobby.crew}
+          >
             <div className="crew-rail-head">
               <p className="landing-label">{COPY.lobby.crew}</p>
               {!voice.active && room.phase === 'lobby' && !inPortal && (
                 <button
                   type="button"
-                  className="btn btn-ghost crew-talk-cta"
+                  className="btn btn-ghost crew-talk-cta crew-talk-cta--desktop"
                   onClick={() => ensureVoice()}
                 >
                   {COPY.lobby.joinVoiceCta}
@@ -827,7 +853,10 @@ export default function App() {
             )}
           </aside>
 
-          <aside className="convo-dock" aria-label={COPY.lobby.conversation}>
+          <aside
+            className={`convo-dock${lobbyDock === 'chat' ? ' is-dock-active' : ''}`}
+            aria-label={COPY.lobby.conversation}
+          >
             <div className="convo-head">
               <p className="landing-label">{COPY.lobby.conversation}</p>
               <p className="convo-sub">{me?.name ? `as ${me.name}` : ''}</p>
