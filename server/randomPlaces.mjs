@@ -50,21 +50,12 @@ async function persistUsed() {
 let scrapedKey = ''
 let scrapedAt = 0
 
-/**
- * Prefer first-party GOOGLE_MAPS_API_KEY.
- * Scraping Google's public embed key is OFF unless ALLOW_MAPS_KEY_SCRAPE=1 (local/demo only).
- */
-export async function resolveMapsKey(preferred = '') {
-  const key = String(
-    preferred || process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '',
-  ).trim()
-  if (key) return key
+function scrapeAllowed() {
+  // Default ON (same as local demo). Set ALLOW_MAPS_KEY_SCRAPE=0 to force a first-party key.
+  return process.env.ALLOW_MAPS_KEY_SCRAPE !== '0'
+}
 
-  if (process.env.ALLOW_MAPS_KEY_SCRAPE !== '1') {
-    throw new Error(
-      'GOOGLE_MAPS_API_KEY is required. Set it in .env for launch; do not scrape third-party keys in production.',
-    )
-  }
+async function scrapeEmbedMapsKey() {
   if (scrapedKey && Date.now() - scrapedAt < 6 * 60 * 60 * 1000) return scrapedKey
   const res = await fetch(
     'https://www.google.com/maps?layer=c&cbll=40.7580,-73.9855&cbp=12,0,0,0,0&hl=en&output=svembed',
@@ -82,8 +73,29 @@ export async function resolveMapsKey(preferred = '') {
   if (!m?.[1]) throw new Error('Could not resolve Street View metadata key')
   scrapedKey = m[1]
   scrapedAt = Date.now()
-  console.warn('[maps] Using scraped embed key — set GOOGLE_MAPS_API_KEY for production')
+  console.warn('[maps] Using scraped embed key (demo mode) — set a valid GOOGLE_MAPS_API_KEY for launch')
   return scrapedKey
+}
+
+/**
+ * Prefer first-party GOOGLE_MAPS_API_KEY.
+ * If missing/invalid, fall back to Google's public embed key (local/Vercel demo path).
+ * Disable with ALLOW_MAPS_KEY_SCRAPE=0.
+ */
+export async function resolveMapsKey(preferred = '', { forceScrape = false } = {}) {
+  if (!forceScrape) {
+    const key = String(
+      preferred || process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    ).trim()
+    if (key) return key
+  }
+
+  if (!scrapeAllowed()) {
+    throw new Error(
+      'GOOGLE_MAPS_API_KEY is required. Set it in Vercel, or remove ALLOW_MAPS_KEY_SCRAPE=0 for demo scrape mode.',
+    )
+  }
+  return scrapeEmbedMapsKey()
 }
 
 /** Uniform random point on the globe. */
@@ -201,13 +213,9 @@ async function pickOneRandom(apiKey, sessionKeys) {
   return null
 }
 
-export async function pickGlobalPlaces(count, mapsKey = '') {
-  await loadUsed()
-  const apiKey = await resolveMapsKey(mapsKey)
-  const n = Math.max(1, Math.min(20, Number(count) || 5))
+async function collectPlaces(apiKey, n) {
   const sessionKeys = new Set()
   const picks = []
-
   const batchSize = Math.min(n, 3)
   while (picks.length < n) {
     const need = Math.min(batchSize, n - picks.length)
@@ -221,9 +229,29 @@ export async function pickGlobalPlaces(count, mapsKey = '') {
       throw new Error('Could not find enough Street View panoramas — try again')
     }
   }
-
-  void persistUsed()
   return picks.slice(0, n)
+}
+
+export async function pickGlobalPlaces(count, mapsKey = '') {
+  await loadUsed()
+  const n = Math.max(1, Math.min(20, Number(count) || 5))
+  let apiKey = await resolveMapsKey(mapsKey)
+
+  try {
+    const picks = await collectPlaces(apiKey, n)
+    void persistUsed()
+    return picks
+  } catch (err) {
+    // Invalid/restricted Vercel key → same demo path as local scrape mode
+    if (err instanceof MapsKeyError && scrapeAllowed()) {
+      console.warn('[maps] Configured key rejected — falling back to scraped embed key')
+      apiKey = await resolveMapsKey('', { forceScrape: true })
+      const picks = await collectPlaces(apiKey, n)
+      void persistUsed()
+      return picks
+    }
+    throw err
+  }
 }
 
 export async function enrichPlace(loc) {

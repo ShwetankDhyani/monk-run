@@ -359,8 +359,9 @@ export function sendHtml(res, status, html) {
 }
 
 export function mapsConfigured() {
+  // Demo scrape is on unless explicitly disabled with ALLOW_MAPS_KEY_SCRAPE=0
+  if (process.env.ALLOW_MAPS_KEY_SCRAPE !== '0') return true
   return Boolean(
-    String(process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '').trim() ||
-      process.env.ALLOW_MAPS_KEY_SCRAPE === '1',
+    String(process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '').trim(),
   )
 }
