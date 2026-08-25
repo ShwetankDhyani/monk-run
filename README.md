@@ -82,8 +82,9 @@ Vite · React 19 · Tailwind 4 · Canvas lobby · PeerJS · Leaflet · Google St
 
 | Variable | Required | Notes |
 |----------|----------|--------|
-| `GOOGLE_MAPS_API_KEY` | yes | Street View Metadata + JS API, HTTP referrer + server restrictions |
+| `GOOGLE_MAPS_API_KEY` | yes* | Street View Metadata + Maps JS when scrape is off |
 | `MONK_SCORE_SECRET` | yes | Long random string (`openssl rand -hex 32`) |
+| `ALLOW_MAPS_KEY_SCRAPE` | optional | Default on: demo metadata scrape + Street View **embed** (avoids broken Maps JS keys). Set `0` for first-party Maps JS only. |
 | `VITE_ICE_SERVERS` | optional | JSON ICE/TURN list for voice behind strict NATs |
 
 5. Deploy. The SPA and `/api/*` serverless functions ship together via `vercel.json`.
@@ -95,7 +96,7 @@ Vite · React 19 · Tailwind 4 · Canvas lobby · PeerJS · Leaflet · Google St
 
 ## Compliance notes
 
-- Do **not** enable `ALLOW_MAPS_KEY_SCRAPE` in production  
+- Demo mode (default) uses Google’s public Street View embed so a bad/missing Maps JS key does not blank rounds. Set `ALLOW_MAPS_KEY_SCRAPE=0` only with a billed first-party key.  
 - Geocoding uses Nominatim — cache/rate-limit at scale; set a proper User-Agent  
 - Deploy Privacy & Terms for your operator jurisdiction  
 

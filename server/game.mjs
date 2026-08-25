@@ -237,28 +237,72 @@ export function consumeLeaderboardCommit(sessionId, playerId, score, token) {
 
 export { haversineKm, scoreFromDistanceKm }
 
+function streetViewEmbedSrc(panoId, latS, lngS, heading) {
+  return panoId
+    ? `https://www.google.com/maps?layer=c&panoid=${encodeURIComponent(panoId)}&cbp=12,${heading},0,0,0&hl=en&output=svembed`
+    : `https://www.google.com/maps?layer=c&cbll=${latS},${lngS}&cbp=12,${heading},0,0,0&hl=en&output=svembed`
+}
+
+function streetViewEmbedHtml(embedSrc) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.google.com https://maps.google.com https://maps.gstatic.com; frame-src https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none';" />
+  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}iframe{border:0;width:100%;height:100%}</style>
+</head>
+<body oncontextmenu="return false">
+  <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope; fullscreen" src="${embedSrc}"></iframe>
+</body>
+</html>`
+}
+
 /**
  * Street View HTML — prefer panorama id so raw lat/lng are not in the document.
- * API key required for production-quality rendering.
+ *
+ * Maps JavaScript API needs a valid first-party key (billing + Maps JS API enabled).
+ * Invalid/restricted keys show Google's "Something went wrong" page — so demo mode
+ * (scrape allowed) uses the public svembed iframe instead.
  */
 export function renderStreetViewHtml(view, apiKey = '') {
   const panoId = String(view.panoId || '').replace(/[^A-Za-z0-9_-]/g, '')
   const latS = Number(view.lat).toFixed(6)
   const lngS = Number(view.lng).toFixed(6)
   const heading = Math.floor(Math.random() * 360)
+  const embedSrc = streetViewEmbedSrc(panoId, latS, lngS, heading)
 
-  if (apiKey && panoId) {
+  // Demo / scrape mode: never hand an env key to Maps JS — Vercel often has a key
+  // that works for neither Metadata nor JS (or only partially), which blanks the round.
+  const forceEmbed = process.env.ALLOW_MAPS_KEY_SCRAPE !== '0'
+  if (!apiKey || forceEmbed) {
+    return streetViewEmbedHtml(embedSrc)
+  }
+
+  const authFallback = `
+    window.gm_authFailure = function() {
+      var html = ${JSON.stringify(streetViewEmbedHtml(embedSrc))};
+      document.open();
+      document.write(html);
+      document.close();
+    };
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 's' || e.key === 'p')) e.preventDefault();
+    });`
+
+  if (panoId) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src 'none'; object-src 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src https://www.google.com https://maps.google.com; object-src 'none';" />
   <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}</style>
 </head>
 <body oncontextmenu="return false">
   <div id="pano"></div>
   <script>
+    ${authFallback}
     function init() {
       var pano = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
         pano: ${JSON.stringify(panoId)},
@@ -276,9 +320,6 @@ export function renderStreetViewHtml(view, apiKey = '') {
         clickToGo: true,
         scrollwheel: true,
       });
-      document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 's' || e.key === 'p')) e.preventDefault();
-      });
     }
   </script>
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=init"></script>
@@ -286,18 +327,18 @@ export function renderStreetViewHtml(view, apiKey = '') {
 </html>`
   }
 
-  if (apiKey) {
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="referrer" content="no-referrer" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src 'none'; object-src 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline'; img-src https://maps.gstatic.com https://maps.googleapis.com data:; connect-src https://maps.googleapis.com; frame-src https://www.google.com https://maps.google.com; object-src 'none';" />
   <style>html,body,#pano{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}</style>
 </head>
 <body oncontextmenu="return false">
   <div id="pano"></div>
   <script>
+    ${authFallback}
     function init() {
       var pano = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
         position: { lat: ${latS}, lng: ${lngS} },
@@ -324,25 +365,6 @@ export function renderStreetViewHtml(view, apiKey = '') {
     }
   </script>
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=init"></script>
-</body>
-</html>`
-  }
-
-  // Embed fallback — prefer panoid when present
-  const embedSrc = panoId
-    ? `https://www.google.com/maps?layer=c&panoid=${encodeURIComponent(panoId)}&cbp=12,${heading},0,0,0&hl=en&output=svembed`
-    : `https://www.google.com/maps?layer=c&cbll=${latS},${lngS}&cbp=12,${heading},0,0,0&hl=en&output=svembed`
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="referrer" content="no-referrer" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.google.com https://maps.google.com https://maps.gstatic.com; frame-src https://www.google.com https://maps.google.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none';" />
-  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1220}iframe{border:0;width:100%;height:100%}</style>
-</head>
-<body oncontextmenu="return false">
-  <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope" sandbox="allow-scripts allow-same-origin" src="${embedSrc}"></iframe>
 </body>
 </html>`
 }
