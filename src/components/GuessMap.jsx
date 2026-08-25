@@ -14,6 +14,41 @@ const pinIcon = (color) =>
     iconAnchor: [9, 9],
   })
 
+/** One globe only — Leaflet otherwise repeats the world sideways. */
+const WORLD_BOUNDS = L.latLngBounds([-85, -180], [85, 180])
+
+function wrapLng(lng) {
+  const x = ((((Number(lng) + 180) % 360) + 360) % 360) - 180
+  return x === -180 ? 180 : x
+}
+
+function normLatLng(lat, lng) {
+  return [Number(lat), wrapLng(lng)]
+}
+
+/** Keep reveal lines on a single world copy (shortest east/west path). */
+function shortPath(a, b) {
+  const lat1 = Number(a[0])
+  const lat2 = Number(b[0])
+  let lng1 = wrapLng(a[1])
+  let lng2 = wrapLng(b[1])
+  if (lng2 - lng1 > 180) lng2 -= 360
+  if (lng1 - lng2 > 180) lng1 -= 360
+  // Prefer both endpoints inside the visible globe when possible
+  if (lng1 < -180 || lng2 < -180) {
+    lng1 += 360
+    lng2 += 360
+  }
+  if (lng1 > 180 || lng2 > 180) {
+    lng1 -= 360
+    lng2 -= 360
+  }
+  return [
+    [lat1, lng1],
+    [lat2, lng2],
+  ]
+}
+
 function ClickDrop({ enabled, onDrop }) {
   useMapEvents({
     click(e) {
@@ -47,11 +82,20 @@ function InvalidateSize() {
   return null
 }
 
+function SingleWorld() {
+  const map = useMap()
+  useEffect(() => {
+    map.options.worldCopyJump = false
+    map.setMaxBounds(WORLD_BOUNDS)
+  }, [map])
+  return null
+}
+
 function FlyToGuess({ guess }) {
   const map = useMap()
   useEffect(() => {
     if (!guess) return
-    map.flyTo([guess.lat, guess.lng], Math.max(map.getZoom(), 5), { duration: 0.9 })
+    map.flyTo(normLatLng(guess.lat, guess.lng), Math.max(map.getZoom(), 5), { duration: 0.9 })
   }, [map, guess?.lat, guess?.lng])
   return null
 }
@@ -60,14 +104,17 @@ function FitReveal({ truth, guesses }) {
   const map = useMap()
   useEffect(() => {
     if (!truth) return
-    const pts = [[truth.lat, truth.lng]]
+    const pts = [normLatLng(truth.lat, truth.lng)]
     for (const g of guesses || []) {
-      if (g.lat != null) pts.push([g.lat, g.lng])
+      if (g.lat == null) continue
+      // Use unwrapped short-path endpoints so fitBounds doesn't jump to another world copy
+      const path = shortPath([g.lat, g.lng], [truth.lat, truth.lng])
+      pts.push(path[0], path[1])
     }
     try {
       map.fitBounds(pts, { padding: [48, 48], maxZoom: 5 })
     } catch {
-      map.setView([truth.lat, truth.lng], 2)
+      map.setView(normLatLng(truth.lat, truth.lng), 2)
     }
   }, [map, truth, guesses])
   return null
@@ -203,26 +250,40 @@ export default function GuessMap({
         <MapContainer
           center={center}
           zoom={guess ? 4 : 2}
+          minZoom={1}
+          maxBounds={WORLD_BOUNDS}
+          maxBoundsViscosity={1}
+          worldCopyJump={false}
           className="h-full w-full"
           style={{ height: '100%', width: '100%', background: '#0b1220' }}
           scrollWheelZoom
-          worldCopyJump
         >
+          <SingleWorld />
           <InvalidateSize />
           <TileLayer
             attribution="&copy; OpenStreetMap &copy; CARTO"
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            noWrap
+            bounds={[[-85, -180], [85, 180]]}
           />
-          {mode === 'guess' && <ClickDrop enabled={!locked} onDrop={(pt) => { onGuess?.(pt); focusPinMap() }} />}
+          {mode === 'guess' && (
+            <ClickDrop
+              enabled={!locked}
+              onDrop={(pt) => {
+                onGuess?.({ lat: pt.lat, lng: wrapLng(pt.lng) })
+                focusPinMap()
+              }}
+            />
+          )}
           {mode === 'guess' && guess && <FlyToGuess guess={guess} />}
           {mode === 'guess' && guess && (
-            <Marker position={[guess.lat, guess.lng]} icon={pinIcon('#00e5ff')} />
+            <Marker position={normLatLng(guess.lat, guess.lng)} icon={pinIcon('#00e5ff')} />
           )}
           {mode === 'reveal' && truth && (
             <>
               <FitReveal truth={truth} guesses={revealResults} />
               <CircleMarker
-                center={[truth.lat, truth.lng]}
+                center={normLatLng(truth.lat, truth.lng)}
                 pathOptions={{ color: '#80ff72', fillColor: '#80ff72', fillOpacity: 0.9 }}
                 radius={9}
               />
@@ -230,7 +291,7 @@ export default function GuessMap({
                 if (r.lat == null) return null
                 const look = resolvePlayerLook(r.avatar || r.vibe, r.playerId, revealResults.map((x) => ({ id: x.playerId, avatar: x.avatar, vibe: x.vibe })))
                 return (
-                  <Marker key={`m-${r.playerId}`} position={[r.lat, r.lng]} icon={pinIcon(look.robe)} />
+                  <Marker key={`m-${r.playerId}`} position={normLatLng(r.lat, r.lng)} icon={pinIcon(look.robe)} />
                 )
               })}
               {revealResults.map((r) => {
@@ -239,10 +300,7 @@ export default function GuessMap({
                 return (
                   <Polyline
                     key={`l-${r.playerId}`}
-                    positions={[
-                      [r.lat, r.lng],
-                      [truth.lat, truth.lng],
-                    ]}
+                    positions={shortPath([r.lat, r.lng], [truth.lat, truth.lng])}
                     pathOptions={{
                       color: look.robe,
                       weight: r.playerId === selfId ? 3 : 1.5,
