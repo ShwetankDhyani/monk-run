@@ -4,7 +4,7 @@ Temple lobby. Voice chat. Worldwide Street View rounds. A party geography game b
 
 **Art direction:** void navy + brass/jade temple light, Fraunces + Outfit — brand-first landing, atmospheric grain, HUD chips instead of SaaS cards.
 
-> Independent title — **not** affiliated with any third-party geography-game trademarks. Characters are original temple scouts.
+> Independent title — **not** affiliated with any third-party geography-game trademarks. Scout pickers use Attack on Titan character names as an homage.
 
 ## Features
 

@@ -42,8 +42,9 @@ export function LegalPage({ kind, onBack }) {
               policies. Do not scrape, redistribute, or reverse-engineer panoramas.
             </p>
             <p>
-              Scouts, the temple lobby, and the monk.run mark are original. This is an independent
-              party geography game — not affiliated with any third-party geography trademarks.
+              Scout pickers use Attack on Titan character names as an homage. The temple lobby and
+              monk.run mark are otherwise original. This is an independent party geography game —
+              not affiliated with any third-party geography trademarks.
             </p>
             <p>
               Provided as entertainment. Operators who host monk.run own their keys, TURN setup,

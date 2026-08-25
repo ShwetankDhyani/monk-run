@@ -19,7 +19,7 @@ export const COPY = {
     nameLabel: 'Your name',
     namePlaceholder: 'Wanderer',
     scoutLabel: 'Your scout',
-    scoutHint: 'Shared scouts wear different robes.',
+    scoutHint: 'Pick an AOT scout — shared picks wear different robes.',
     openTemple: 'Open the temple',
     pinLabel: 'Room PIN',
     stepInside: 'Step inside',

@@ -1,4 +1,4 @@
-/** Top-down temple scouts — big heads, saffron robes, recognizable traits. */
+/** Top-down AOT monk scouts — big heads, saffron robes, recognizable traits. */
 import { MONK_AVATARS, ROBE_PALETTE } from '../data/avatars.js'
 
 export const DIRECTIONS = ['down', 'up', 'left', 'right']
@@ -14,10 +14,10 @@ function bodyScale(look) {
 }
 
 function headRadius(look) {
-  if (look.feature === 'crown') return 15
-  if (look.feature === 'veil') return 15
-  if (look.feature === 'ridge') return 17
-  if (look.feature === 'blade') return 14
+  if (look.feature === 'historia') return 15
+  if (look.feature === 'mikasa') return 15
+  if (look.feature === 'jean') return 17
+  if (look.feature === 'levi') return 14
   return 16
 }
 
@@ -859,25 +859,25 @@ function drawHair(ctx, look, headY, headR, feature, dir) {
     return
   }
 
-  if (feature === 'veil') {
+  if (feature === 'mikasa') {
     drawVeilHair(ctx, look, headY, headR, dir)
-  } else if (feature === 'rift') {
+  } else if (feature === 'eren') {
     drawRiftSpiritHair(ctx, look, headY, headR)
-  } else if (feature === 'lotus') {
+  } else if (feature === 'armin') {
     ctx.beginPath()
     ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
     ctx.fill()
     ctx.fillRect(-headR + 1, headY - headR - 1, headR * 2 - 2, 6)
-  } else if (feature === 'blade') {
+  } else if (feature === 'levi') {
     drawBladeHair(ctx, look, headY, headR, dir)
-  } else if (feature === 'lens') {
+  } else if (feature === 'hange') {
     ctx.beginPath()
     ctx.arc(0, headY - 1, headR + 2, Math.PI, Math.PI * 2)
     ctx.fill()
     ctx.beginPath()
     ctx.ellipse(headR + 1, headY + 1, 3.5, 8, 0.35, 0, Math.PI * 2)
     ctx.fill()
-  } else if (feature === 'ridge') {
+  } else if (feature === 'jean') {
     ctx.beginPath()
     ctx.arc(0, headY - 2, headR + 1, Math.PI, Math.PI * 2)
     ctx.fill()
@@ -886,7 +886,7 @@ function drawHair(ctx, look, headY, headR, feature, dir) {
     ctx.lineTo(0, headY - headR - 7)
     ctx.lineTo(4, headY - headR - 2)
     ctx.fill()
-  } else if (feature === 'crown') {
+  } else if (feature === 'historia') {
     ctx.beginPath()
     ctx.arc(0, headY - 2, headR + 2, Math.PI, Math.PI * 2)
     ctx.fill()
@@ -899,14 +899,14 @@ function drawHair(ctx, look, headY, headR, feature, dir) {
 }
 
 function drawCharacterFace(ctx, look, dir, headY, headR) {
-  const feature = look.feature || 'rift'
+  const feature = look.feature || 'eren'
 
-  if (feature === 'rift') return
-  if (feature === 'blade') {
+  if (feature === 'eren') return
+  if (feature === 'levi') {
     drawBladeFace(ctx, look, dir, headY, headR)
     return
   }
-  if (feature === 'veil') {
+  if (feature === 'mikasa') {
     drawVeilFace(ctx, look, dir, headY, headR)
     return
   }
@@ -916,7 +916,7 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
     ctx.save()
     ctx.scale(flip, 1)
     ctx.fillStyle = look.skin
-    if (feature === 'veil') {
+    if (feature === 'mikasa') {
       ctx.beginPath()
       ctx.ellipse(5, headY - 1, headR * 0.68, headR * 0.88, 0, 0, Math.PI * 2)
       ctx.fill()
@@ -929,7 +929,7 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
     ctx.lineWidth = 1.4
     ctx.stroke()
     drawHair(ctx, look, headY, headR, feature, dir)
-    if (feature === 'lens') {
+    if (feature === 'hange') {
       ctx.strokeStyle = '#1a1008'
       ctx.strokeRect(2, headY - 4, 8, 5)
     }
@@ -949,7 +949,7 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
   ctx.fillStyle = look.skin
   ctx.strokeStyle = '#1a1008'
   ctx.lineWidth = 1.4
-  if (feature === 'veil') {
+  if (feature === 'mikasa') {
     ctx.beginPath()
     ctx.ellipse(0, headY, headR * 0.9, headR * 1.0, 0, 0, Math.PI * 2)
     ctx.fill()
@@ -963,7 +963,7 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
 
   drawHair(ctx, look, headY, headR, feature, dir)
 
-  if (feature === 'crown' && look.tiara) {
+  if (feature === 'historia' && look.tiara) {
     ctx.fillStyle = look.tiara
     ctx.beginPath()
     ctx.moveTo(-5, headY - headR - 1)
@@ -974,8 +974,8 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
   }
 
   ctx.strokeStyle = look.brow
-  ctx.lineWidth = feature === 'veil' ? 1.1 : 1.5
-  if (feature === 'veil') {
+  ctx.lineWidth = feature === 'mikasa' ? 1.1 : 1.5
+  if (feature === 'mikasa') {
     ctx.beginPath()
     ctx.moveTo(-headR * 0.48, headY - headR * 0.08)
     ctx.quadraticCurveTo(-headR * 0.15, headY - headR * 0.18, headR * 0.02, headY - headR * 0.1)
@@ -991,13 +991,13 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
     ctx.stroke()
   }
 
-  if (feature === 'veil') {
+  if (feature === 'mikasa') {
     drawVeilEyes(ctx, look, headY, headR)
   } else {
-    drawEyes(ctx, look, headY, headR, dir, feature === 'lotus' || feature === 'lens')
+    drawEyes(ctx, look, headY, headR, dir, feature === 'armin' || feature === 'hange')
   }
 
-  if (feature === 'lens') {
+  if (feature === 'hange') {
     ctx.strokeStyle = '#1a1008'
     ctx.lineWidth = 1.4
     ctx.strokeRect(-headR * 0.72, headY - headR * 0.08, headR * 0.55, headR * 0.32)
@@ -1008,24 +1008,24 @@ function drawCharacterFace(ctx, look, dir, headY, headR) {
     ctx.stroke()
   }
 
-  if (feature === 'ridge') {
+  if (feature === 'jean') {
     ctx.strokeStyle = '#5a4030'
     ctx.beginPath()
     ctx.moveTo(-headR * 0.18, headY + headR * 0.38)
     ctx.quadraticCurveTo(0, headY + headR * 0.45, headR * 0.2, headY + headR * 0.35)
     ctx.stroke()
-  } else if (feature === 'veil') {
+  } else if (feature === 'mikasa') {
     ctx.fillStyle = '#c08090'
     ctx.beginPath()
     ctx.arc(0, headY + headR * 0.28, headR * 0.07, 0, Math.PI * 2)
     ctx.fill()
-  } else if (feature === 'lens') {
+  } else if (feature === 'hange') {
     ctx.strokeStyle = '#6a4030'
     ctx.lineWidth = 1.6
     ctx.beginPath()
     ctx.arc(0, headY + headR * 0.38, headR * 0.18, 0.2, Math.PI - 0.2)
     ctx.stroke()
-  } else if (feature === 'blade') {
+  } else if (feature === 'levi') {
     ctx.strokeStyle = '#4a3830'
     ctx.beginPath()
     ctx.moveTo(-headR * 0.15, headY + headR * 0.36)
@@ -1106,9 +1106,9 @@ export function drawMonkTopDown(ctx, x, y, look, dir = 'down', walk = 0, scaleX 
   const headR = headRadius(look)
   const headY = dir === 'up' ? 0 : -10
   const facing = DIRECTIONS.includes(dir) ? dir : 'down'
-  const isRift = look.feature === 'rift'
-  const isBlade = look.feature === 'blade'
-  const isVeil = look.feature === 'veil'
+  const isRift = look.feature === 'eren'
+  const isBlade = look.feature === 'levi'
+  const isVeil = look.feature === 'mikasa'
 
   ctx.save()
   ctx.translate(x, y + bob)

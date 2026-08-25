@@ -113,7 +113,7 @@ export default function App() {
   const [screen, setScreen] = useState('landing')
   const [name, setName] = useState(() => localStorage.getItem('monk-name') || '')
   const [vibe, setVibe] = useState(() => localStorage.getItem('monk-vibe') || 'saffron')
-  const [avatar, setAvatar] = useState(() => migrateVibeToAvatar(localStorage.getItem('monk-avatar') || localStorage.getItem('monk-vibe') || 'monk-rift'))
+  const [avatar, setAvatar] = useState(() => migrateVibeToAvatar(localStorage.getItem('monk-avatar') || localStorage.getItem('monk-vibe') || 'aot-eren'))
   const [cinPhase, setCinPhase] = useState(null)
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
