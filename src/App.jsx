@@ -643,7 +643,6 @@ export default function App() {
               <button type="button" onClick={() => setLegal('privacy')}>{COPY.landing.privacy}</button>
               <button type="button" onClick={() => setLegal('terms')}>{COPY.landing.terms}</button>
             </div>
-            <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="landing-board" />
           </div>
         </div>
 
@@ -728,9 +727,6 @@ export default function App() {
           <header className="waiting-float-bar">
             <div className="waiting-brand">
               <p className="font-display text-lg font-medium tracking-tight text-fog md:text-xl">monk.run</p>
-              <p className="text-[9px] uppercase tracking-[0.2em] text-muted">
-                {COPY.lobby.subtitle(room.players.length, MAX_PLAYERS, room.localOnly)}
-              </p>
             </div>
             <button
               type="button"
@@ -746,7 +742,6 @@ export default function App() {
               <p className="text-[9px] text-jade-bright">{copied ? COPY.lobby.copied : COPY.lobby.tapCopy}</p>
             </button>
             <div className="waiting-actions flex flex-wrap items-center justify-end gap-2">
-              <AllTimeLeaderboardButton refreshKey={leaderboardKey} inline className="lobby-board-link" />
               <VoiceMuteButton
                 active={voice.active}
                 muted={voice.muted}
@@ -806,7 +801,6 @@ export default function App() {
             aria-label={COPY.lobby.crew}
           >
             <div className="crew-rail-head">
-              <p className="landing-label">{COPY.lobby.crew}</p>
               {!voice.active && room.phase === 'lobby' && !inPortal && (
                 <button
                   type="button"
@@ -954,9 +948,9 @@ export default function App() {
     const rest = ranked.slice(3)
     return (
       <Fragment>
-      <div className="screen-enter relative flex min-h-full flex-col items-center overflow-auto p-4 pb-6">
+      <div className="podium-page screen-enter relative flex min-h-full min-h-[100dvh] flex-col overflow-auto p-4 pb-6">
         <Atmosphere />
-        <div className="relative z-10 w-full max-w-3xl px-2 md:px-4">
+        <div className="podium-main relative z-10 mx-auto w-full max-w-3xl flex-1 px-2 md:px-4">
           <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
           <h2 className="text-center font-display text-4xl font-medium text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
 
@@ -1033,8 +1027,10 @@ export default function App() {
           >
             {COPY.podium.leaveParty}
           </button>
-          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-5 shrink-0" />
         </div>
+        <footer className="podium-footer relative z-10 mx-auto w-full max-w-3xl px-2 pt-6 md:px-4">
+          <AllTimeLeaderboardButton refreshKey={leaderboardKey} footer className="w-full" />
+        </footer>
       </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>
@@ -1121,7 +1117,6 @@ export default function App() {
               ) : (
                 <p className="mt-4 text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
               )}
-              <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-4" />
             </div>
           </div>
         </div>
@@ -1149,7 +1144,6 @@ export default function App() {
           {room.message && room.message !== 'Scoring…' && room.message !== 'Results' && (
             <p className="mt-4 text-sm text-coral">{playerError(room.message)}</p>
           )}
-          <AllTimeLeaderboardButton refreshKey={leaderboardKey} className="mt-6" />
         </div>
         {room.viewToken && room.phase === 'loading-round' && (
           <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>
@@ -1226,9 +1220,6 @@ export default function App() {
             {COPY.play.endRound}
           </button>
         )}
-        <div className="play-hall-link">
-          <AllTimeLeaderboardButton refreshKey={leaderboardKey} inline />
-        </div>
       </div>
 
       <aside className="play-map hidden md:grid" id="play-map-panel">

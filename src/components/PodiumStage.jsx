@@ -2,11 +2,15 @@ import { useEffect, useMemo, useRef } from 'react'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { drawMonkTopDown } from '../lib/avatarDraw.js'
 
-const PEDESTAL_HEIGHTS = [88, 64, 48]
-const PEDESTAL_WIDTHS = [112, 96, 88]
+/** Olympic order: 1st center (tallest), 2nd left, 3rd right. */
+const PODIUM_LAYOUT = [
+  { place: 1, idx: 0, x: 0.5, height: 118, width: 124, label: '1st' },
+  { place: 2, idx: 1, x: 0.22, height: 76, width: 100, label: '2nd' },
+  { place: 3, idx: 2, x: 0.78, height: 54, width: 92, label: '3rd' },
+]
 
 /**
- * Top 3 finishers on pedestals with a gentle victory bounce.
+ * Top 3 finishers — Olympic 2 · 1 · 3 layout with tiered pedestals.
  */
 export function PodiumStage({ ranked = [] }) {
   const canvasRef = useRef(null)
@@ -25,60 +29,59 @@ export function PodiumStage({ ranked = [] }) {
       const h = canvas.height
       ctx.clearRect(0, 0, w, h)
 
-      // Floor glow
-      const floor = ctx.createLinearGradient(0, h * 0.55, 0, h)
-      floor.addColorStop(0, 'rgba(94, 196, 182, 0.06)')
+      const floor = ctx.createLinearGradient(0, h * 0.5, 0, h)
+      floor.addColorStop(0, 'rgba(94, 196, 182, 0.08)')
       floor.addColorStop(1, 'rgba(6, 8, 14, 0)')
       ctx.fillStyle = floor
-      ctx.fillRect(0, h * 0.45, w, h * 0.55)
+      ctx.fillRect(0, h * 0.4, w, h * 0.6)
 
-      const slots = [
-        { idx: 1, x: w * 0.5, rank: 1 },
-        { idx: 0, x: w * 0.22, rank: 2 },
-        { idx: 2, x: w * 0.78, rank: 3 },
-      ]
+      const baseY = h - 36
 
-      for (const slot of slots) {
+      for (const slot of PODIUM_LAYOUT) {
         const p = top3[slot.idx]
         if (!p) continue
-        const ph = PEDESTAL_HEIGHTS[slot.rank - 1]
-        const pw = PEDESTAL_WIDTHS[slot.rank - 1]
-        const baseY = h - 28
-        const bounce =
-          slot.rank === 1
-            ? Math.sin(t * 0.008) * 10 + Math.abs(Math.sin(t * 0.016)) * 6
-            : Math.sin(t * 0.007 + slot.idx) * 6
 
-        // Pedestal
-        ctx.fillStyle = 'rgba(212, 165, 116, 0.14)'
-        ctx.strokeStyle = 'rgba(240, 201, 138, 0.35)'
-        ctx.lineWidth = 1.5
+        const cx = w * slot.x
+        const ph = slot.height
+        const pw = slot.width
+        const isWinner = slot.place === 1
+        const bounce = isWinner ? Math.sin(t * 0.009) * 11 + Math.abs(Math.sin(t * 0.017)) * 7 : 0
+
+        // Pedestal block
+        const top = baseY - ph
+        ctx.fillStyle = isWinner ? 'rgba(240, 201, 138, 0.16)' : 'rgba(212, 165, 116, 0.12)'
+        ctx.strokeStyle = isWinner ? 'rgba(240, 201, 138, 0.5)' : 'rgba(212, 165, 116, 0.28)'
+        ctx.lineWidth = isWinner ? 2 : 1.5
         ctx.beginPath()
         if (typeof ctx.roundRect === 'function') {
-          ctx.roundRect(slot.x - pw / 2, baseY - ph, pw, ph, 8)
+          ctx.roundRect(cx - pw / 2, top, pw, ph, 6)
         } else {
-          ctx.rect(slot.x - pw / 2, baseY - ph, pw, ph)
+          ctx.rect(cx - pw / 2, top, pw, ph)
         }
         ctx.fill()
         ctx.stroke()
 
-        // Rank badge
-        ctx.fillStyle = slot.rank === 1 ? '#f0c98a' : 'rgba(240, 201, 138, 0.75)'
-        ctx.font = '600 13px Fraunces, serif'
+        // Position label on pedestal face
+        ctx.fillStyle = isWinner ? '#f0c98a' : 'rgba(240, 201, 138, 0.82)'
+        ctx.font = isWinner ? '700 18px Fraunces, Georgia, serif' : '600 14px Fraunces, Georgia, serif'
         ctx.textAlign = 'center'
-        ctx.fillText(String(slot.rank), slot.x, baseY - ph + 18)
+        ctx.textBaseline = 'middle'
+        ctx.fillText(slot.label, cx, top + ph * 0.42)
+
+        // Player name on pedestal
+        ctx.fillStyle = '#e6ebe8'
+        ctx.font = '600 12px Outfit, system-ui, sans-serif'
+        ctx.fillText(p.name.slice(0, 14), cx, top + ph * 0.72)
+
+        // Score below pedestal
+        ctx.fillStyle = '#5ec4b6'
+        ctx.font = '600 12px "IBM Plex Mono", monospace'
+        ctx.fillText(String(p.score ?? 0), cx, baseY + 16)
 
         const look = resolvePlayerLook(p.avatar || p.vibe, p.id, top3)
-        const monkY = baseY - ph - 8 - bounce
-        drawMonkTopDown(ctx, slot.x, monkY, look, 'down', t * 0.012, 1.15, 1.15)
-
-        // Name + score
-        ctx.fillStyle = '#e6ebe8'
-        ctx.font = '500 14px Outfit, system-ui, sans-serif'
-        ctx.fillText(p.name.slice(0, 12), slot.x, baseY + 14)
-        ctx.fillStyle = '#5ec4b6'
-        ctx.font = '600 13px "IBM Plex Mono", monospace'
-        ctx.fillText(String(p.score ?? 0), slot.x, baseY + 32)
+        const monkScale = isWinner ? 1.22 : slot.place === 2 ? 1.1 : 1.05
+        const monkY = top - 10 - bounce
+        drawMonkTopDown(ctx, cx, monkY, look, 'down', isWinner ? t * 0.014 : 0, monkScale, monkScale)
       }
 
       raf = requestAnimationFrame(draw)
@@ -95,7 +98,7 @@ export function PodiumStage({ ranked = [] }) {
 
   return (
     <div className="podium-stage" aria-hidden={false}>
-      <canvas ref={canvasRef} width={640} height={280} className="podium-stage-canvas" />
+      <canvas ref={canvasRef} width={640} height={300} className="podium-stage-canvas" />
       <ol className="sr-only">
         {top3.map((p, i) => (
           <li key={p.id}>

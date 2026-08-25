@@ -41,7 +41,7 @@ export const COPY = {
   },
 
   lobby: {
-    subtitle: (n, max, local) => `Crew ${n}/${max}${local ? ' · local' : ''}`,
+    subtitle: (n, max, local) => `${n}/${max}${local ? ' · local' : ''}`,
     pinLabel: 'PIN',
     copied: 'Copied',
     tapCopy: 'Copy',
@@ -63,7 +63,7 @@ export const COPY = {
     voiceReconnecting: 'Voice reconnecting…',
     voiceBlocked: 'Mic blocked — allow access to talk.',
     waitingHost: 'Waiting for host…',
-    crew: 'Crew',
+    crew: 'Players',
     crewHint: 'Wander, talk, wave — host starts when ready.',
     emptySeat: 'Open',
     you: 'you',
@@ -151,7 +151,7 @@ export const COPY = {
     podium: 'Podium',
     nextRound: 'Next round',
     waitingHost: 'Waiting for host to start…',
-    crew: 'Crew',
+    crew: 'Players',
     crewHint: 'Same room. Same mic. Same fall.',
     emptySeat: 'Open seat',
     you: 'you',

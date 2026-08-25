@@ -167,11 +167,15 @@ function HallsModal({ onClose, refreshKey }) {
   )
 }
 
-export function AllTimeLeaderboardButton({ refreshKey = 0, className = '', inline = false }) {
+export function AllTimeLeaderboardButton({ refreshKey = 0, className = '', inline = false, footer = false }) {
   const [open, setOpen] = useState(false)
 
   const button = (
-    <button type="button" className="lb-footlink" onClick={() => setOpen(true)}>
+    <button
+      type="button"
+      className={footer ? 'podium-foot-link' : 'lb-footlink'}
+      onClick={() => setOpen(true)}
+    >
       {COPY.leaderboard.link}
     </button>
   )

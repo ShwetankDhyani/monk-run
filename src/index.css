@@ -1865,7 +1865,36 @@
     display: block;
     width: 100%;
     height: auto;
-    max-height: min(42vh, 280px);
+    max-height: min(48vh, 300px);
+  }
+  .podium-page {
+    background: var(--color-void);
+  }
+  .podium-main {
+    width: 100%;
+  }
+  .podium-footer {
+    flex-shrink: 0;
+    margin-top: auto;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(212, 165, 116, 0.12);
+  }
+  .podium-foot-link {
+    appearance: none;
+    border: none;
+    background: none;
+    width: 100%;
+    padding: 0.85rem 0.5rem;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(212, 165, 116, 0.42);
+    transition: color 0.2s ease;
+  }
+  .podium-foot-link:hover {
+    color: rgba(240, 201, 138, 0.88);
   }
   .podium-records {
     margin-top: 1.5rem;
