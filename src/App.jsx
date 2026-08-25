@@ -445,17 +445,10 @@ export default function App() {
     setPinSheetOpen(false)
   }, [guess, country, selfGuessed])
 
-  const confirmLockGuess = useCallback(() => {
-    if (!guess || selfGuessed) return
-    if (compactPlayHud && !window.confirm(COPY.play.lockConfirm)) return
-    lockGuess()
-  }, [guess, selfGuessed, compactPlayHud, lockGuess])
-
-  const requestEndRound = useCallback(() => {
+  const endRound = useCallback(() => {
     if (!room?.isHost) return
-    if (compactPlayHud && !window.confirm(COPY.play.endRoundConfirm)) return
     ctrlRef.current.revealRound()
-  }, [room?.isHost, compactPlayHud])
+  }, [room?.isHost])
 
   useEffect(() => {
     if (selfGuessed) setPinSheetOpen(false)
@@ -1204,7 +1197,7 @@ export default function App() {
               <button
                 type="button"
                 className="play-end-chip"
-                onClick={requestEndRound}
+                onClick={endRound}
               >
                 {COPY.play.endRound}
               </button>
@@ -1244,7 +1237,7 @@ export default function App() {
           <button
             type="button"
             className="btn btn-ghost play-end play-end--desktop"
-            onClick={requestEndRound}
+            onClick={endRound}
           >
             {COPY.play.endRound}
           </button>
@@ -1366,7 +1359,7 @@ export default function App() {
               type="button"
               className="btn btn-primary play-pin-sheet-lock w-full shrink-0"
               disabled={!guess}
-              onClick={confirmLockGuess}
+              onClick={lockGuess}
             >
               {guess ? COPY.play.lock : COPY.play.needPin}
             </button>

@@ -287,8 +287,8 @@ export async function handleApi(req, res) {
       return
     }
     const forceEmbed = process.env.ALLOW_MAPS_KEY_SCRAPE !== '0'
-    if (!MAPS_KEY || forceEmbed) {
-      // Single-hop redirect — nested iframes break touch panning on mobile.
+    if (!MAPS_KEY) {
+      // No key — public embed redirect (no gyro API control).
       res.writeHead(302, {
         Location: buildStreetViewEmbedUrl(view),
         'Cache-Control': 'no-store, no-cache, must-revalidate',
@@ -297,7 +297,9 @@ export async function handleApi(req, res) {
       res.end()
       return
     }
-    sendHtml(res, 200, renderStreetViewHtml(view, MAPS_KEY))
+    // Maps JS when a key exists — motionTracking for phone gyro look-around;
+    // gm_authFailure in the HTML falls back to embed if the key fails in-browser.
+    sendHtml(res, 200, renderStreetViewHtml(view, MAPS_KEY, forceEmbed))
     return
   }
 

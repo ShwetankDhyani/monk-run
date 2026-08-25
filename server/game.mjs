@@ -284,7 +284,7 @@ function streetViewEmbedHtml(embedSrc) {
 </head>
 <body oncontextmenu="return false">
   <div class="wrap">
-    <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope; fullscreen" src="${embedSrc}"></iframe>
+    <iframe id="sv" title="Round view" referrerpolicy="no-referrer" allow="accelerometer; gyroscope; magnetometer; fullscreen" src="${embedSrc}"></iframe>
     <div class="shield-top" aria-hidden="true"></div>
     <div class="shield-mid" aria-hidden="true"></div>
   </div>
@@ -299,30 +299,23 @@ function streetViewEmbedHtml(embedSrc) {
  * Invalid/restricted keys show Google's "Something went wrong" page — so demo mode
  * (scrape allowed) uses the public svembed iframe instead.
  */
-export function renderStreetViewHtml(view, apiKey = '') {
+export function renderStreetViewHtml(view, apiKey = '', forceEmbedFallback = true) {
   const panoId = String(view.panoId || '').replace(/[^A-Za-z0-9_-]/g, '')
   const latS = Number(view.lat).toFixed(6)
   const lngS = Number(view.lng).toFixed(6)
   const heading = Math.floor(Math.random() * 360)
   const embedSrc = buildStreetViewEmbedUrl(view, heading)
 
-  // Demo / scrape mode: never hand an env key to Maps JS — Vercel often has a key
-  // that works for neither Metadata nor JS (or only partially), which blanks the round.
-  const forceEmbed = process.env.ALLOW_MAPS_KEY_SCRAPE !== '0'
-  if (!apiKey || forceEmbed) {
+  if (!apiKey) {
     return streetViewEmbedHtml(embedSrc)
   }
 
-  const authFallback = `
+  const authFallback = forceEmbedFallback
+    ? `
     window.gm_authFailure = function() {
-      var html = ${JSON.stringify(streetViewEmbedHtml(embedSrc))};
-      document.open();
-      document.write(html);
-      document.close();
-    };
-    document.addEventListener('keydown', function(e) {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 's' || e.key === 'p')) e.preventDefault();
-    });`
+      location.replace(${JSON.stringify(embedSrc)});
+    };`
+    : ''
 
   if (panoId) {
     return `<!DOCTYPE html>
@@ -349,8 +342,8 @@ export function renderStreetViewHtml(view, apiKey = '') {
         panControl: false,
         zoomControl: true,
         fullscreenControl: false,
-        motionTracking: false,
-        motionTrackingControl: false,
+        motionTracking: true,
+        motionTrackingControl: true,
         enableCloseButton: false,
         showRoadLabels: false,
         clickToGo: true,
@@ -388,7 +381,8 @@ export function renderStreetViewHtml(view, apiKey = '') {
         panControl: false,
         zoomControl: true,
         fullscreenControl: false,
-        motionTracking: false,
+        motionTracking: true,
+        motionTrackingControl: true,
         enableCloseButton: false,
         showRoadLabels: false,
         clickToGo: true,

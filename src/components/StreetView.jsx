@@ -22,7 +22,7 @@ export default function StreetView({ viewToken }) {
         src={`/api/game/sv/${viewToken}`}
         className="play-sv-frame h-full w-full border-0"
         referrerPolicy="no-referrer"
-        allow="accelerometer; gyroscope; fullscreen; xr-spatial-tracking"
+        allow="accelerometer; gyroscope; magnetometer; fullscreen; xr-spatial-tracking"
       />
       {/* Block Google's location label — must not intercept pan gestures. */}
       <div className="play-sv-spoiler-shield pointer-events-none absolute inset-x-0 top-0 z-20 h-[4.75rem] bg-gradient-to-b from-[#06080e] via-[#06080e]/92 to-transparent" aria-hidden />
