@@ -9,8 +9,7 @@ Temple lobby. Voice chat. Worldwide Street View rounds. A party geography game b
 ## Features
 
 - **6-digit PIN rooms** (up to 5 players) via PeerJS
-- **Chaos lobbies** — host picks Temple, Desert oasis, Midnight casino, Alpine lodge, or Neon arcade; each room has its own art, speed, and hot-potato relic
-- **Hot-potato relic** — walk over it, smack to pass, don’t hold the fuse too long
+- **Gathering hall** — a social hangout before PLAY: walk, voice, chat, wave — hang with the party
 - **Black-hole launch** into synchronized Street View rounds
 - **Server-authoritative scoring** — guesses scored on the API; leaderboard commits are HMAC-signed
 - **Opaque Street View tokens** — prefer panorama IDs; no public truth endpoint
@@ -54,7 +53,7 @@ STATIC_DIR=dist NODE_ENV=production GOOGLE_MAPS_API_KEY=... node server/leaderbo
 ## How to play
 
 1. Create or join with a PIN  
-2. Lobby — host sets the room theme; chase the hot-potato relic, smack, emote, optional voice → host hits PLAY  
+2. Gathering hall — talk, wander, join voice → host hits PLAY when the party’s ready  
 3. Explore → pin the map → lock  
 4. Server scores the round → podium → host returns the party to the lobby for a rematch (same PIN; Leave party exits to home)
 

@@ -1,7 +1,6 @@
 import Peer from 'peerjs'
 import { migrateVibeToAvatar } from '../data/avatars.js'
 import { randomBlackHolePos, pickRandomSpawn, clampToFloor } from './templeRoom.js'
-import { LOBBY_THEME_IDS, getLobbyWorld } from './lobbyWorlds.js'
 import { createGameSession, openRoundView, revealRoundScores } from './gameSession.js'
 import { playerError } from './playerErrors.js'
 
@@ -77,8 +76,6 @@ export function createRoomController({ onState, onError, onEvent }) {
       selfId: '',
       players: [],
       lobby: {},
-      lobbyTheme: 'temple',
-      relic: null,
       chat: [],
       countdownEndsAt: 0,
       countdownStartedAt: 0,
@@ -107,8 +104,6 @@ export function createRoomController({ onState, onError, onEvent }) {
       roomCode: state.roomCode,
       players: state.players,
       lobby: state.lobby,
-      lobbyTheme: state.lobbyTheme || 'temple',
-      relic: state.relic,
       chat: state.chat,
       countdownEndsAt: state.countdownEndsAt,
       countdownStartedAt: state.countdownStartedAt,
@@ -269,6 +264,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         x: msg.x,
         y: msg.y ?? state.lobby[fromId]?.y ?? 430,
         dir: msg.dir ?? state.lobby[fromId]?.dir ?? 'down',
+        speaking: !!msg.speaking,
       }
       broadcast(
         {
@@ -277,18 +273,11 @@ export function createRoomController({ onState, onError, onEvent }) {
           x: msg.x,
           y: msg.y ?? state.lobby[fromId]?.y ?? 430,
           dir: msg.dir ?? 'down',
+          speaking: !!msg.speaking,
         },
         fromId,
       )
       emitLobbyPoses()
-      if (state.phase === 'lobby') {
-        ensureRelic()
-        if (state.relic && !state.relic.holderId) grabRelic(fromId)
-        // Carrier moves the relic with them
-        if (state.relic?.holderId === fromId) {
-          state.relic = { ...state.relic, x: msg.x, y: msg.y }
-        }
-      }
       return
     }
     if (msg.type === 'smack' && (state.phase === 'lobby' || state.phase === 'countdown')) {
@@ -301,10 +290,6 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     if (msg.type === 'chat') {
       appendChat(fromId, msg.text)
-      return
-    }
-    if (msg.type === 'relic-grab' && state.phase === 'lobby') {
-      grabRelic(fromId)
       return
     }
     if (msg.type === 'guess' && state.phase === 'playing') {
@@ -355,6 +340,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         x: msg.x,
         y: msg.y ?? state.lobby[msg.id]?.y ?? 430,
         dir: msg.dir ?? state.lobby[msg.id]?.dir ?? 'down',
+        speaking: !!msg.speaking,
       }
       emit()
       return
@@ -398,100 +384,6 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
 
-  function defaultRelic() {
-    const spot = pickRandomSpawn(Object.values(state.lobby || {}))
-    const world = getLobbyWorld(state.lobbyTheme)
-    return {
-      x: spot.x,
-      y: spot.y,
-      holderId: null,
-      fuseAt: 0,
-      label: world.relic.label,
-      glyph: world.relic.glyph,
-      burstAt: 0,
-    }
-  }
-
-  function ensureRelic() {
-    if (state.phase !== 'lobby') return
-    if (!state.relic) {
-      state.relic = defaultRelic()
-      pushSync()
-    }
-  }
-
-  function setLobbyTheme(themeId) {
-    if (!actingHost) return
-    if (state.phase !== 'lobby') return
-    const id = LOBBY_THEME_IDS.includes(themeId) ? themeId : 'temple'
-    if (state.lobbyTheme === id) return
-    state.lobbyTheme = id
-    const world = getLobbyWorld(id)
-    // Respawn relic for the new room vibe
-    const spot = pickRandomSpawn(Object.values(state.lobby || {}))
-    state.relic = {
-      x: spot.x,
-      y: spot.y,
-      holderId: null,
-      fuseAt: 0,
-      label: world.relic.label,
-      glyph: world.relic.glyph,
-      burstAt: 0,
-    }
-    state.message = `Lobby set: ${world.name}`
-    pushSync()
-    emit()
-  }
-
-  function grabRelic(playerId) {
-    if (!actingHost || state.phase !== 'lobby') return
-    ensureRelic()
-    const relic = state.relic
-    if (!relic || relic.holderId) return
-    const pose = state.lobby[playerId]
-    if (!pose) return
-    if (Math.hypot(pose.x - relic.x, pose.y - relic.y) > 42) return
-    const world = getLobbyWorld(state.lobbyTheme)
-    state.relic = {
-      ...relic,
-      holderId: playerId,
-      fuseAt: Date.now() + (world.relic.holdMs || 8000),
-    }
-    pushSync()
-  }
-
-  function dropRelic(atId = null) {
-    if (!state.relic) return
-    const pose = atId ? state.lobby[atId] : null
-    const spot = pose
-      ? { x: pose.x, y: pose.y }
-      : pickRandomSpawn(Object.values(state.lobby || {}))
-    const world = getLobbyWorld(state.lobbyTheme)
-    state.relic = {
-      x: spot.x,
-      y: spot.y,
-      holderId: null,
-      fuseAt: 0,
-      label: world.relic.label,
-      glyph: world.relic.glyph,
-      burstAt: Date.now() + 500,
-    }
-  }
-
-  function explodeRelic() {
-    if (!state.relic?.holderId) return
-    const holderId = state.relic.holderId
-    const pose = state.lobby[holderId]
-    if (pose) {
-      const angle = Math.random() * Math.PI * 2
-      const hit = clampToFloor(pose.x + Math.cos(angle) * 70, pose.y + Math.sin(angle) * 70)
-      state.lobby[holderId] = { ...pose, x: hit.x, y: hit.y, hitFlash: Date.now() + 500, emote: 'shock', emoteUntil: Date.now() + 2000 }
-    }
-    dropRelic(holderId)
-    fire({ type: 'relic-burst', holderId })
-    pushSync()
-  }
-
   function applySmack(fromId, targetId) {
     if (!targetId || fromId === targetId) return
     const a = state.lobby[fromId]
@@ -503,24 +395,9 @@ export function createRoomController({ onState, onError, onEvent }) {
     if (d > 95) return
     const nx = dx / d
     const ny = dy / d
-    const tx = clampToFloor(b.x + nx * 42, b.y + ny * 42).x
-    const ty = clampToFloor(b.x + nx * 42, b.y + ny * 42).y
-    state.lobby[targetId] = { ...b, x: tx, y: ty, hitFlash: Date.now() + 400 }
-    // Hot-potato: holder smacks someone → pass; holder gets smacked → drop
-    if (state.phase === 'lobby' && state.relic) {
-      const world = getLobbyWorld(state.lobbyTheme)
-      if (state.relic.holderId === fromId) {
-        state.relic = {
-          ...state.relic,
-          holderId: targetId,
-          fuseAt: Date.now() + (world.relic.holdMs || 8000),
-          x: tx,
-          y: ty,
-        }
-      } else if (state.relic.holderId === targetId) {
-        dropRelic(targetId)
-      }
-    }
+    const tx = clampToFloor(b.x + nx * 28, b.y + ny * 28).x
+    const ty = clampToFloor(b.x + nx * 28, b.y + ny * 28).y
+    state.lobby[targetId] = { ...b, x: tx, y: ty, hitFlash: Date.now() + 400, emote: 'laugh', emoteUntil: Date.now() + 1200 }
     const payload = { type: 'smack', fromId, targetId, tx, ty }
     broadcast(payload)
     fire(payload)
@@ -608,7 +485,6 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.scores[state.selfId] = 0
     upsertPlayer({ id: state.selfId, name, avatar: migrateVibeToAvatar(avatar || vibe), vibe, connected: true, isHost: true })
     state.lobby[state.selfId] = assignSpawn(state.lobby, state.selfId)
-    ensureRelic()
     emit()
   }
 
@@ -628,8 +504,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.scores[opened.id] = 0
       upsertPlayer({ id: opened.id, name, avatar: av, vibe, connected: true, isHost: true })
       state.lobby[opened.id] = assignSpawn(state.lobby, opened.id)
-      ensureRelic()
-      peer.on('connection', (conn) => {
+        peer.on('connection', (conn) => {
         connections.set(conn.peer, conn)
         conn.on('open', () => {
           attach(conn, true)
@@ -701,16 +576,8 @@ export function createRoomController({ onState, onError, onEvent }) {
     if (actingHost) {
       broadcast({ type: 'lobby-pose', id: state.selfId, ...pose })
       emitLobbyPoses()
-      if (state.phase === 'lobby') {
-        ensureRelic()
-        if (state.relic && !state.relic.holderId) grabRelic(state.selfId)
-        if (state.relic?.holderId === state.selfId) {
-          state.relic = { ...state.relic, x: pose.x, y: pose.y }
-        }
-      }
     } else {
       send(hostConn, { type: 'lobby-pose', ...pose })
-      if (state.phase === 'lobby') send(hostConn, { type: 'relic-grab' })
     }
   }
 
@@ -745,7 +612,6 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.countdownStartedAt = Date.now()
     state.countdownEndsAt = Date.now() + LOBBY_COUNTDOWN_MS
     state.phase = 'countdown'
-    state.relic = null
     state.roundTimeMs = roundTimeMs
     state.scores = Object.fromEntries(state.players.map((p) => [p.id, 0]))
     state.reveal = null
@@ -993,12 +859,6 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   function tick() {
     if (!actingHost) return
-    if (state.phase === 'lobby') {
-      ensureRelic()
-      if (state.relic?.holderId && state.relic.fuseAt && Date.now() >= state.relic.fuseAt) {
-        explodeRelic()
-      }
-    }
     if (state.phase === 'countdown' && Date.now() >= state.countdownEndsAt) {
       // Wait until game session exists — place picking can finish after the portal animation
       if (!secrets.gameSessionId) {
@@ -1078,9 +938,6 @@ export function createRoomController({ onState, onError, onEvent }) {
       if (!state.lobby[p.id]) state.lobby[p.id] = assignSpawn(state.lobby, p.id)
     }
     state.myCommit = null
-    state.lobbyTheme = state.lobbyTheme || 'temple'
-    state.relic = null
-    ensureRelic()
     pushSync()
   }
 
@@ -1111,7 +968,6 @@ export function createRoomController({ onState, onError, onEvent }) {
     joinRoom,
     setReady,
     beginCountdown,
-    setLobbyTheme,
     sendLobbyPose,
     smack,
     emote,

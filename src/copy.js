@@ -41,7 +41,7 @@ export const COPY = {
   },
 
   lobby: {
-    subtitle: (themeName, n, max, local) => `${themeName} · ${n}/${max}${local ? ' · local' : ''}`,
+    subtitle: (n, max, local) => `Gathering · ${n}/${max}${local ? ' · local' : ''}`,
     pinLabel: 'PIN',
     copied: 'Copied',
     tapCopy: 'Copy',
@@ -49,12 +49,12 @@ export const COPY = {
     unmute: 'Unmute',
     muteMic: 'Mute',
     play: 'PLAY',
-    players: 'Party',
+    players: 'Who’s here',
     here: 'here',
     away: 'away',
     host: 'host',
     chat: 'Chat',
-    chatEmpty: 'The room is quiet.',
+    chatEmpty: 'Say something — the hall is listening.',
     chatPlaceholder: 'Speak…',
     send: 'Send',
     voiceOff: 'Voice off',
@@ -62,11 +62,11 @@ export const COPY = {
     voiceLive: (n) => `Voice live · ${n}`,
     voiceReconnecting: 'Voice reconnecting…',
     voiceBlocked: 'Mic blocked — allow access to join voice.',
-    waitingHost: 'Waiting on the host…',
-    roomTheme: 'Lobby room',
-    themeGuest: (name, tagline) => `Room: ${name} — ${tagline}`,
-    relicLoose: (label) => `Hot potato: ${label} is on the floor. Walk over it.`,
-    relicHeld: (name, label) => `${name} holds the ${label}. Smack to pass — or explode.`,
+    waitingHost: 'Whenever the host is ready…',
+    gather: 'The gathering',
+    gatherHint: 'This is where the party lives — talk, wander, catch up. The world waits for PLAY.',
+    joinVoiceCta: 'Join the conversation',
+    conversation: 'Conversation',
   },
 
   howTo: {
@@ -74,8 +74,8 @@ export const COPY = {
     close: 'Close',
     steps: [
       {
-        title: 'Meet in the lobby',
-        body: 'Open a room or enter a six-digit PIN. Host picks a room (temple, desert, casino…). Move, smack, chase the hot-potato relic, join voice.',
+        title: 'Gather first',
+        body: 'Open a room or enter a six-digit PIN. Walk the hall, join voice, chat, wave — hang with your party before anyone falls.',
       },
       {
         title: 'Fall through',
@@ -90,7 +90,7 @@ export const COPY = {
         body: 'Lock your guess. When all are locked — or time ends — the truth appears. Closest wins the round.',
       },
     ],
-    controls: 'Lobby: WASD / arrows · Space smack · 1–4 emotes · walk over relic · voice opt-in',
+    controls: 'Gathering: WASD / arrows · Space nudge · 1–4 emotes · join voice · chat',
   },
 
   settings: {
@@ -132,7 +132,7 @@ export const COPY = {
     hang: 'Hold still — the void is choosing.',
     podium: 'Podium',
     nextRound: 'Next round',
-    waitingHost: 'Waiting on the host…',
+    waitingHost: 'Whenever the host is ready…',
   },
 
   loading: {
@@ -199,11 +199,11 @@ export const COPY = {
 /** Deterministic lobby flavor line per room code. */
 export function lobbyFlavor(roomCode = '') {
   const lines = [
-    'Hot potato on the floor. Don’t hold it too long.',
-    'Host picks the room. Chaos picks the vibe.',
-    'Five places. One party. No maps in hand.',
+    'Voice on. Names matter more than pins.',
+    'Hang out first. Fall when the party feels ready.',
+    'Five places. One party. Start with a hello.',
     'Closer is kinder. Locked is final.',
-    'Smack to pass the relic. Miss and it might explode.',
+    'The hall is for talking. The void is for guessing.',
   ]
   let h = 0
   for (let i = 0; i < roomCode.length; i++) h = (h + roomCode.charCodeAt(i) * (i + 1)) % lines.length
