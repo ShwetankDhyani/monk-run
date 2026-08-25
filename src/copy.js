@@ -190,7 +190,7 @@ export const COPY = {
     mapCollapsed: 'Explore the view first — open the map when you are ready to guess.',
     openMap: 'Pin on map',
     backToView: 'Back to location',
-    pinPlaced: 'Pin placed — open map to lock in',
+    pinPlaced: 'Pin placed — open the map again to lock in',
     closeMap: 'Close',
     lock: 'Lock guess',
     lockConfirm: 'Lock in this pin? You cannot change it this round.',
