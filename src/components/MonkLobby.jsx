@@ -140,12 +140,13 @@ export function MonkLobby({
 }) {
   const canvasRef = useRef(null)
   const keysRef = useRef(new Set())
-  const selfRef = useRef({ x: 640, y: 520, dir: 'down', walk: 0 })
+  const selfRef = useRef({ x: 640, y: 520, dir: 'down', walk: 0, emote: null, emoteUntil: 0 })
   const spawnedRef = useRef(false)
   const peersRef = useRef(new Map())
   const propsRef = useRef(HANGOUT.makeProps(blackHoleX, blackHoleY))
   const voiceRef = useRef(voiceLevel)
   const chatRef = useRef(chat)
+  const lobbyRef = useRef(lobby)
   const pulseRef = useRef(0)
   const lastSend = useRef(0)
   const lastTs = useRef(performance.now())
@@ -161,9 +162,16 @@ export function MonkLobby({
   callbacksRef.current = { onPose, onSmack, onEmote }
   voiceRef.current = voiceLevel
   chatRef.current = chat
+  lobbyRef.current = lobby
   countdownRef.current = countdownSec
   bhRef.current = { x: blackHoleX, y: blackHoleY }
 
+  const applyLocalEmote = (emoteName) => {
+    const until = Date.now() + 2500
+    selfRef.current.emote = emoteName
+    selfRef.current.emoteUntil = until
+    callbacksRef.current.onEmote?.(emoteName)
+  }
 
   useEffect(() => {
     const pose = lobby?.[selfId]
@@ -175,6 +183,11 @@ export function MonkLobby({
       me.dir = pose.dir || 'down'
       spawnedRef.current = true
       callbacksRef.current.onPose?.({ x: me.x, y: me.y, dir: me.dir, speaking: (voiceRef.current || 0) > 0.06 })
+    }
+    // Keep own gesture in sync so the sender sees the same wave as everyone else.
+    if (pose.emote && pose.emoteUntil) {
+      me.emote = pose.emote
+      me.emoteUntil = pose.emoteUntil
     }
   }, [lobby, selfId])
 
@@ -224,8 +237,19 @@ export function MonkLobby({
   }, [])
 
   useEffect(() => {
+    const isTypingTarget = (el) => {
+      if (!el || !(el instanceof Element)) return false
+      const tag = el.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      if (el.isContentEditable) return true
+      return !!el.closest?.('input, textarea, select, [contenteditable="true"]')
+    }
     const down = (e) => {
       if (!focused) return
+      if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) {
+        keysRef.current.clear()
+        return
+      }
       if (KEY[e.key]) {
         keysRef.current.add(e.key)
         e.preventDefault()
@@ -239,10 +263,10 @@ export function MonkLobby({
           callbacksRef.current.onSmack?.(near?.id)
         }
       }
-      if (e.key === '1') callbacksRef.current.onEmote?.('wave')
-      if (e.key === '2') callbacksRef.current.onEmote?.('bow')
-      if (e.key === '3') callbacksRef.current.onEmote?.('laugh')
-      if (e.key === '4') callbacksRef.current.onEmote?.('shock')
+      if (e.key === '1') applyLocalEmote('wave')
+      if (e.key === '2') applyLocalEmote('bow')
+      if (e.key === '3') applyLocalEmote('laugh')
+      if (e.key === '4') applyLocalEmote('shock')
     }
     const up = (e) => keysRef.current.delete(e.key)
     window.addEventListener('keydown', down)
@@ -471,10 +495,18 @@ export function MonkLobby({
             color: look.robe || '#d4a574',
           })
         }
-        if (pose.emote && pose.emoteUntil > now) {
-          ctx.font = '20px serif'
+        const wall = Date.now()
+        const selfLobby = isSelf ? lobbyRef.current?.[selfId] : null
+        const liveEmote =
+          pose.emote && pose.emoteUntil > wall
+            ? pose.emote
+            : selfLobby?.emote && selfLobby.emoteUntil > wall
+              ? selfLobby.emote
+              : null
+        if (liveEmote) {
+          ctx.font = '22px serif'
           ctx.textAlign = 'center'
-          ctx.fillText({ wave: '👋', bow: '🙇', laugh: '😆', shock: '😲' }[pose.emote] || '✨', pose.x, pose.y - 78 + bob)
+          ctx.fillText({ wave: '👋', bow: '🙇', laugh: '😆', shock: '😲' }[liveEmote] || '✨', pose.x, pose.y - 78 + bob)
         }
         const bubble = bubbles.get(id)
         if (bubble && (!sucking || suck < 0.5)) drawSpeechBubble(ctx, pose.x, pose.y + bob, bubble.text)
@@ -495,7 +527,7 @@ export function MonkLobby({
   const runAction = (kind) => {
     if (!actionMenu) return
     if (kind === 'smack') callbacksRef.current.onSmack?.(actionMenu.targetId)
-    else callbacksRef.current.onEmote?.(kind)
+    else applyLocalEmote(kind)
     setActionMenu(null)
   }
 
@@ -530,7 +562,7 @@ export function MonkLobby({
               key={e.k}
               type="button"
               className="emote-chip"
-              onClick={() => callbacksRef.current.onEmote?.(e.k)}
+              onClick={() => applyLocalEmote(e.k)}
               title={e.label}
             >
               <span aria-hidden>{e.g}</span>

@@ -366,6 +366,10 @@ export function createRoomController({ onState, onError, onEvent }) {
       emit()
       return
     }
+    if (msg.type === 'force-mute' && msg.targetId === state.selfId) {
+      fire({ type: 'force-mute', by: msg.by || null })
+      return
+    }
     if (msg.type === 'reject') fail(msg.reason || 'Rejected')
     if (msg.type === 'chat' && msg.entry) {
       state.chat = [...(state.chat || []), msg.entry].slice(-60)
@@ -587,8 +591,25 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function emote(emoteName) {
-    if (actingHost) applyEmote(state.selfId, emoteName)
-    else send(hostConn, { type: 'emote', emote: emoteName })
+    const name = String(emoteName || '').slice(0, 16)
+    if (!name) return
+    // Optimistic local so the sender always sees their own gesture immediately.
+    state.lobby[state.selfId] = {
+      ...(state.lobby[state.selfId] || assignSpawn(state.lobby, state.selfId)),
+      emote: name,
+      emoteUntil: Date.now() + 2500,
+    }
+    emit()
+    if (actingHost) applyEmote(state.selfId, name)
+    else send(hostConn, { type: 'emote', emote: name })
+  }
+
+  /** Host-only: force another player's mic muted on their client. */
+  function forceMute(targetId) {
+    if (!actingHost || !targetId || targetId === state.selfId) return
+    const payload = { type: 'force-mute', targetId, by: state.selfId }
+    broadcast(payload)
+    fire(payload)
   }
 
   function sendChat(text) {
@@ -971,6 +992,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     sendLobbyPose,
     smack,
     emote,
+    forceMute,
     sendChat,
     submitGuess,
     tick,

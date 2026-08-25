@@ -130,6 +130,8 @@ export default function App() {
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
   const [chatDraft, setChatDraft] = useState('')
+  const [chatFocused, setChatFocused] = useState(false)
+  const [hostMuteToast, setHostMuteToast] = useState('')
   const chatEndRef = useRef(null)
   const [voice, setVoice] = useState({
     muted: true,
@@ -156,6 +158,17 @@ export default function App() {
     const ctrl = createRoomController({
       onState: (s) => setRoom(s),
       onError: (msg) => setError(playerError(msg)),
+      onEvent: (evt) => {
+        if (evt?.type === 'force-mute') {
+          const v = voiceRef.current
+          if (!v) return
+          const mute = () => v.setMuted?.(true)
+          if (v.hasMic?.()) mute()
+          else v.enableMic?.().then(mute).catch(() => {})
+          setHostMuteToast(COPY.lobby.mutedByHost)
+          window.setTimeout(() => setHostMuteToast(''), 3200)
+        }
+      },
     })
     ctrlRef.current = ctrl
     const id = setInterval(() => ctrl.tick(), 200)
@@ -654,66 +667,15 @@ export default function App() {
   if (inLobby) {
     const inPortal = room.phase === 'countdown' || portalHold
     const hall = HANGOUT
+    const me = room.players.find((p) => p.id === room.selfId)
     return (
       <Fragment>
-      <div className="lobby-shell waiting-shell" style={{ '--lobby-accent': hall.accent }}>
+      <div
+        className="lobby-shell waiting-shell waiting-shell--immersive"
+        style={{ '--lobby-accent': hall.accent }}
+      >
         <Atmosphere intensity="soft" />
-        <header className="lobby-header waiting-header">
-          <div className="waiting-brand">
-            <p className="font-display text-xl font-medium tracking-tight text-fog">monk.run</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted">
-              {COPY.lobby.subtitle(room.players.length, MAX_PLAYERS, room.localOnly)}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="code-plate"
-            onClick={copyPin}
-            disabled={inPortal}
-            title="Copy code"
-          >
-            <p className="text-[9px] uppercase tracking-[0.28em] text-muted">{COPY.lobby.pinLabel}</p>
-            <p className="font-mono text-3xl font-bold tracking-[0.28em] text-amber md:text-4xl">
-              {room.roomCode}
-            </p>
-            <p className="text-[10px] text-jade-bright">{copied ? COPY.lobby.copied : COPY.lobby.tapCopy}</p>
-          </button>
-          <div className="waiting-actions flex flex-wrap items-center gap-2">
-            <VoiceMuteButton
-              active={voice.active}
-              muted={voice.muted}
-              level={voice.level}
-              disabled={inPortal}
-              onClick={() => {
-                if (!voice.active) ensureVoice()
-                else voiceRef.current?.toggleMute()
-              }}
-              idleLabel={COPY.lobby.joinVoice}
-              muteLabel={COPY.lobby.muteMic}
-              unmuteLabel={COPY.lobby.unmute}
-            />
-            {room.isHost && room.phase === 'lobby' && (
-              <button
-                type="button"
-                className="btn btn-primary start-btn px-10 text-xl tracking-wide"
-                onClick={() =>
-                  ctrlRef.current.beginCountdown({
-                    rounds: DEFAULT_ROUNDS,
-                    roundTimeMs: DEFAULT_ROUND_MS,
-                  })
-                }
-              >
-                {COPY.lobby.play}
-              </button>
-            )}
-            {!room.isHost && room.phase === 'lobby' && (
-              <p className="waiting-host-chip">{COPY.lobby.waitingHost}</p>
-            )}
-          </div>
-        </header>
-
-        <div className="lobby-main waiting-main">
-          <div className="lobby-canvas-wrap waiting-stage" style={{ borderColor: `${hall.accent}40` }}>
+        <div className="waiting-stage-full">
           <MonkLobby
             selfId={room.selfId}
             players={room.players}
@@ -728,119 +690,200 @@ export default function App() {
             portalHold={portalHold}
             blackHoleX={room.blackHoleX ?? 640}
             blackHoleY={room.blackHoleY ?? 380}
-            focused={!inPortal}
+            focused={!inPortal && !chatFocused}
             voiceLevel={voice.level || 0}
             chat={room.chat || []}
           />
-          </div>
-          <aside className="panel crew-panel flex min-h-0 flex-col gap-3 p-4">
-            <div className="crew-head">
+
+          <header className="waiting-float-bar">
+            <div className="waiting-brand">
+              <p className="font-display text-lg font-medium tracking-tight text-fog md:text-xl">monk.run</p>
+              <p className="text-[9px] uppercase tracking-[0.2em] text-muted">
+                {COPY.lobby.subtitle(room.players.length, MAX_PLAYERS, room.localOnly)}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="code-plate code-plate--compact"
+              onClick={copyPin}
+              disabled={inPortal}
+              title="Copy code"
+            >
+              <p className="text-[8px] uppercase tracking-[0.28em] text-muted">{COPY.lobby.pinLabel}</p>
+              <p className="font-mono text-2xl font-bold tracking-[0.22em] text-amber md:text-3xl">
+                {room.roomCode}
+              </p>
+              <p className="text-[9px] text-jade-bright">{copied ? COPY.lobby.copied : COPY.lobby.tapCopy}</p>
+            </button>
+            <div className="waiting-actions flex flex-wrap items-center justify-end gap-2">
+              <VoiceMuteButton
+                active={voice.active}
+                muted={voice.muted}
+                level={voice.level}
+                disabled={inPortal}
+                onClick={() => {
+                  if (!voice.active) ensureVoice()
+                  else voiceRef.current?.toggleMute()
+                }}
+                idleLabel={COPY.lobby.joinVoice}
+                muteLabel={COPY.lobby.muteMic}
+                unmuteLabel={COPY.lobby.unmute}
+              />
+              {room.isHost && room.phase === 'lobby' && (
+                <button
+                  type="button"
+                  className="btn btn-primary start-btn px-8 text-lg tracking-wide"
+                  onClick={() =>
+                    ctrlRef.current.beginCountdown({
+                      rounds: DEFAULT_ROUNDS,
+                      roundTimeMs: DEFAULT_ROUND_MS,
+                    })
+                  }
+                >
+                  {COPY.lobby.play}
+                </button>
+              )}
+              {!room.isHost && room.phase === 'lobby' && (
+                <p className="waiting-host-chip">{COPY.lobby.waitingHost}</p>
+              )}
+            </div>
+          </header>
+
+          <aside className="crew-rail" aria-label={COPY.lobby.crew}>
+            <div className="crew-rail-head">
               <p className="landing-label">{COPY.lobby.crew}</p>
-              <p className="text-[11px] leading-relaxed text-muted">{COPY.lobby.crewHint}</p>
               {!voice.active && room.phase === 'lobby' && !inPortal && (
                 <button
                   type="button"
-                  className="btn btn-ghost mt-2 w-full !justify-center text-sm"
+                  className="btn btn-ghost crew-talk-cta"
                   onClick={() => ensureVoice()}
                 >
                   {COPY.lobby.joinVoiceCta}
                 </button>
               )}
             </div>
-            <ul className="crew-list">
+            <ul className="crew-rail-list">
               {room.players.map((p) => {
                 const look = resolvePlayerLook(p.avatar || p.vibe, p.id, room.players)
                 return (
-                  <li key={p.id} className={`crew-card${p.id === room.selfId ? ' is-you' : ''}${p.connected === false ? ' is-away' : ''}`}>
+                  <li
+                    key={p.id}
+                    className={`crew-pill${p.id === room.selfId ? ' is-you' : ''}${p.connected === false ? ' is-away' : ''}`}
+                  >
                     <span className="crew-swatch" style={{ background: look.robe }} />
-                    <span className="crew-meta">
+                    <span className="crew-pill-meta">
                       <span className="crew-name">{p.name}</span>
                       <span className="crew-tags">
                         {p.isHost && <span className="crew-tag host">{COPY.lobby.host}</span>}
                         {p.id === room.selfId && <span className="crew-tag you">{COPY.lobby.you}</span>}
+                        <span className={`crew-status ${p.connected === false ? 'away' : 'here'}`}>
+                          {p.connected === false ? COPY.lobby.away : COPY.lobby.here}
+                        </span>
                       </span>
                     </span>
-                    <span className={`crew-status ${p.connected === false ? 'away' : 'here'}`}>
-                      {p.connected === false ? COPY.lobby.away : COPY.lobby.here}
-                    </span>
+                    {room.isHost && p.id !== room.selfId && p.connected !== false && (
+                      <button
+                        type="button"
+                        className="crew-mute-btn"
+                        title={COPY.lobby.mutePlayer}
+                        disabled={inPortal}
+                        onClick={() => ctrlRef.current?.forceMute?.(p.id)}
+                      >
+                        {COPY.lobby.mutePlayer}
+                      </button>
+                    )}
                   </li>
                 )
               })}
               {Array.from({ length: Math.max(0, MAX_PLAYERS - room.players.length) }).map((_, i) => (
-                <li key={`empty-${i}`} className="crew-card is-empty">
+                <li key={`empty-${i}`} className="crew-pill is-empty">
                   <span className="crew-swatch empty" />
-                  <span className="crew-meta">
-                    <span className="crew-name muted">{COPY.lobby.emptySeat}</span>
-                  </span>
+                  <span className="crew-name muted">{COPY.lobby.emptySeat}</span>
                 </li>
               ))}
             </ul>
+            <p className="crew-voice-hint">{COPY.lobby.voiceHint}</p>
+            <p className="crew-voice-status">
+              {voice.link === 'blocked'
+                ? COPY.lobby.voiceBlocked
+                : voice.link === 'reconnecting' && voice.active
+                  ? COPY.lobby.voiceReconnecting
+                  : voice.active
+                    ? voice.muted
+                      ? COPY.lobby.voiceMuted
+                      : COPY.lobby.voiceLive(voice.peers.length)
+                    : COPY.lobby.voiceOff}
+            </p>
+            {hostMuteToast && (
+              <p className="crew-mute-flash" role="status">{hostMuteToast}</p>
+            )}
+            {voice.error && (
+              <p className="notice-soft !mt-1 text-left text-amber">
+                {String(voice.error).includes('voice-nat') || /ice|turn|candidate|webrtc/i.test(String(voice.error))
+                  ? COPY.errors.voiceNat
+                  : playerError(voice.error, voice.link === 'blocked' ? COPY.errors.mic : COPY.errors.voice)}
+              </p>
+            )}
+          </aside>
 
-            <p className="landing-label mt-1">{COPY.lobby.conversation}</p>
-            <ul className="min-h-[72px] max-h-36 flex-1 space-y-1.5 overflow-y-auto border border-brass/10 bg-black/25 p-2">
+          <aside className="convo-dock" aria-label={COPY.lobby.conversation}>
+            <div className="convo-head">
+              <p className="landing-label">{COPY.lobby.conversation}</p>
+              <p className="convo-sub">{me?.name ? `as ${me.name}` : ''}</p>
+            </div>
+            <ul className="convo-messages">
               {(room.chat || []).length === 0 && (
-                <li className="text-[11px] text-muted">{COPY.lobby.chatEmpty}</li>
+                <li className="convo-empty">{COPY.lobby.chatEmpty}</li>
               )}
-              {(room.chat || []).map((m) => (
-                <li key={m.at + m.id + m.text.slice(0, 8)} className="text-[11px] leading-snug">
-                  <span className="font-display text-amber">{m.name}: </span>
-                  <span className="text-fog/90">{m.text}</span>
-                </li>
-              ))}
-              <li ref={chatEndRef} />
+              {(room.chat || []).map((m) => {
+                const mine = m.id === room.selfId
+                return (
+                  <li
+                    key={`${m.at}-${m.id}-${m.text.slice(0, 12)}`}
+                    className={`convo-bubble${mine ? ' is-mine' : ''}`}
+                  >
+                    {!mine && <span className="convo-author">{m.name}</span>}
+                    <span className="convo-text">{m.text}</span>
+                  </li>
+                )
+              })}
+              <li ref={chatEndRef} aria-hidden />
             </ul>
-            <form className="flex gap-2" onSubmit={sendChat}>
+            <form className="convo-composer" onSubmit={sendChat}>
               <input
-                className="input-clean min-w-0 flex-1 text-sm"
+                className="convo-input"
                 value={chatDraft}
                 onChange={(e) => setChatDraft(e.target.value)}
+                onFocus={() => setChatFocused(true)}
+                onBlur={() => setChatFocused(false)}
                 placeholder={COPY.lobby.chatPlaceholder}
                 maxLength={200}
                 disabled={inPortal}
+                autoComplete="off"
+                enterKeyHint="send"
               />
-              <button type="submit" className="btn btn-ghost shrink-0 !px-3" disabled={inPortal || !chatDraft.trim()}>
+              <button
+                type="submit"
+                className="btn btn-primary convo-send"
+                disabled={inPortal || !chatDraft.trim()}
+              >
                 {COPY.lobby.send}
               </button>
             </form>
-
-            <div className="space-y-1 text-[10px] leading-relaxed text-muted">
-              <p>
-                {voice.link === 'blocked'
-                  ? COPY.lobby.voiceBlocked
-                  : voice.link === 'reconnecting' && voice.active
-                    ? COPY.lobby.voiceReconnecting
-                    : voice.active
-                      ? voice.muted
-                        ? COPY.lobby.voiceMuted
-                        : COPY.lobby.voiceLive(voice.peers.length)
-                      : COPY.lobby.voiceOff}
-              </p>
-              <p className="text-brass/70">{lobbyFlavor(room.roomCode)}</p>
-              {voice.error && (
-                <p className="notice-soft !mt-2 text-left text-amber">
-                  {String(voice.error).includes('voice-nat') || /ice|turn|candidate|webrtc/i.test(String(voice.error))
-                    ? COPY.errors.voiceNat
-                    : playerError(voice.error, voice.link === 'blocked' ? COPY.errors.mic : COPY.errors.voice)}
-                </p>
-              )}
-              {!room.isHost && room.phase === 'lobby' && !inPortal && (
-                <p>{COPY.lobby.waitingHost}</p>
-              )}
-              {(error || (room.message && /couldn|try again|didn.t load|hiccup|reach the game/i.test(room.message))) && (
-                <div className="notice-soft !mt-2 text-left" role="status">
-                  <p>{playerError(error || room.message)}</p>
-                  {error && (
-                    <button
-                      type="button"
-                      className="mt-0.5 text-[9px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
-                      onClick={() => setError('')}
-                    >
-                      {COPY.landing.dismiss}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            {(error || (room.message && /couldn|try again|didn.t load|hiccup|reach the game/i.test(room.message))) && (
+              <div className="notice-soft !mt-2 text-left" role="status">
+                <p>{playerError(error || room.message)}</p>
+                {error && (
+                  <button
+                    type="button"
+                    className="mt-0.5 text-[9px] uppercase tracking-wider text-muted underline-offset-2 hover:underline"
+                    onClick={() => setError('')}
+                  >
+                    {COPY.landing.dismiss}
+                  </button>
+                )}
+              </div>
+            )}
           </aside>
         </div>
       </div>
@@ -909,6 +952,17 @@ export default function App() {
               const ctrl = createRoomController({
                 onState: (s) => setRoom(s),
                 onError: (msg) => setError(playerError(msg)),
+                onEvent: (evt) => {
+                  if (evt?.type === 'force-mute') {
+                    const v = voiceRef.current
+                    if (!v) return
+                    const mute = () => v.setMuted?.(true)
+                    if (v.hasMic?.()) mute()
+                    else v.enableMic?.().then(mute).catch(() => {})
+                    setHostMuteToast(COPY.lobby.mutedByHost)
+                    window.setTimeout(() => setHostMuteToast(''), 3200)
+                  }
+                },
               })
               ctrlRef.current = ctrl
               setError('')
