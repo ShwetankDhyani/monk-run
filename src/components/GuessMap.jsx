@@ -5,6 +5,7 @@ import L from 'leaflet'
 import { COUNTRIES } from '../data/countries.js'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { normalizeCountryName, searchPlace } from '../lib/geocode.js'
+import { getBasemap } from '../lib/basemap.js'
 
 const pinIconCache = new Map()
 const revealLabelIconCache = new Map()
@@ -239,6 +240,7 @@ export default function GuessMap({
     : tall
       ? 'min-h-[100px] flex-1 overflow-hidden'
       : 'h-[280px]'
+  const basemap = useMemo(() => getBasemap(), [])
 
   return (
     <div className={`guess-map flex flex-col gap-2 ${tall || sheet ? 'h-full min-h-0' : ''}`}>
@@ -340,11 +342,20 @@ export default function GuessMap({
           <SingleWorld />
           <InvalidateSize />
           <TileLayer
-            attribution="&copy; OpenStreetMap &copy; CARTO"
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution={basemap.attribution}
+            url={basemap.url}
             noWrap
-            bounds={[[-85, -180], [85, 180]]}
+            bounds={basemap.bounds}
           />
+          {basemap.labelsUrl ? (
+            <TileLayer
+              url={basemap.labelsUrl}
+              noWrap
+              bounds={basemap.bounds}
+              opacity={0.9}
+              zIndex={200}
+            />
+          ) : null}
           {mode === 'guess' && (
             <ClickDrop
               enabled={!locked}
