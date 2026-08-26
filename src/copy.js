@@ -32,7 +32,6 @@ export const COPY = {
     sound: 'Sound',
     hudLive: 'Round live',
     hudBuild: 'build 4.26 · live',
-    createHint: 'Press Enter to create a room · J to join',
   },
 
   connecting: 'Crossing…',

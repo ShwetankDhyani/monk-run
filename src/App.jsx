@@ -588,7 +588,9 @@ export default function App() {
                     {COPY.landing.join}
                   </button>
                 </div>
-                <p className="landing-hint">{COPY.landing.createHint}</p>
+                <p className="landing-hint">
+                  Press <kbd>Enter</kbd> to create a room · <kbd>J</kbd> to join
+                </p>
               </>
             )}
 
