@@ -187,7 +187,16 @@ export default function App() {
 
   useEffect(() => {
     if (!isAmbientMuted()) startAmbient()
-    return () => stopAmbient()
+    const unlock = () => {
+      if (!isAmbientMuted()) startAmbient()
+    }
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+      stopAmbient()
+    }
   }, [])
 
   useEffect(() => {
@@ -548,12 +557,7 @@ export default function App() {
             <div className="landing-brand">
               <ScoutWings />
               <h1 className="landing-title">{COPY.brand}</h1>
-              {!gateMode && (
-                <>
-                  <p className="landing-homage">{COPY.landing.homage}</p>
-                  <p className="landing-tag">{COPY.landing.tag}</p>
-                </>
-              )}
+              {!gateMode && <p className="landing-tag">{COPY.landing.tag}</p>}
             </div>
 
             {!gateMode && (
@@ -760,9 +764,6 @@ export default function App() {
           <header className="waiting-float-bar">
             <div className="waiting-brand">
               <p className="font-display text-lg font-medium tracking-tight text-fog md:text-xl">monk.run</p>
-              <p className="text-[9px] uppercase tracking-[0.22em] text-corps-bright/80 md:text-[10px]">
-                Survey Corps · AOT homage
-              </p>
             </div>
             <button
               type="button"

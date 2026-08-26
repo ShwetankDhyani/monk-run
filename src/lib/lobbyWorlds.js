@@ -73,7 +73,7 @@ function drawCorpsBanner(ctx, x, y, scale = 1) {
   ctx.font = '800 8px Outfit, system-ui, sans-serif'
   ctx.fillStyle = 'rgba(230, 236, 232, 0.55)'
   ctx.textAlign = 'center'
-  ctx.fillText('SCOUT', 0, 38)
+  ctx.fillText('SCOUT REGIMENT', 0, 38)
   ctx.restore()
 }
 
@@ -246,7 +246,7 @@ export function drawHangoutRoom(ctx, t, ambience = {}) {
   ctx.font = '700 12px Outfit, system-ui, sans-serif'
   ctx.fillStyle = 'rgba(240, 201, 138, 0.7)'
   ctx.textAlign = 'center'
-  ctx.fillText('DEDICATE YOUR HEARTS', cx, cy + 36)
+  ctx.fillText('RALLY HERE', cx, cy + 36)
 
   if (voice > 0.05) {
     const g = ctx.createRadialGradient(cx, cy, 20, cx, cy, 210)

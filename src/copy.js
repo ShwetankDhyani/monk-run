@@ -8,21 +8,20 @@
 export const COPY = {
   brand: 'monk.run',
   metaDescription:
-    'monk.run — Attack on Titan homage party geography. Rally the Survey Corps, breach the gate, scout the world.',
+    'monk.run — gather your squad, breach the gate, scout the world together.',
 
   landing: {
     tag: 'Pick your scout. Breach the gate. Name the place.',
-    homage: 'Attack on Titan homage',
     create: 'Form a squad',
     join: 'Join with PIN',
     back: '← Back',
     nameLabel: 'Your name',
     namePlaceholder: 'Enter your name',
     scoutLabel: 'Your scout',
-    scoutHint: 'Eren, Mikasa, Levi & more — shared picks wear different capes.',
+    scoutHint: 'Pick a scout — shared picks wear different capes.',
     openTemple: 'Open the garrison',
     pinLabel: 'Room PIN',
-    stepInside: 'Deploy beyond the wall',
+    stepInside: 'Step inside',
     dismiss: 'Dismiss',
     howTo: 'How to play',
     settings: 'Settings',
@@ -104,10 +103,10 @@ export const COPY = {
     title: 'Settings',
     close: 'Close',
     sfx: 'Sound effects',
-    ambient: 'Expedition ambient',
+    ambient: 'Expedition theme',
     volume: 'Volume',
     reduceMotion: 'Reduce motion',
-    note: 'Ambient is original procedural audio — not licensed anime music. Voice mute lives in the lobby.',
+    note: 'Expedition theme is original procedural music — not a licensed anime soundtrack. Voice mute lives in the lobby.',
   },
 
   leaderboard: {

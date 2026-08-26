@@ -1,5 +1,5 @@
 /**
- * Lightweight Web Audio — procedural SFX + expedition ambient loop.
+ * Lightweight Web Audio — procedural SFX + expedition theme loop.
  * Original compositions only (no licensed anime OST or samples).
  */
 
@@ -9,7 +9,7 @@ let ambientMaster = null
 let muted = localStorage.getItem('monk-mute-sfx') === '1'
 let ambientMuted = localStorage.getItem('monk-mute-ambient') === '1'
 let volume = Number(localStorage.getItem('monk-sfx-vol') || '0.45')
-/** @type {Array<{ stop: () => void }>} */
+/** @type {Array<() => void>} */
 let ambientNodes = []
 
 function ensure() {
@@ -23,7 +23,7 @@ function ensure() {
     master.connect(ctx.destination)
 
     ambientMaster = ctx.createGain()
-    ambientMaster.gain.value = ambientMuted ? 0 : Math.min(0.38, volume * 0.55)
+    ambientMaster.gain.value = ambientMuted ? 0 : Math.min(0.42, volume * 0.6)
     ambientMaster.connect(ctx.destination)
   }
   if (ctx.state === 'suspended') void ctx.resume()
@@ -43,8 +43,9 @@ export function isSfxMuted() {
 export function setAmbientMuted(next) {
   ambientMuted = !!next
   localStorage.setItem('monk-mute-ambient', ambientMuted ? '1' : '0')
-  if (ambientMaster) ambientMaster.gain.value = ambientMuted ? 0 : Math.min(0.38, volume * 0.55)
+  if (ambientMaster) ambientMaster.gain.value = ambientMuted ? 0 : Math.min(0.42, volume * 0.6)
   if (ambientMuted) stopAmbient()
+  else startAmbient()
 }
 
 export function isAmbientMuted() {
@@ -55,7 +56,7 @@ export function setSfxVolume(v) {
   volume = Math.max(0, Math.min(1, Number(v) || 0))
   localStorage.setItem('monk-sfx-vol', String(volume))
   if (master && !muted) master.gain.value = volume
-  if (ambientMaster && !ambientMuted) ambientMaster.gain.value = Math.min(0.38, volume * 0.55)
+  if (ambientMaster && !ambientMuted) ambientMaster.gain.value = Math.min(0.42, volume * 0.6)
 }
 
 function tone(freq, dur = 0.08, type = 'sine', gain = 0.2, slideTo = null) {
@@ -76,13 +77,14 @@ function tone(freq, dur = 0.08, type = 'sine', gain = 0.2, slideTo = null) {
   osc.stop(t0 + dur + 0.02)
 }
 
-/** Original low-tension expedition ambient — drone, wind, distant brass swell. */
+/** Original cinematic expedition theme — drone, wind, looping motif (not a licensed OST). */
 export function startAmbient() {
   if (ambientMuted || ambientNodes.length) return
   const c = ensure()
   if (!c || !ambientMaster) return
 
   const t0 = c.currentTime + 0.05
+  /** @type {Array<() => void>} */
   const stops = []
 
   function track(node) {
@@ -101,7 +103,6 @@ export function startAmbient() {
     return node
   }
 
-  // Wall-wind noise bed
   const windSrc = c.createBufferSource()
   const buf = c.createBuffer(1, c.sampleRate * 4, c.sampleRate)
   const data = buf.getChannelData(0)
@@ -110,32 +111,30 @@ export function startAmbient() {
   windSrc.loop = true
   const windFilter = c.createBiquadFilter()
   windFilter.type = 'bandpass'
-  windFilter.frequency.value = 420
-  windFilter.Q.value = 0.6
+  windFilter.frequency.value = 380
+  windFilter.Q.value = 0.55
   const windGain = c.createGain()
-  windGain.gain.value = 0.045
+  windGain.gain.value = 0.038
   windSrc.connect(windFilter)
   windFilter.connect(windGain)
   windGain.connect(ambientMaster)
   windSrc.start(t0)
   track(windSrc)
 
-  // Slow filter sweep on wind
   const windLfo = c.createOscillator()
   windLfo.type = 'sine'
-  windLfo.frequency.value = 0.04
+  windLfo.frequency.value = 0.035
   const windLfoGain = c.createGain()
-  windLfoGain.gain.value = 180
+  windLfoGain.gain.value = 160
   windLfo.connect(windLfoGain)
   windLfoGain.connect(windFilter.frequency)
   windLfo.start(t0)
   track(windLfo)
 
-  // Deep wall drone (minor third)
   for (const [freq, gain] of [
-    [55, 0.07],
-    [69.3, 0.045],
-    [82.5, 0.03],
+    [55, 0.065],
+    [82.5, 0.04],
+    [110, 0.022],
   ]) {
     const osc = c.createOscillator()
     osc.type = 'triangle'
@@ -144,7 +143,7 @@ export function startAmbient() {
     g.gain.value = gain
     const lp = c.createBiquadFilter()
     lp.type = 'lowpass'
-    lp.frequency.value = 220
+    lp.frequency.value = 240
     osc.connect(lp)
     lp.connect(g)
     g.connect(ambientMaster)
@@ -152,34 +151,68 @@ export function startAmbient() {
     track(osc)
   }
 
-  // Distant brass-like pad (filtered saw, very soft)
   const pad = c.createOscillator()
   pad.type = 'sawtooth'
-  pad.frequency.value = 110
+  pad.frequency.value = 146.8
   const padFilter = c.createBiquadFilter()
   padFilter.type = 'lowpass'
-  padFilter.frequency.value = 280
+  padFilter.frequency.value = 320
   const padGain = c.createGain()
   padGain.gain.setValueAtTime(0.0001, t0)
-  padGain.gain.linearRampToValueAtTime(0.028, t0 + 8)
-  padGain.gain.linearRampToValueAtTime(0.012, t0 + 24)
-  padGain.gain.linearRampToValueAtTime(0.028, t0 + 40)
+  padGain.gain.linearRampToValueAtTime(0.022, t0 + 6)
   pad.connect(padFilter)
   padFilter.connect(padGain)
   padGain.connect(ambientMaster)
   pad.start(t0)
   track(pad)
 
-  // Subtle pulse — expedition heartbeat, not a copied motif
-  const pulse = c.createOscillator()
-  pulse.type = 'sine'
-  pulse.frequency.value = 1.1
-  const pulseDepth = c.createGain()
-  pulseDepth.gain.value = 0.012
-  pulse.connect(pulseDepth)
-  pulseDepth.connect(padGain.gain)
-  pulse.start(t0)
-  track(pulse)
+  const choir = c.createOscillator()
+  choir.type = 'sine'
+  choir.frequency.value = 220
+  const choirGain = c.createGain()
+  choirGain.gain.value = 0.012
+  choir.connect(choirGain)
+  choirGain.connect(ambientMaster)
+  choir.start(t0)
+  track(choir)
+
+  // Sparse original minor motif — theme energy without copying any score
+  const motif = [293.66, 440, 466.16, 349.23, 523.25, 440, 392, 293.66]
+  const step = 1.35
+  const loop = motif.length * step
+  let cancelled = false
+  stops.push(() => {
+    cancelled = true
+  })
+
+  function scheduleMotif(cycleStart) {
+    if (cancelled || ambientMuted) return
+    const now = c.currentTime
+    const base = Math.max(now + 0.05, cycleStart)
+    for (let i = 0; i < motif.length; i++) {
+      const start = base + i * step
+      const osc = c.createOscillator()
+      osc.type = 'triangle'
+      osc.frequency.value = motif[i]
+      const g = c.createGain()
+      const filt = c.createBiquadFilter()
+      filt.type = 'lowpass'
+      filt.frequency.value = 1200
+      g.gain.setValueAtTime(0.0001, start)
+      g.gain.exponentialRampToValueAtTime(0.034, start + 0.08)
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 1.1)
+      osc.connect(filt)
+      filt.connect(g)
+      g.connect(ambientMaster)
+      osc.start(start)
+      osc.stop(start + 1.2)
+    }
+    const next = base + loop + 2.4
+    const waitMs = Math.max(200, (next - c.currentTime) * 1000)
+    const timer = setTimeout(() => scheduleMotif(next), waitMs)
+    stops.push(() => clearTimeout(timer))
+  }
+  scheduleMotif(t0 + 3.5)
 
   ambientNodes = stops
 }
@@ -220,7 +253,6 @@ export const sfx = {
   error() {
     tone(200, 0.15, 'sawtooth', 0.08, 100)
   },
-  /** Wire reel swoosh — ODM-adjacent without samples */
   deploy() {
     tone(240, 0.18, 'sawtooth', 0.07, 680)
   },

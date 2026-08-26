@@ -1,6 +1,6 @@
 /**
- * Full-bleed Attack-on-Titan homage backdrop for landing / lobby shells.
- * Original silhouettes only — walls, steam, colossal form beyond the wall.
+ * Atmospheric backdrop — walls, steam, distant scout silhouettes.
+ * Homage mood without labeling the franchise on the hero.
  */
 export function Atmosphere({ intensity = 'full', variant = 'default' }) {
   const mode = intensity === 'soft' ? 'soft' : 'full'
@@ -16,6 +16,7 @@ export function Atmosphere({ intensity = 'full', variant = 'default' }) {
       <div className="atmosphere-skyfire" />
       <div className="atmosphere-colossal" />
       <div className="atmosphere-walls" />
+      <div className="atmosphere-scouts" />
       <div className="atmosphere-wall-near" />
       <div className="atmosphere-aurora" />
       <div className="atmosphere-horizon" />
@@ -30,7 +31,7 @@ export function Atmosphere({ intensity = 'full', variant = 'default' }) {
   )
 }
 
-/** monk.run seal + bold scout-wing chevrons. */
+/** monk.run seal + soft wing chevrons. */
 export function BrandMark({ className = '' }) {
   return (
     <svg
