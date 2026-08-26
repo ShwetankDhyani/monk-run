@@ -2305,34 +2305,74 @@
   }
 
   .reveal-screen {
+    display: flex;
+    flex-direction: column;
     min-height: 100%;
+    min-height: 100svh;
     min-height: 100dvh;
+    max-height: 100svh;
     max-height: 100dvh;
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    /* Room for the always-on Next Round dock */
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
   }
   .reveal-grid {
-    min-height: min(100%, 100dvh);
+    min-height: 0;
+    flex: 1 1 auto;
   }
+  /* Permanent Next Round / intermission dock — all viewports */
   .reveal-action {
-    margin-top: auto;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    margin: 0;
     flex-shrink: 0;
-    padding: 0 0.75rem 0.75rem;
+    padding:
+      0.75rem
+      max(0.85rem, env(safe-area-inset-right, 0px))
+      max(0.85rem, env(safe-area-inset-bottom, 0px))
+      max(0.85rem, env(safe-area-inset-left, 0px));
+    border-top: 1px solid rgba(196, 181, 154, 0.28);
+    background: #0b0d0f;
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45);
+    /* Own compositor layer so parent screen-enter filter cannot blank the CTA */
+    transform: translateZ(0);
+    isolation: isolate;
   }
   .reveal-next-btn {
-    min-height: 3.15rem;
+    min-height: 3.25rem;
     touch-action: manipulation;
+    width: 100%;
+    max-width: 42rem;
+    margin-inline: auto;
+    display: block;
+    /* Force gradient to paint even when an ancestor briefly has filter/transform */
+    transform: translateZ(0);
+    isolation: isolate;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  .reveal-waiting,
+  .reveal-next {
+    max-width: 42rem;
+    margin-inline: auto;
   }
 
   @media (min-width: 1024px) {
     .reveal-screen {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr auto;
+      grid-template-rows: 1fr;
       gap: 0.75rem;
       padding: 0.75rem;
+      padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
       max-height: 100dvh;
       overflow: hidden;
     }
@@ -2345,16 +2385,11 @@
       min-height: 0;
       padding: 0;
       overflow: hidden;
+      flex: unset;
     }
     .reveal-panel {
       min-height: 0;
       overflow: auto;
-    }
-    .reveal-action {
-      grid-column: 2;
-      grid-row: 2;
-      margin: 0;
-      padding: 0;
     }
   }
 
@@ -2373,15 +2408,15 @@
       padding:
         0.65rem
         max(0.65rem, env(safe-area-inset-right))
-        calc(5.75rem + env(safe-area-inset-bottom))
+        0.65rem
         max(0.65rem, env(safe-area-inset-left));
       min-height: 0;
-      flex: 1 1 auto;
+      flex: 0 1 auto;
     }
     .reveal-panel {
       min-height: 0;
     }
-    /* Scores + Next Round first on phones; map below */
+    /* Scores first on phones; map below */
     .reveal-panel--scores {
       order: -1;
       flex: 0 0 auto;
@@ -2393,7 +2428,7 @@
     }
     .reveal-map-frame {
       min-height: 160px !important;
-      max-height: 36vh;
+      max-height: min(36vh, 280px);
       flex: 0 0 auto !important;
     }
     .standings-board {
@@ -2414,26 +2449,6 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       padding-bottom: 0.35rem;
-    }
-    .reveal-action {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 60;
-      margin: 0;
-      padding:
-        0.75rem
-        max(0.85rem, env(safe-area-inset-right))
-        max(0.85rem, env(safe-area-inset-bottom))
-        max(0.85rem, env(safe-area-inset-left));
-      border-top: 1px solid rgba(196, 181, 154, 0.28);
-      background: rgba(11, 13, 15, 0.97);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45);
-    }
-    .reveal-next-btn {
-      min-height: 3.25rem;
     }
     .reveal-waiting {
       padding: 0.65rem 0;
@@ -3223,6 +3238,8 @@
   100% { opacity: 1; }
 }
 
+/* Never leave filter/transform on the element — blur(0) / identity matrix still
+   create a containing/filter context that can blank child gradients until hover. */
 @keyframes screen-enter {
   0% {
     opacity: 0;
@@ -3233,7 +3250,31 @@
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0);
-    filter: blur(0);
+    transform: none;
   }
+}
+
+/* Unlayered: beat Tailwind utilities / animation compositing so Next Round
+   stays permanently visible on laptop + tablet (no hover/touch required). */
+.reveal-action {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 80 !important;
+  background: #0b0d0f !important;
+  transform: translateZ(0);
+  isolation: isolate;
+  backdrop-filter: none !important;
+}
+.reveal-next-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+.reveal-screen.screen-enter,
+.reveal-screen.screen-enter-slow {
+  filter: none !important;
 }
