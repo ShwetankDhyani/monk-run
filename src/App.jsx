@@ -1105,7 +1105,7 @@ export default function App() {
     const isIntermission = room.phase === 'intermission'
     return (
       <Fragment>
-      <div className="screen-enter relative flex min-h-full flex-col overflow-hidden">
+      <div className="reveal-screen screen-enter relative flex min-h-full flex-col">
         <Atmosphere intensity="soft" />
         {isIntermission && room.viewToken && (
           <div className="pointer-events-none absolute inset-0 z-0 opacity-0" aria-hidden>
@@ -1193,9 +1193,9 @@ export default function App() {
               </ul>
             </div>
 
-            <div className="mt-auto">
+            <div className="reveal-action">
               {isIntermission ? (
-                <div className="reveal-next px-4 py-5 text-center">
+                <div className="reveal-next px-4 py-4 text-center">
                   <p className="landing-label">{COPY.reveal.next}</p>
                   {room.intermissionEndsAt > 0 ? (
                     <>
@@ -1214,13 +1214,13 @@ export default function App() {
               ) : room.isHost ? (
                 <button
                   type="button"
-                  className="btn btn-primary w-full"
+                  className="btn btn-primary reveal-next-btn w-full"
                   onClick={() => ctrlRef.current.nextRound()}
                 >
                   {room.roundIndex + 1 >= room.totalRounds ? COPY.reveal.podium : COPY.reveal.nextRound}
                 </button>
               ) : (
-                <p className="text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
+                <p className="reveal-waiting text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
               )}
             </div>
           </div>
