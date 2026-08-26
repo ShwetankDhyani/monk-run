@@ -1127,33 +1127,75 @@ export default function App() {
               />
             </div>
           </div>
-          <div className="reveal-panel flex flex-col gap-3 p-4">
-            <p className="font-display text-lg tracking-wide">
-              You:{' '}
-              <span className="text-mint">{selfResult?.missed ? 'missed' : formatKm(selfResult?.km)}</span>
-              {' · '}
-              <span className="text-brass-bright">+{selfResult?.score || 0}</span>
-            </p>
-            <ul className="reveal-roster space-y-1">
-              {room.reveal.results.map((r) => (
-                <li key={r.playerId} className="reveal-roster-row flex justify-between px-1 py-2 text-sm">
-                  <span className="font-display tracking-wide">{r.name}</span>
-                  <span className="font-mono text-[12px] text-muted">
-                    {r.missed ? 'missed' : formatKm(r.km)} · <span className="text-mint">{r.score}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <div className="reveal-panel reveal-panel--scores flex flex-col gap-4 p-4">
+            <section className="standings-board" aria-label={COPY.reveal.totals}>
+              <header className="standings-board-head">
+                <h3 className="standings-board-title">{COPY.reveal.totals}</h3>
+                <span className="standings-board-meta">
+                  {COPY.reveal.roundLabel(room.roundIndex + 1, room.totalRounds)}
+                </span>
+              </header>
+              <div className="standings-board-cols" aria-hidden="true">
+                <span>#</span>
+                <span>{COPY.reveal.playerCol}</span>
+                <span>{COPY.reveal.roundCol}</span>
+                <span>{COPY.reveal.totalCol}</span>
+              </div>
+              <ol className="standings-board-list">
+                {ranked.map((p, i) => {
+                  const look = resolvePlayerLook(p.avatar || p.vibe, p.id, ranked)
+                  const roundResult = room.reveal.results.find((r) => r.playerId === p.id)
+                  const isSelf = p.id === room.selfId
+                  return (
+                    <li
+                      key={p.id}
+                      className={`standings-row${isSelf ? ' standings-row--you' : ''}${i === 0 ? ' standings-row--lead' : ''}`}
+                    >
+                      <span className="standings-rank">{i + 1}</span>
+                      <span className="standings-player">
+                        <span className="standings-swatch" style={{ background: look.robe }} />
+                        <span className="standings-name">
+                          {p.name}
+                          {isSelf ? <span className="standings-you"> {COPY.reveal.youTag}</span> : null}
+                        </span>
+                      </span>
+                      <span className="standings-delta">
+                        {roundResult == null ? '—' : `+${roundResult.score || 0}`}
+                      </span>
+                      <span className="standings-score">{p.score}</span>
+                    </li>
+                  )
+                })}
+              </ol>
+            </section>
+
+            <div className="reveal-round-block">
+              <p className="reveal-round-head">{COPY.reveal.roundResults}</p>
+              <p className="reveal-you-line font-display text-lg tracking-wide">
+                {COPY.reveal.you}:{' '}
+                <span className="text-mint">{selfResult?.missed ? COPY.reveal.missed : formatKm(selfResult?.km)}</span>
+                {' · '}
+                <span className="text-brass-bright">+{selfResult?.score || 0}</span>
+              </p>
+              <ul className="reveal-roster">
+                {room.reveal.results.map((r) => (
+                  <li
+                    key={r.playerId}
+                    className={`reveal-roster-row${r.playerId === room.selfId ? ' reveal-roster-row--you' : ''}`}
+                  >
+                    <span className="font-display tracking-wide">{r.name}</span>
+                    <span className="font-mono text-[12px] text-muted">
+                      {r.missed ? COPY.reveal.missed : formatKm(r.km)} ·{' '}
+                      <span className="text-mint">+{r.score}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             <div className="mt-auto">
-              <p className="mb-2 landing-label">{COPY.reveal.totals}</p>
-              {ranked.map((p) => (
-                <div key={p.id} className="flex justify-between font-mono text-[11px] text-fog/80">
-                  <span className="font-body tracking-wide">{p.name}</span>
-                  <span className="text-brass-bright">{p.score}</span>
-                </div>
-              ))}
               {isIntermission ? (
-                <div className="reveal-next mt-4 px-4 py-5 text-center">
+                <div className="reveal-next px-4 py-5 text-center">
                   <p className="landing-label">{COPY.reveal.next}</p>
                   {room.intermissionEndsAt > 0 ? (
                     <>
@@ -1172,13 +1214,13 @@ export default function App() {
               ) : room.isHost ? (
                 <button
                   type="button"
-                  className="btn btn-primary mt-4 w-full"
+                  className="btn btn-primary w-full"
                   onClick={() => ctrlRef.current.nextRound()}
                 >
                   {room.roundIndex + 1 >= room.totalRounds ? COPY.reveal.podium : COPY.reveal.nextRound}
                 </button>
               ) : (
-                <p className="mt-4 text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
+                <p className="text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
               )}
             </div>
           </div>
