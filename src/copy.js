@@ -17,7 +17,7 @@ export const COPY = {
     join: 'Enter with PIN',
     back: '← Back',
     nameLabel: 'Your name',
-    namePlaceholder: 'Wanderer',
+    namePlaceholder: 'Enter your name',
     scoutLabel: 'Your scout',
     scoutHint: 'Pick an AOT scout — shared picks wear different robes.',
     openTemple: 'Open the temple',
@@ -219,6 +219,8 @@ export const COPY = {
     peer: 'The party link dropped. Rejoin with the PIN.',
     create: 'Couldn’t open the temple. Try again.',
     join: 'Couldn’t enter — check the PIN.',
+    nameRequired: 'Enter a name to join.',
+    nameTaken: 'That name is already in the room — pick another.',
     copy: 'Couldn’t copy the PIN',
     voice: 'Voice unavailable right now.',
     voiceNat:

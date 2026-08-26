@@ -5,6 +5,7 @@ import { createGameSession, openRoundView, revealRoundScores } from './gameSessi
 import { playerError } from './playerErrors.js'
 
 export const MAX_PLAYERS = 5
+export const MAX_PLAYER_NAME_LEN = 18
 export const DEFAULT_ROUNDS = 5
 export const DEFAULT_ROUND_MS = 90_000
 export const LOBBY_COUNTDOWN_MS = 3_000
@@ -47,6 +48,28 @@ function assignSpawn(lobby, excludeId = null) {
 
 function clone(s) {
   return JSON.parse(JSON.stringify(s))
+}
+
+/** Trim + cap length; empty string when missing/whitespace-only. */
+export function normalizePlayerName(name) {
+  return String(name || '').trim().slice(0, MAX_PLAYER_NAME_LEN)
+}
+
+/** Case-insensitive key for duplicate-name checks within a room. */
+export function playerNameKey(name) {
+  return normalizePlayerName(name).toLowerCase()
+}
+
+export function isPlayerNameTaken(players, name, exceptId = null) {
+  const key = playerNameKey(name)
+  if (!key) return false
+  return (players || []).some((p) => p.id !== exceptId && playerNameKey(p.name) === key)
+}
+
+function requirePlayerName(name) {
+  const trimmed = normalizePlayerName(name)
+  if (!trimmed) throw new Error('Enter a name to join.')
+  return trimmed
 }
 
 /** Host-authoritative PeerJS room: temple lobby → portal countdown → world-guess. */
@@ -245,9 +268,25 @@ export function createRoomController({ onState, onError, onEvent }) {
         connections.delete(fromId)
         return
       }
+      const guestName = normalizePlayerName(msg.name)
+      if (!guestName) {
+        send(connections.get(fromId), { type: 'reject', reason: 'Enter a name to join.' })
+        connections.get(fromId)?.close()
+        connections.delete(fromId)
+        return
+      }
+      if (isPlayerNameTaken(state.players, guestName, fromId)) {
+        send(connections.get(fromId), {
+          type: 'reject',
+          reason: 'That name is already in the room — pick another.',
+        })
+        connections.get(fromId)?.close()
+        connections.delete(fromId)
+        return
+      }
       upsertPlayer({
         id: fromId,
-        name: String(msg.name || 'Wanderer').slice(0, 18),
+        name: guestName,
         avatar: migrateVibeToAvatar(msg.avatar || msg.vibe || 'aot-eren'),
         vibe: msg.vibe || 'saffron',
         connected: true,
@@ -503,6 +542,7 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   async function createRoom({ name, vibe, avatar, code }) {
     destroy()
+    const trimmedName = requirePlayerName(name)
     const av = migrateVibeToAvatar(avatar || vibe || 'aot-eren')
     try {
       const opened = await openPeer(`monk-${code}`)
@@ -515,7 +555,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.isHost = true
       state.selfId = opened.id
       state.scores[opened.id] = 0
-      upsertPlayer({ id: opened.id, name, avatar: av, vibe, connected: true, isHost: true })
+      upsertPlayer({ id: opened.id, name: trimmedName, avatar: av, vibe, connected: true, isHost: true })
       state.lobby[opened.id] = assignSpawn(state.lobby, opened.id)
         peer.on('connection', (conn) => {
         connections.set(conn.peer, conn)
@@ -529,12 +569,13 @@ export function createRoomController({ onState, onError, onEvent }) {
       })
       emit()
     } catch {
-      bootLocal({ name, vibe, avatar: av, code })
+      bootLocal({ name: trimmedName, vibe, avatar: av, code })
     }
   }
 
   async function joinRoom({ name, vibe, avatar, code }) {
     destroy()
+    const trimmedName = requirePlayerName(name)
     const av = migrateVibeToAvatar(avatar || vibe || 'aot-eren')
     try {
       const opened = await openPeer()
@@ -565,7 +606,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       })
 
       attach(conn, false)
-      send(conn, { type: 'hello', name, vibe, avatar: av })
+      send(conn, { type: 'hello', name: trimmedName, vibe, avatar: av })
     } catch (err) {
       fail(err?.message || 'Could not join room')
       throw err
