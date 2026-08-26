@@ -7,7 +7,8 @@
  * - Incomplete calls (no remote stream) time out and redial
  * - Prefer inbound when our outbound never got audio (join-order deadlock)
  * - DOM <audio> + play retries (Safari / late streams)
- * - Mute toggles track.enabled (does not tear down the call)
+ * - Mute toggles track.enabled and rebinds RTCRtpSender (does not tear down the call)
+ * - Unmute replaceTrack-kicks outbound audio (enabled alone can leave peers silent)
  * - Local mic level (0–1) for the mute control meter
  */
 
@@ -46,13 +47,13 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
   let audioMount = null
 
   function emitLevel() {
-    return muted || !localStream ? 0 : level
+    return muted || !micIsLive() ? 0 : level
   }
 
   function status(partial = {}) {
     onStatus?.({
       muted,
-      active: !!localStream,
+      active: micIsLive(),
       peers: [...remoteAudio.keys()],
       link,
       level: emitLevel(),
@@ -360,31 +361,112 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     retryTimer = setTimeout(tick, 700)
   }
 
+  function liveMicTrack() {
+    if (!localStream) return null
+    return localStream.getAudioTracks().find((t) => t.readyState === 'live') || null
+  }
+
+  function micIsLive() {
+    return !!liveMicTrack()
+  }
+
+  function applyLocalEnabled() {
+    if (!localStream) return
+    const want = !muted
+    for (const t of localStream.getAudioTracks()) {
+      t.enabled = want
+    }
+  }
+
+  /**
+   * PeerJS adds the mic via RTCPeerConnection.addTrack. Toggling MediaStreamTrack.enabled
+   * updates local metering (same track → AudioContext) but some browsers leave outbound RTP
+   * silent after unmute. replaceTrack rebinds the sender so peers hear you again.
+   */
+  function syncOutboundSenders() {
+    const track = muted ? null : liveMicTrack()
+    if (!muted && track) track.enabled = true
+
+    for (const call of calls.values()) {
+      const pc = call?.peerConnection
+      if (!pc || typeof pc.getSenders !== 'function') continue
+
+      let connState = ''
+      try {
+        connState = pc.connectionState || pc.iceConnectionState || ''
+      } catch {
+        /* */
+      }
+      if (connState === 'closed' || connState === 'failed') continue
+
+      const senders = pc.getSenders().filter((s) => !s.track || s.track.kind === 'audio')
+      if (!senders.length) {
+        if (track && localStream && typeof pc.addTrack === 'function') {
+          try {
+            pc.addTrack(track, localStream)
+          } catch {
+            /* renegotiation may be required; refresh/redial handles worse cases */
+          }
+        }
+        continue
+      }
+
+      for (const sender of senders) {
+        try {
+          const ret = sender.replaceTrack?.(track)
+          if (ret && typeof ret.then === 'function') ret.catch(() => {})
+        } catch {
+          /* */
+        }
+      }
+    }
+  }
+
+  function discardDeadMic() {
+    if (!localStream || micIsLive()) return false
+    try {
+      localStream.getTracks().forEach((t) => t.stop())
+    } catch {
+      /* */
+    }
+    localStream = null
+    stopMeter()
+    return true
+  }
+
+  async function acquireMicStream() {
+    return navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    })
+  }
+
   async function enableMic() {
-    if (localStream) {
+    if (localStream && micIsLive()) {
+      muted = false
+      applyLocalEnabled()
+      syncOutboundSenders()
       unlockPlayback()
+      status({ error: null })
       return localStream
     }
+    discardDeadMic()
     link = 'reconnecting'
     status({ error: null })
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      })
+      localStream = await acquireMicStream()
     } catch (err) {
       link = 'blocked'
       status({ error: err?.message || 'Mic permission denied', active: false })
       throw err
     }
     muted = false
-    localStream.getAudioTracks().forEach((t) => {
-      t.enabled = true
-    })
+    applyLocalEnabled()
+    syncOutboundSenders()
     link = 'live'
     status({ error: null, level: 0 })
     startMeter()
@@ -397,18 +479,24 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
 
   function setMuted(next) {
     muted = !!next
-    if (localStream) {
-      localStream.getAudioTracks().forEach((t) => {
-        t.enabled = !muted
-      })
-    }
+    applyLocalEnabled()
+    syncOutboundSenders()
     if (muted) level = 0
-    else unlockPlayback()
+    else {
+      unlockPlayback()
+      // Heal mesh in case a call went stale while we were muted
+      connectToPeers()
+      scheduleRetry()
+    }
     status({ level: emitLevel() })
   }
 
   function toggleMute() {
-    if (!localStream) return enableMic().then(() => setMuted(false))
+    if (!localStream || !micIsLive()) {
+      return enableMic()
+        .then(() => setMuted(false))
+        .catch(() => {})
+    }
     setMuted(!muted)
   }
 
@@ -467,7 +555,7 @@ export function createVoiceChat({ getPeer, getRemotePeerIds, selfId, onStatus })
     destroy,
     unlockPlayback,
     isMuted: () => muted,
-    hasMic: () => !!localStream,
+    hasMic: () => micIsLive(),
     getLevel: () => emitLevel(),
   }
 }
