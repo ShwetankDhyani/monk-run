@@ -24,6 +24,7 @@ import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
 import { LandingVoid, LandingEmblem } from './components/LandingVoid.jsx'
+import { GameErrorBoundary } from './components/GameErrorBoundary.jsx'
 
 import { sfx, startAmbient, stopAmbient, isAmbientMuted } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
@@ -38,7 +39,8 @@ function useCountdown(endsAt, active) {
     }
     const tick = () => setLeft(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)))
     tick()
-    const id = setInterval(tick, 200)
+    // 1s is enough for whole-second UI and avoids thrashing Leaflet/SV on each tick
+    const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [endsAt, active])
   return left
@@ -129,7 +131,7 @@ export default function App() {
   const [room, setRoom] = useState(null)
   const [guess, setGuess] = useState(null)
   const [pinSheetOpen, setPinSheetOpen] = useState(false)
-  const isDesktopMap = useMediaQuery('(min-width: 768px)')
+  const isDesktopMap = useMediaQuery('(min-width: 1024px)')
   const compactPlayHud = useMediaQuery('(max-width: 1024px)')
   const [country, setCountry] = useState('')
   const [copied, setCopied] = useState(false)
@@ -155,6 +157,15 @@ export default function App() {
 
   const ctrlRef = useRef(null)
   const voiceRef = useRef(null)
+  const voiceSnapRef = useRef({
+    muted: true,
+    active: false,
+    peers: [],
+    error: null,
+    link: 'idle',
+    level: 0,
+    at: 0,
+  })
 
   const roundLeft = useCountdown(room?.roundEndsAt, room?.phase === 'playing')
   const lobbyLeft = useCountdown(room?.countdownEndsAt, room?.phase === 'countdown')
@@ -399,15 +410,34 @@ export default function App() {
         getPeer: () => ctrlRef.current?.getPeer?.(),
         getRemotePeerIds: () => ctrlRef.current?.getPeerIds?.() || [],
         selfId: () => ctrlRef.current?.getState?.()?.selfId || room?.selfId,
-        onStatus: (s) =>
-          setVoice({
+        onStatus: (s) => {
+          const next = {
             muted: s.muted,
             active: s.active,
             peers: s.peers || [],
             error: s.error || null,
             link: s.link || 'idle',
             level: typeof s.level === 'number' ? s.level : 0,
-          }),
+          }
+          const prev = voiceSnapRef.current
+          const structural =
+            prev.muted !== next.muted ||
+            prev.active !== next.active ||
+            prev.link !== next.link ||
+            prev.error !== next.error ||
+            prev.peers.length !== next.peers.length ||
+            prev.peers.some((id, i) => id !== next.peers[i])
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+          const levelDue = now - prev.at > 140
+          const levelJump = Math.abs(prev.level - next.level) >= 0.05
+          const levelQuiet = next.level < 0.03 && prev.level >= 0.03
+          if (structural || levelQuiet || (levelDue && levelJump)) {
+            voiceSnapRef.current = { ...next, at: now }
+            setVoice(next)
+          } else {
+            voiceSnapRef.current = { ...prev, level: next.level }
+          }
+        },
       })
     }
     try {
@@ -1107,24 +1137,21 @@ export default function App() {
       <Fragment>
       <div className="reveal-screen screen-enter relative flex min-h-full flex-col">
         <Atmosphere intensity="soft" />
-        {isIntermission && room.viewToken && (
-          <div className="pointer-events-none absolute inset-0 z-0 opacity-0" aria-hidden>
-            <StreetView viewToken={room.viewToken} />
-          </div>
-        )}
-        <div className="reveal-grid relative z-10 grid flex-1 gap-3 p-3 md:grid-cols-2">
+        <div className="reveal-grid relative z-10 grid flex-1 gap-3 p-3 lg:grid-cols-2">
           <div className="reveal-panel flex min-h-[280px] flex-col p-3">
             <p className="landing-label text-jade-bright">{COPY.reveal.eyebrow}</p>
             <h3 className="reveal-place mt-1 text-fog">
               {room.reveal.truth.city}, {room.reveal.truth.country}
             </h3>
             <div className="reveal-map-frame mt-3 min-h-[240px] flex-1">
-              <GuessMap
-                mode="reveal"
-                truth={room.reveal.truth}
-                revealResults={room.reveal.results}
-                selfId={room.selfId}
-              />
+              <GameErrorBoundary label="Map view failed">
+                <GuessMap
+                  mode="reveal"
+                  truth={room.reveal.truth}
+                  revealResults={room.reveal.results}
+                  selfId={room.selfId}
+                />
+              </GameErrorBoundary>
             </div>
           </div>
           <div className="reveal-panel reveal-panel--scores flex flex-col gap-4 p-4">
@@ -1250,11 +1277,6 @@ export default function App() {
             <p className="mt-4 text-sm text-coral">{playerError(room.message)}</p>
           )}
         </div>
-        {room.viewToken && room.phase === 'loading-round' && (
-          <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden>
-            <StreetView viewToken={room.viewToken} />
-          </div>
-        )}
       </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>
@@ -1266,7 +1288,9 @@ export default function App() {
     <Fragment>
     <div className="play-shell screen-enter">
       <div className="play-view">
-        {room.viewToken && <StreetView viewToken={room.viewToken} />}
+        <GameErrorBoundary label="Panorama failed">
+          {room.viewToken && <StreetView viewToken={room.viewToken} />}
+        </GameErrorBoundary>
 
         <header className="play-hud">
           <div className="pointer-events-auto hud-chip flex items-center gap-2 px-3 py-2">
@@ -1327,7 +1351,7 @@ export default function App() {
         )}
       </div>
 
-      <aside className="play-map hidden md:grid" id="play-map-panel">
+      <aside className="play-map hidden lg:grid" id="play-map-panel">
         {isDesktopMap && !selfGuessed ? (
           <>
             <div className="play-map-head mb-2 flex items-start justify-between gap-2">
@@ -1375,7 +1399,7 @@ export default function App() {
         ) : null}
       </aside>
 
-      <div className="play-mobile-dock md:hidden">
+      <div className="play-mobile-dock lg:hidden">
         {!selfGuessed ? (
           <>
             {guess && (
@@ -1404,7 +1428,7 @@ export default function App() {
       </div>
 
       {pinSheetOpen && !selfGuessed && (
-        <div className="play-pin-sheet md:hidden" role="dialog" aria-modal="true" aria-label={COPY.play.mapTitle}>
+        <div className="play-pin-sheet lg:hidden" role="dialog" aria-modal="true" aria-label={COPY.play.mapTitle}>
           <button
             type="button"
             className="play-pin-sheet-backdrop"

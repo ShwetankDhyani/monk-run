@@ -1819,7 +1819,7 @@
     overflow: hidden;
     background: var(--color-void);
   }
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     .play-shell { flex-direction: row; }
   }
   .play-view {
@@ -1990,7 +1990,7 @@
     transform: translateY(2px) scale(0.99);
     filter: brightness(0.95);
   }
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     .play-map {
       display: flex;
       flex-direction: column;
@@ -2005,8 +2005,8 @@
       flex: 1 1 auto;
     }
   }
-  /* Mobile: full-screen location + bottom dock; map opens as a sheet overlay */
-  @media (max-width: 767px) {
+  /* Phones + tablets (incl. iPad portrait): sheet map, not dual SV+Leaflet */
+  @media (max-width: 1023px) {
     .play-shell {
       display: flex;
       flex-direction: column;
@@ -2326,7 +2326,7 @@
     touch-action: manipulation;
   }
 
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     .reveal-screen {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -2358,10 +2358,13 @@
     }
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: 1023px) {
     .reveal-screen {
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .reveal-grid {
       display: flex;
@@ -3132,26 +3135,14 @@
   0% {
     opacity: 1;
     background: #000;
-    transform: scale(1.12);
-    filter: blur(8px);
   }
-  25% {
+  35% {
     opacity: 1;
     background: #000;
-    transform: scale(1.06);
-    filter: blur(4px);
-  }
-  55% {
-    opacity: 0.85;
-    background: rgba(0, 0, 0, 0.92);
-    transform: scale(1.02);
-    filter: blur(2px);
   }
   100% {
     opacity: 0;
     background: transparent;
-    transform: scale(1);
-    filter: blur(0);
   }
 }
 
@@ -3207,22 +3198,38 @@
 }
 
 .screen-enter {
-  animation: screen-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: screen-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .screen-enter-slow {
-  animation: screen-enter 0.95s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: screen-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .screen-enter,
+  .screen-enter-slow {
+    animation-name: screen-enter-lite;
+    animation-duration: 0.28s;
+  }
+  .cinematic-overlay--enter-game,
+  .cinematic-overlay--enter-reveal,
+  .cinematic-overlay--enter-podium {
+    animation-duration: 0.45s !important;
+  }
+}
+
+@keyframes screen-enter-lite {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
 }
 
 @keyframes screen-enter {
   0% {
     opacity: 0;
-    transform: scale(1.04) translateY(6px);
-    filter: blur(8px);
+    transform: scale(1.02) translateY(4px);
   }
   45% {
-    opacity: 0.7;
-    filter: blur(3px);
+    opacity: 0.85;
   }
   100% {
     opacity: 1;

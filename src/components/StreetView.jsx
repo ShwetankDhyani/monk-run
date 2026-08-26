@@ -1,8 +1,35 @@
+import { memo, useEffect, useRef } from 'react'
+
 /**
  * Secure round view — loads server-proxied Street View via one-time token.
  * Coordinates never enter the React app; no satellite / external map links.
+ *
+ * Important: blank the iframe on unmount / token change so Safari does not
+ * keep orphaned WebGL panorama contexts across rounds (flicker → crash).
  */
-export default function StreetView({ viewToken }) {
+function StreetView({ viewToken }) {
+  const iframeRef = useRef(null)
+
+  useEffect(() => {
+    const frame = iframeRef.current
+    if (!frame) return undefined
+    if (!viewToken) {
+      frame.src = 'about:blank'
+      return undefined
+    }
+    const next = `/api/game/sv/${encodeURIComponent(viewToken)}`
+    if (frame.src !== new URL(next, window.location.origin).href) {
+      frame.src = next
+    }
+    return () => {
+      try {
+        frame.src = 'about:blank'
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [viewToken])
+
   if (!viewToken) {
     return (
       <div className="absolute inset-0 grid place-items-center bg-ink">
@@ -10,8 +37,6 @@ export default function StreetView({ viewToken }) {
       </div>
     )
   }
-
-  const src = `/api/game/sv/${encodeURIComponent(viewToken)}`
 
   const blockCheatUi = (e) => {
     e.preventDefault()
@@ -34,9 +59,8 @@ export default function StreetView({ viewToken }) {
       onContextMenu={(e) => e.preventDefault()}
     >
       <iframe
-        key={viewToken}
+        ref={iframeRef}
         title="Round panorama"
-        src={src}
         className="play-sv-frame h-full w-full border-0"
         referrerPolicy="no-referrer"
         allow="accelerometer; gyroscope; magnetometer; fullscreen; xr-spatial-tracking"
@@ -53,3 +77,5 @@ export default function StreetView({ viewToken }) {
     </div>
   )
 }
+
+export default memo(StreetView)

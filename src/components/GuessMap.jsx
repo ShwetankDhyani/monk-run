@@ -6,20 +6,32 @@ import { COUNTRIES } from '../data/countries.js'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { normalizeCountryName, searchPlace } from '../lib/geocode.js'
 
-const pinIcon = (color) =>
-  L.divIcon({
+const pinIconCache = new Map()
+const revealLabelIconCache = new Map()
+
+const pinIcon = (color) => {
+  const key = String(color || '')
+  let icon = pinIconCache.get(key)
+  if (icon) return icon
+  icon = L.divIcon({
     className: '',
     html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 14px ${color}"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9],
   })
+  pinIconCache.set(key, icon)
+  return icon
+}
 
 const revealLabelIcon = (color, label) => {
   const safe = String(label || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/"/g, '&quot;')
-  return L.divIcon({
+  const key = `${color}|${safe}`
+  let icon = revealLabelIconCache.get(key)
+  if (icon) return icon
+  icon = L.divIcon({
     className: 'reveal-pin-icon',
     html: `<div class="reveal-pin">
       <span class="reveal-pin-dot" style="background:${color};box-shadow:0 0 12px ${color}"></span>
@@ -28,6 +40,8 @@ const revealLabelIcon = (color, label) => {
     iconSize: [140, 36],
     iconAnchor: [9, 9],
   })
+  revealLabelIconCache.set(key, icon)
+  return icon
 }
 
 /** One globe only — Leaflet otherwise repeats the world sideways. */
