@@ -588,9 +588,7 @@ export default function App() {
                     {COPY.landing.join}
                   </button>
                 </div>
-                <p className="landing-hint">
-                  Press <kbd>Enter</kbd> to form a squad · <kbd>J</kbd> to join
-                </p>
+                <p className="landing-hint">{COPY.landing.createHint}</p>
               </>
             )}
 
