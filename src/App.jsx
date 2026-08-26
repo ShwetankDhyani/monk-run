@@ -63,16 +63,16 @@ function ShareCard({ players, scores, roomCode }) {
     c.width = w
     c.height = h
     const g = ctx.createLinearGradient(0, 0, w, h)
-    g.addColorStop(0, '#06080e')
-    g.addColorStop(0.45, '#121820')
-    g.addColorStop(1, '#1a2a28')
+    g.addColorStop(0, '#0b0d0f')
+    g.addColorStop(0.45, '#15191d')
+    g.addColorStop(1, '#1a2420')
     ctx.fillStyle = g
     ctx.fillRect(0, 0, w, h)
-    ctx.fillStyle = '#f0c98a'
-    ctx.font = '500 78px Fraunces, serif'
+    ctx.fillStyle = '#e8c878'
+    ctx.font = '700 78px "Barlow Condensed", "Arial Narrow", sans-serif'
     ctx.fillText('monk.run', 80, 150)
-    ctx.fillStyle = 'rgba(230,235,232,0.65)'
-    ctx.font = '400 26px Outfit, sans-serif'
+    ctx.fillStyle = 'rgba(230,228,223,0.65)'
+    ctx.font = '400 26px "IBM Plex Sans", sans-serif'
     ctx.fillText(COPY.podium.shareHeader(roomCode), 80, 210)
     ranked.slice(0, 5).forEach((p, i) => {
       const y = 320 + i * 140
@@ -81,15 +81,15 @@ function ShareCard({ players, scores, roomCode }) {
       ctx.beginPath()
       ctx.arc(110, y, 28, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = '#e6ebe8'
-      ctx.font = '500 42px Fraunces, serif'
+      ctx.fillStyle = '#e6e4df'
+      ctx.font = '600 42px "Barlow Condensed", "Arial Narrow", sans-serif'
       ctx.fillText(`${i + 1}. ${p.name}`, 170, y + 12)
-      ctx.fillStyle = '#5ec4b6'
-      ctx.font = '500 36px IBM Plex Mono, monospace'
+      ctx.fillStyle = '#4ecdc4'
+      ctx.font = '500 36px "IBM Plex Mono", monospace'
       ctx.fillText(String(p.score), 820, y + 12)
     })
-    ctx.fillStyle = 'rgba(212,165,116,0.85)'
-    ctx.font = '400 24px Outfit, sans-serif'
+    ctx.fillStyle = 'rgba(201,164,92,0.85)'
+    ctx.font = '400 24px "IBM Plex Sans", sans-serif'
     ctx.fillText(COPY.podium.shareFooter, 80, 1260)
   }, [ranked, roomCode])
 
@@ -1085,13 +1085,13 @@ export default function App() {
             <StreetView viewToken={room.viewToken} />
           </div>
         )}
-        <div className="relative z-10 grid flex-1 gap-3 p-3 md:grid-cols-2">
-          <div className="flex min-h-[280px] flex-col border border-brass/15 bg-black/30 p-3 backdrop-blur-md">
+        <div className="reveal-grid relative z-10 grid flex-1 gap-3 p-3 md:grid-cols-2">
+          <div className="reveal-panel flex min-h-[280px] flex-col p-3">
             <p className="landing-label text-jade-bright">{COPY.reveal.eyebrow}</p>
             <h3 className="reveal-place mt-1 text-fog">
               {room.reveal.truth.city}, {room.reveal.truth.country}
             </h3>
-            <div className="mt-3 min-h-[240px] flex-1">
+            <div className="reveal-map-frame mt-3 min-h-[240px] flex-1">
               <GuessMap
                 mode="reveal"
                 truth={room.reveal.truth}
@@ -1100,18 +1100,18 @@ export default function App() {
               />
             </div>
           </div>
-          <div className="flex flex-col gap-3 border border-brass/15 bg-black/30 p-4 backdrop-blur-md">
-            <p className="font-display text-lg">
+          <div className="reveal-panel flex flex-col gap-3 p-4">
+            <p className="font-display text-lg tracking-wide">
               You:{' '}
               <span className="text-mint">{selfResult?.missed ? 'missed' : formatKm(selfResult?.km)}</span>
               {' · '}
               <span className="text-brass-bright">+{selfResult?.score || 0}</span>
             </p>
-            <ul className="space-y-1">
+            <ul className="reveal-roster space-y-1">
               {room.reveal.results.map((r) => (
-                <li key={r.playerId} className="flex justify-between border-b border-brass/10 px-1 py-2 text-sm">
-                  <span className="font-display">{r.name}</span>
-                  <span className="text-muted">
+                <li key={r.playerId} className="reveal-roster-row flex justify-between px-1 py-2 text-sm">
+                  <span className="font-display tracking-wide">{r.name}</span>
+                  <span className="font-mono text-[12px] text-muted">
                     {r.missed ? 'missed' : formatKm(r.km)} · <span className="text-mint">{r.score}</span>
                   </span>
                 </li>
@@ -1120,17 +1120,17 @@ export default function App() {
             <div className="mt-auto">
               <p className="mb-2 landing-label">{COPY.reveal.totals}</p>
               {ranked.map((p) => (
-                <div key={p.id} className="flex justify-between text-xs text-fog/80">
-                  <span>{p.name}</span>
+                <div key={p.id} className="flex justify-between font-mono text-[11px] text-fog/80">
+                  <span className="font-body tracking-wide">{p.name}</span>
                   <span className="text-brass-bright">{p.score}</span>
                 </div>
               ))}
               {isIntermission ? (
-                <div className="mt-4 border border-brass/25 bg-black/40 px-4 py-5 text-center">
+                <div className="reveal-next mt-4 px-4 py-5 text-center">
                   <p className="landing-label">{COPY.reveal.next}</p>
                   {room.intermissionEndsAt > 0 ? (
                     <>
-                      <p className="font-display text-4xl font-medium text-brass-bright">{intermissionLeft || 1}s</p>
+                      <p className="font-display text-4xl font-semibold text-brass-bright">{intermissionLeft || 1}s</p>
                       <p className="mt-2 text-xs text-muted">
                         {room.viewToken ? COPY.reveal.opening : COPY.reveal.seeking}
                       </p>
@@ -1202,8 +1202,8 @@ export default function App() {
         <header className="play-hud">
           <div className="pointer-events-auto hud-chip flex items-center gap-2 px-3 py-2">
             <div>
-              <p className="font-display text-lg font-medium">monk.run</p>
-              <p className="text-[10px] text-muted">
+              <p className="font-display text-lg font-semibold tracking-[0.06em]">monk.run</p>
+              <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">
                 {COPY.play.round(room.roundIndex + 1, room.totalRounds, lockedCount, room.players.length)}
               </p>
             </div>
@@ -1217,16 +1217,16 @@ export default function App() {
               </button>
             )}
           </div>
-          <div className="pointer-events-auto hud-chip px-4 py-2 text-center">
+          <div className="pointer-events-auto hud-chip hud-chip--timer px-4 py-2 text-center">
             <p className="landing-label">{COPY.play.time}</p>
-            <p className={`font-display text-2xl font-medium ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
-              {roundLeft}s
+            <p className={`font-display text-2xl font-semibold tracking-wide ${roundLeft <= 10 ? 'text-coral' : 'text-fog'}`}>
+              {roundLeft}<span className="text-sm opacity-60">s</span>
             </p>
           </div>
           <div className="pointer-events-auto hud-chip hud-chip--scores max-w-[150px] px-3 py-2">
             {ranked.slice(0, 3).map((p) => (
-              <div key={p.id} className="flex justify-between gap-2 text-[10px]">
-                <span className="truncate text-muted">{p.name}</span>
+              <div key={p.id} className="flex justify-between gap-2 font-mono text-[10px]">
+                <span className="truncate uppercase tracking-wide text-muted">{p.name}</span>
                 <span className="text-mint">{p.score}</span>
               </div>
             ))}

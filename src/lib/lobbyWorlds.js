@@ -117,7 +117,7 @@ export function drawHangoutRoom(ctx, t, ambience = {}) {
   ctx.stroke()
   ctx.setLineDash([])
 
-  ctx.font = '600 13px Outfit, system-ui, sans-serif'
+  ctx.font = '600 13px IBM Plex Sans, system-ui, sans-serif'
   ctx.fillStyle = 'rgba(230, 236, 232, 0.45)'
   ctx.textAlign = 'center'
   ctx.fillText('GATHER HERE', cx, cy + 5)
@@ -153,7 +153,7 @@ export function drawSpeechBubble(ctx, x, y, text) {
   const label = String(text || '').slice(0, 36)
   if (!label) return
   ctx.save()
-  ctx.font = '600 13px Outfit, system-ui, sans-serif'
+  ctx.font = '600 13px IBM Plex Sans, system-ui, sans-serif'
   const tw = Math.min(220, ctx.measureText(label).width)
   const w = tw + 20
   const h = 28
@@ -183,7 +183,7 @@ export function drawSocialNameplate(ctx, x, y, name, opts = {}) {
   const { isSelf = false, speaking = false, host = false, color = '#d4a574' } = opts
   const label = (name || 'Monk').slice(0, 12)
   ctx.save()
-  ctx.font = '700 14px Outfit, system-ui, sans-serif'
+  ctx.font = '700 14px IBM Plex Sans, system-ui, sans-serif'
   const tw = ctx.measureText(label).width
   const hostW = host ? 36 : 0
   const w = tw + 28 + hostW
@@ -211,7 +211,7 @@ export function drawSocialNameplate(ctx, x, y, name, opts = {}) {
   ctx.fillText(label, hx + 22, hy + h / 2 + 0.5)
 
   if (host) {
-    ctx.font = '800 8px Outfit, system-ui, sans-serif'
+    ctx.font = '800 8px IBM Plex Sans, system-ui, sans-serif'
     ctx.fillStyle = '#f0c98a'
     ctx.textAlign = 'right'
     ctx.fillText('HOST', hx + w - 8, hy + h / 2)

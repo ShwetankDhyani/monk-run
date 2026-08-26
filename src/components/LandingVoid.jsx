@@ -46,6 +46,9 @@ export function LandingVoid() {
         <div className="landing-void-halo" />
       </div>
       <div className="landing-void-rays" />
+      <div className="landing-void-dust">
+        <span /><span /><span /><span /><span /><span />
+      </div>
       <div className="landing-void-grain" />
       <div className="landing-void-vignette" />
     </div>

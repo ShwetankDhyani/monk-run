@@ -312,7 +312,7 @@ export default function GuessMap({
 
       <div
         ref={mapSurfaceRef}
-        className={`guess-map-surface relative ${mapH} w-full overflow-hidden rounded-xl border border-sky/40 bg-slate-900 shadow-[0_0_40px_rgba(56,189,248,0.15)]${sheet ? ' guess-map-surface--sheet' : ''}`}
+        className={`guess-map-surface relative ${mapH} w-full overflow-hidden border border-parchment/30 bg-[#0e1216]${sheet ? ' guess-map-surface--sheet' : ''}`}
         onContextMenu={mode === 'guess' ? (e) => e.preventDefault() : undefined}
         onPointerDown={() => { if (mode === 'guess' && !locked) focusPinMap() }}
       >
@@ -325,7 +325,7 @@ export default function GuessMap({
           maxBoundsViscosity={1}
           worldCopyJump={false}
           className="h-full w-full"
-          style={{ height: '100%', width: '100%', minHeight: sheet ? 200 : undefined, background: '#0b1220' }}
+          style={{ height: '100%', width: '100%', minHeight: sheet ? 200 : undefined, background: '#0e1216' }}
           scrollWheelZoom
         >
           <SingleWorld />
@@ -347,7 +347,7 @@ export default function GuessMap({
           )}
           {mode === 'guess' && guess && <FlyToGuess guess={guess} />}
           {mode === 'guess' && guess && (
-            <Marker position={normLatLng(guess.lat, guess.lng)} icon={pinIcon('#00e5ff')} />
+            <Marker position={normLatLng(guess.lat, guess.lng)} icon={pinIcon('#4ecdc4')} />
           )}
           {mode === 'reveal' && truth && (
             <>
@@ -381,16 +381,24 @@ export default function GuessMap({
             <p className="font-mono text-[11px] uppercase tracking-wider text-muted">Loading map…</p>
           </div>
         )}
+        <div className="guess-map-brackets" aria-hidden="true" />
+        <svg className="guess-map-compass" viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(196,181,154,0.35)" strokeWidth="1" />
+          <circle cx="24" cy="24" r="14" fill="none" stroke="rgba(78,205,196,0.22)" strokeWidth="0.75" strokeDasharray="2 3" />
+          <path d="M24 6 L26.2 22 L24 20.5 L21.8 22 Z" fill="rgba(78,205,196,0.85)" />
+          <path d="M24 42 L21.8 26 L24 27.5 L26.2 26 Z" fill="rgba(196,181,154,0.45)" />
+          <text x="24" y="11" textAnchor="middle" fill="rgba(232,200,120,0.75)" fontSize="5" fontFamily="IBM Plex Mono, monospace">N</text>
+        </svg>
         {mode === 'guess' && !guess && (
-          <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] text-center">
-            <span className="rounded-full bg-sky px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-lg">
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] flex justify-center">
+            <span className="guess-map-stamp">
               search or click the map
             </span>
           </div>
         )}
         {mode === 'guess' && guess && (
-          <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] text-center">
-            <span className="rounded-full bg-mint/90 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-lg">
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-[1000] flex justify-center">
+            <span className="guess-map-stamp guess-map-stamp--armed">
               pin set — lock guess
             </span>
           </div>
