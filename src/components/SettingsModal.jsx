@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react'
-import { isSfxMuted, setSfxMuted, setSfxVolume, sfx } from '../lib/sfx.js'
+import {
+  isAmbientMuted,
+  isSfxMuted,
+  setAmbientMuted,
+  setSfxMuted,
+  setSfxVolume,
+  sfx,
+  startAmbient,
+} from '../lib/sfx.js'
 import { COPY } from '../copy.js'
 
 export function SettingsModal({ open, onClose }) {
   const [mute, setMute] = useState(() => isSfxMuted())
+  const [ambientOff, setAmbientOff] = useState(() => isAmbientMuted())
   const [vol, setVol] = useState(() => Number(localStorage.getItem('monk-sfx-vol') || '0.45'))
   const [reduceMotion, setReduceMotion] = useState(() => localStorage.getItem('monk-reduce-motion') === '1')
 
@@ -30,6 +39,19 @@ export function SettingsModal({ open, onClose }) {
           </button>
         </div>
         <div className="space-y-5 px-5 py-5 text-sm">
+          <label className="flex items-center justify-between gap-3">
+            <span>{COPY.settings.ambient}</span>
+            <input
+              type="checkbox"
+              checked={!ambientOff}
+              onChange={(e) => {
+                const on = e.target.checked
+                setAmbientOff(!on)
+                setAmbientMuted(!on)
+                if (on) startAmbient()
+              }}
+            />
+          </label>
           <label className="flex items-center justify-between gap-3">
             <span>{COPY.settings.sfx}</span>
             <input

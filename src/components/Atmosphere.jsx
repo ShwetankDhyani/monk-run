@@ -1,13 +1,15 @@
-/** Shared void + temple light layers for branded surfaces. */
+/** Expedition atmosphere — wall silhouettes + void light (monk.run brand layers). */
 export function Atmosphere({ intensity = 'full' }) {
   const mode = intensity === 'soft' ? 'soft' : 'full'
   return (
     <div className="atmosphere" aria-hidden="true" data-intensity={mode}>
       <div className="atmosphere-void" />
+      <div className="atmosphere-walls" />
       <div className="atmosphere-aurora" />
       <div className="atmosphere-horizon" />
       <div className="atmosphere-temple" />
       <div className="atmosphere-rift" />
+      <div className="atmosphere-steam" />
       <div className="atmosphere-rays" />
       <div className="atmosphere-grain" />
       <div className="atmosphere-vignette" />
@@ -15,7 +17,7 @@ export function Atmosphere({ intensity = 'full' }) {
   )
 }
 
-/** Temple seal — dominant brand object for hero surfaces. */
+/** monk.run seal + original wing chevrons (homage geometry, not official emblem). */
 export function BrandMark({ className = '' }) {
   return (
     <svg
@@ -25,6 +27,17 @@ export function BrandMark({ className = '' }) {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
+      <path
+        d="M48 8 L62 28 L48 22 L34 28 Z"
+        fill="currentColor"
+        opacity="0.22"
+      />
+      <path
+        d="M48 12 L58 26 L48 21 L38 26 Z"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        opacity="0.45"
+      />
       <circle cx="48" cy="48" r="44" stroke="currentColor" strokeWidth="1.1" opacity="0.28" />
       <circle cx="48" cy="48" r="34" stroke="currentColor" strokeWidth="1.35" opacity="0.45" />
       <circle cx="48" cy="48" r="22" stroke="currentColor" strokeWidth="1.5" opacity="0.55" />
