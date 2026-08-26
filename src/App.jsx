@@ -556,7 +556,12 @@ export default function App() {
           <div className="landing-hero">
             <div className="landing-brand">
               <h1 className="landing-title">{COPY.brand}</h1>
-              {!gateMode && <p className="landing-tag">{COPY.landing.tag}</p>}
+              {!gateMode && (
+                <>
+                  <p className="landing-kicker">{COPY.landing.kicker}</p>
+                  <p className="landing-tag">{COPY.landing.tag}</p>
+                </>
+              )}
             </div>
 
             {!gateMode && (

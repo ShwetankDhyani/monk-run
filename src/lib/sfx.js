@@ -7,7 +7,8 @@ let ctx = null
 let master = null
 let ambientMaster = null
 let muted = localStorage.getItem('monk-mute-sfx') === '1'
-let ambientMuted = localStorage.getItem('monk-mute-ambient') === '1'
+/** Off by default — the drone was too intrusive; Settings can turn Atmosphere on. */
+let ambientMuted = localStorage.getItem('monk-mute-ambient') !== '0'
 let volume = Number(localStorage.getItem('monk-sfx-vol') || '0.45')
 /** @type {Array<() => void>} */
 let ambientNodes = []

@@ -8,10 +8,11 @@
 export const COPY = {
   brand: 'monk.run',
   metaDescription:
-    'monk.run — gather in the temple, fall through the black hole, guess the world with your party.',
+    'monk.run — multiplayer globe guesser. Drop into Street View with friends, pin the map, closest wins.',
 
   landing: {
-    tag: 'Gather. Fall through. Name the place.',
+    kicker: 'Multiplayer globe guesser',
+    tag: 'You all drop into the same Street View. Pin where you think you are on the world map. Closest wins.',
     create: 'Create room',
     join: 'Enter with PIN',
     back: '← Back',
@@ -106,7 +107,7 @@ export const COPY = {
     ambient: 'Atmosphere',
     volume: 'Volume',
     reduceMotion: 'Reduce motion',
-    note: 'Atmosphere is original procedural audio. Voice mute lives in the lobby.',
+    note: 'Atmosphere is optional background audio (off by default). Voice mute lives in the lobby.',
   },
 
   leaderboard: {
