@@ -25,7 +25,7 @@ import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
 import { TempleGlobe } from './components/TempleGlobe.jsx'
 
-import { sfx } from './lib/sfx.js'
+import { sfx, startAmbient, stopAmbient, isAmbientMuted } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
 import { HANGOUT } from './lib/lobbyWorlds.js'
 
@@ -151,6 +151,7 @@ export default function App() {
   const prevRoundIndexRef = useRef(-1)
   const [leaderboardKey, setLeaderboardKey] = useState(0)
   const scoreSubmittedRef = useRef(false)
+  const lastPortalSfxRef = useRef(0)
 
   const ctrlRef = useRef(null)
   const voiceRef = useRef(null)
@@ -183,6 +184,22 @@ export default function App() {
       ctrl.destroy()
     }
   }, [])
+
+  useEffect(() => {
+    if (!isAmbientMuted()) startAmbient()
+    return () => stopAmbient()
+  }, [])
+
+  useEffect(() => {
+    if (
+      room?.phase === 'countdown' &&
+      room.countdownStartedAt &&
+      room.countdownStartedAt !== lastPortalSfxRef.current
+    ) {
+      lastPortalSfxRef.current = room.countdownStartedAt
+      sfx.portal()
+    }
+  }, [room?.phase, room?.countdownStartedAt])
 
   useEffect(() => {
     if (!room?.reveal?.results) return
