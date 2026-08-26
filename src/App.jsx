@@ -188,6 +188,17 @@ export default function App() {
       },
     })
     ctrlRef.current = ctrl
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        (localStorage.getItem('monk-debug') === '1' ||
+          new URLSearchParams(window.location.search).get('monkDebug') === '1')
+      ) {
+        window.__MONK_CTRL__ = ctrl
+      }
+    } catch {
+      /* ignore */
+    }
     const id = setInterval(() => ctrl.tick(), 200)
     return () => {
       clearInterval(id)
@@ -1135,7 +1146,7 @@ export default function App() {
     const isIntermission = room.phase === 'intermission'
     return (
       <Fragment>
-      <div className="reveal-screen screen-enter relative flex min-h-full flex-col">
+      <div className="reveal-screen screen-enter relative min-h-full">
         <Atmosphere intensity="soft" />
         <div className="reveal-grid relative z-10 grid flex-1 gap-3 p-3 lg:grid-cols-2">
           <div className="reveal-panel flex min-h-[280px] flex-col p-3">
@@ -1221,6 +1232,7 @@ export default function App() {
             </div>
           </div>
         </div>
+      </div>
 
         <div className="reveal-action">
           {isIntermission ? (
@@ -1252,7 +1264,6 @@ export default function App() {
             <p className="reveal-waiting text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
           )}
         </div>
-      </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>
     )
