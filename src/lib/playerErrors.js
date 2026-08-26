@@ -9,6 +9,8 @@ const RULES = [
   [/Game server|server offline|server unavailable|API/i, () => COPY.errors.service],
   [/Could not (find|load).*(Street View|panorama|round)/i, () => COPY.errors.panorama],
   [/Host not found|Check the room PIN|Host disconnected/i, null],
+  [/Enter a name to join/i, () => COPY.errors.nameRequired],
+  [/name is already in the room/i, () => COPY.errors.nameTaken],
   [/PIN already in use/i, () => COPY.errors.pinTaken],
   [/Mic|permission|NotAllowedError/i, () => COPY.errors.mic],
   [/voice-nat|TURN|candidate/i, () => COPY.errors.voiceNat],

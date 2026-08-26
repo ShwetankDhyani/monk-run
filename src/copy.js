@@ -219,6 +219,8 @@ export const COPY = {
     peer: 'The party link dropped. Rejoin with the PIN.',
     create: 'Couldn’t open the garrison. Try again.',
     join: 'Couldn’t enter — check the PIN.',
+    nameRequired: 'Enter a name to join.',
+    nameTaken: 'That name is already in the room — pick another.',
     copy: 'Couldn’t copy the PIN',
     voice: 'Voice unavailable right now.',
     voiceNat:

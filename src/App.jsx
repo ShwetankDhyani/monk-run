@@ -402,14 +402,19 @@ export default function App() {
   }
 
   const create = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setError(COPY.errors.nameRequired)
+      return
+    }
     setError('')
     setBusy(true)
     setScreen('cabin')
-    localStorage.setItem('monk-name', name.trim() || COPY.landing.namePlaceholder)
+    localStorage.setItem('monk-name', trimmed)
     localStorage.setItem('monk-avatar', avatar)
     try {
       await ctrlRef.current.createRoom({
-        name: name.trim() || COPY.landing.namePlaceholder,
+        name: trimmed,
         avatar,
         vibe,
         code: makeRoomCode(),
@@ -423,14 +428,19 @@ export default function App() {
   }
 
   const join = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setError(COPY.errors.nameRequired)
+      return
+    }
     setError('')
     setBusy(true)
     setScreen('cabin')
-    localStorage.setItem('monk-name', name.trim() || COPY.landing.namePlaceholder)
+    localStorage.setItem('monk-name', trimmed)
     localStorage.setItem('monk-avatar', avatar)
     try {
       await ctrlRef.current.joinRoom({
-        name: name.trim() || COPY.landing.namePlaceholder,
+        name: trimmed,
         avatar,
         vibe,
         code: normalizeRoomPin(joinCode),
@@ -529,6 +539,7 @@ export default function App() {
 
   if (screen === 'landing' && !busy && (!room || room.phase === 'boot')) {
     const pinReady = normalizeRoomPin(joinCode).length === 6
+    const nameReady = name.trim().length > 0
     return (
       <div className={`landing ${gateMode ? 'landing--gate' : ''}`}>
         <Atmosphere />
@@ -606,7 +617,7 @@ export default function App() {
                         value={joinCode}
                         onChange={(e) => setJoinCode(normalizeRoomPin(e.target.value))}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && pinReady && !busy) join()
+                          if (e.key === 'Enter' && pinReady && nameReady && !busy) join()
                         }}
                         placeholder="000000"
                         enterKeyHint="go"
@@ -633,7 +644,7 @@ export default function App() {
                     <button
                       type="button"
                       className="btn btn-primary w-full"
-                      disabled={busy}
+                      disabled={busy || !nameReady}
                       onClick={create}
                     >
                       {COPY.landing.openTemple}
@@ -642,7 +653,7 @@ export default function App() {
                     <button
                       type="button"
                       className="btn btn-primary w-full"
-                      disabled={busy || !pinReady}
+                      disabled={busy || !pinReady || !nameReady}
                       onClick={join}
                     >
                       {COPY.landing.stepInside}
