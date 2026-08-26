@@ -156,9 +156,12 @@ function applyBlackHolePull(body, bhX, bhY, dt, suck, mass = 1, maxSpeed = 3000)
 
   const proximity = Math.min(1, 360 / dist)
   const speedFactor = Math.min(1, speed / 1400)
+  // Stretch toward the hole, but never grow past 1.5× original size on either axis.
+  const stretchY = Math.min(1.5, 1 + suck * proximity * 0.42 + speedFactor * suck * 0.18)
+  const stretchX = Math.max(1 / 1.5, 1 - suck * proximity * 0.28)
   return {
-    stretchX: Math.max(0.05, 1 - suck * proximity * 0.9),
-    stretchY: 1 + suck * proximity * 3.8 + speedFactor * suck * 1.4,
+    stretchX,
+    stretchY,
     spin: suck * proximity * 15 + speedFactor * 5,
   }
 }
