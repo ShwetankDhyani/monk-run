@@ -1573,7 +1573,7 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     padding: 0.1rem 0.35rem;
-    border-radius: 999px;
+    border-radius: 0.1rem;
   }
   .crew-tag.host { color: #f0c98a; background: rgba(240, 201, 138, 0.12); }
   .crew-tag.you { color: #5ec4b6; background: rgba(94, 196, 182, 0.12); }
@@ -1610,8 +1610,8 @@
       max(0.75rem, env(safe-area-inset-right))
       0.65rem
       max(0.75rem, env(safe-area-inset-left));
-    border-bottom: 1px solid rgba(212, 165, 116, 0.14);
-    background: linear-gradient(180deg, rgba(18, 24, 32, 0.94) 0%, rgba(6, 8, 14, 0.88) 100%);
+    border-bottom: 1px solid rgba(196, 181, 154, 0.16);
+    background: linear-gradient(180deg, rgba(21, 25, 29, 0.96) 0%, rgba(11, 13, 15, 0.9) 100%);
     backdrop-filter: blur(10px);
   }
   .pin-plate,

@@ -377,7 +377,7 @@ export default function GuessMap({
           )}
         </MapContainer>
         ) : (
-          <div className="grid h-full min-h-[200px] place-items-center bg-[#0b1220]">
+          <div className="grid h-full min-h-[200px] place-items-center bg-[#0e1216]">
             <p className="font-mono text-[11px] uppercase tracking-wider text-muted">Loading map…</p>
           </div>
         )}

@@ -988,7 +988,7 @@ export default function App() {
         <Atmosphere />
         <div className="podium-main relative z-10 mx-auto w-full max-w-3xl flex-1 px-2 md:px-4">
           <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
-          <h2 className="text-center font-display text-4xl font-medium text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
+          <h2 className="text-center font-display text-4xl font-semibold tracking-wide text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
 
           <PodiumStage ranked={ranked} />
 
