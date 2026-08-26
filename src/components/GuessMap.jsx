@@ -1,6 +1,6 @@
 import { COPY } from '../copy.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, CircleMarker, Polyline, useMapEvents, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { COUNTRIES } from '../data/countries.js'
 import { resolvePlayerLook } from '../data/avatars.js'
@@ -14,6 +14,22 @@ const pinIcon = (color) =>
     iconAnchor: [9, 9],
   })
 
+const revealLabelIcon = (color, label) => {
+  const safe = String(label || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;')
+  return L.divIcon({
+    className: 'reveal-pin-icon',
+    html: `<div class="reveal-pin">
+      <span class="reveal-pin-dot" style="background:${color};box-shadow:0 0 12px ${color}"></span>
+      <span class="reveal-pin-label">${safe}</span>
+    </div>`,
+    iconSize: [140, 36],
+    iconAnchor: [9, 9],
+  })
+}
+
 /** One globe only — Leaflet otherwise repeats the world sideways. */
 const WORLD_BOUNDS = L.latLngBounds([-85, -180], [85, 180])
 
@@ -26,30 +42,9 @@ function normLatLng(lat, lng) {
   return [Number(lat), wrapLng(lng)]
 }
 
-/**
- * Reveal line(s) that never leave longitude [-180, 180].
- * If the shortest path crosses the antimeridian, return two segments
- * clipped at ±180 — never park a pin or line in the empty gutter beside the globe.
- */
-function revealSegments(a, b) {
-  const p1 = normLatLng(a[0], a[1])
-  const p2 = normLatLng(b[0], b[1])
-  const lat1 = p1[0]
-  const lng1 = p1[1]
-  const lat2 = p2[0]
-  const lng2 = p2[1]
-  const dl = lng2 - lng1
-  if (Math.abs(dl) <= 180) return [[p1, p2]]
-
-  // Shorter route crosses the date line — split at the edge of the single world
-  const lng2s = lng2 - Math.sign(dl) * 360
-  const edge = lng2s > lng1 ? 180 : -180
-  const t = (edge - lng1) / (lng2s - lng1)
-  const latEdge = lat1 + t * (lat2 - lat1)
-  return [
-    [p1, [latEdge, edge]],
-    [[latEdge, -edge], p2],
-  ]
+/** Straight flat-map line between two points (no antimeridian split / wrap). */
+function revealLine(a, b) {
+  return [normLatLng(a[0], a[1]), normLatLng(b[0], b[1])]
 }
 
 function ClickDrop({ enabled, onDrop }) {
@@ -352,26 +347,38 @@ export default function GuessMap({
           {mode === 'reveal' && truth && (
             <>
               <FitReveal truth={truth} guesses={revealResults} />
-              <CircleMarker
-                center={normLatLng(truth.lat, truth.lng)}
-                pathOptions={{ color: '#80ff72', fillColor: '#80ff72', fillOpacity: 0.9 }}
-                radius={9}
+              <Marker
+                position={normLatLng(truth.lat, truth.lng)}
+                icon={revealLabelIcon('#80ff72', COPY.reveal.mapLocation)}
+                zIndexOffset={600}
               />
-                            {revealResults.flatMap((r) => {
+              {revealResults.flatMap((r) => {
                 if (r.lat == null) return []
-                const look = resolvePlayerLook(r.avatar || r.vibe, r.playerId, revealResults.map((x) => ({ id: x.playerId, avatar: x.avatar, vibe: x.vibe })))
-                return revealSegments([r.lat, r.lng], [truth.lat, truth.lng]).map((seg, i) => (
+                const look = resolvePlayerLook(
+                  r.avatar || r.vibe,
+                  r.playerId,
+                  revealResults.map((x) => ({ id: x.playerId, avatar: x.avatar, vibe: x.vibe })),
+                )
+                const isSelf = r.playerId === selfId
+                const label = isSelf ? COPY.reveal.mapYourGuess : r.name
+                return [
                   <Polyline
-                    key={`l-${r.playerId}-${i}`}
-                    positions={seg}
+                    key={`l-${r.playerId}`}
+                    positions={revealLine([r.lat, r.lng], [truth.lat, truth.lng])}
                     pathOptions={{
                       color: look.robe,
-                      weight: r.playerId === selfId ? 3 : 1.5,
-                      opacity: 0.8,
-                      dashArray: r.playerId === selfId ? undefined : '6 8',
+                      weight: isSelf ? 3 : 1.5,
+                      opacity: 0.85,
+                      dashArray: isSelf ? undefined : '6 8',
                     }}
-                  />
-                ))
+                  />,
+                  <Marker
+                    key={`g-${r.playerId}`}
+                    position={normLatLng(r.lat, r.lng)}
+                    icon={revealLabelIcon(look.robe, label)}
+                    zIndexOffset={isSelf ? 500 : 400}
+                  />,
+                ]
               })}
             </>
           )}

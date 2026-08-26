@@ -2302,6 +2302,39 @@
     border-color: rgba(201, 164, 92, 0.5);
   }
 
+  .reveal-pin-icon {
+    background: transparent !important;
+    border: 0 !important;
+  }
+  .reveal-pin {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .reveal-pin-dot {
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 2px solid #fff;
+  }
+  .reveal-pin-label {
+    display: inline-block;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid rgba(196, 181, 154, 0.35);
+    background: rgba(11, 13, 15, 0.88);
+    color: #e6e4df;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  }
+
   .hud-chip--timer .landing-label {
     letter-spacing: 0.22em;
   }

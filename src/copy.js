@@ -152,6 +152,8 @@ export const COPY = {
     podium: 'Podium',
     nextRound: 'Next round',
     waitingHost: 'Waiting for host to start…',
+    mapLocation: 'Location',
+    mapYourGuess: 'Your guess',
     crew: 'Players',
     crewHint: 'Same room. Same mic. Same fall.',
     emptySeat: 'Open seat',
