@@ -2319,10 +2319,43 @@
   .reveal-action {
     margin-top: auto;
     flex-shrink: 0;
+    padding: 0 0.75rem 0.75rem;
   }
   .reveal-next-btn {
     min-height: 3.15rem;
     touch-action: manipulation;
+  }
+
+  @media (min-width: 768px) {
+    .reveal-screen {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr auto;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      max-height: 100dvh;
+      overflow: hidden;
+    }
+    .reveal-grid {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      min-height: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .reveal-panel {
+      min-height: 0;
+      overflow: auto;
+    }
+    .reveal-action {
+      grid-column: 2;
+      grid-row: 2;
+      margin: 0;
+      padding: 0;
+    }
   }
 
   @media (max-width: 767px) {
@@ -2409,8 +2442,8 @@
     border: 1px solid rgba(196, 181, 154, 0.2);
     background:
       linear-gradient(180deg, rgba(37, 42, 48, 0.28) 0%, transparent 35%),
-      rgba(11, 13, 15, 0.78);
-    backdrop-filter: blur(12px);
+      rgba(11, 13, 15, 0.92);
+    /* no backdrop-filter — it creates a containing block and traps position:fixed */
     box-shadow: inset 0 0 0 1px rgba(78, 205, 196, 0.05);
   }
   .reveal-panel::before,

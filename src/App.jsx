@@ -1192,38 +1192,38 @@ export default function App() {
                 ))}
               </ul>
             </div>
+          </div>
+        </div>
 
-            <div className="reveal-action">
-              {isIntermission ? (
-                <div className="reveal-next px-4 py-4 text-center">
-                  <p className="landing-label">{COPY.reveal.next}</p>
-                  {room.intermissionEndsAt > 0 ? (
-                    <>
-                      <p className="font-display text-4xl font-semibold text-brass-bright">{intermissionLeft || 1}s</p>
-                      <p className="mt-2 text-xs text-muted">
-                        {room.viewToken ? COPY.reveal.opening : COPY.reveal.seeking}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="mt-2 animate-pulse font-display text-xl text-brass">{COPY.reveal.seeking}</p>
-                      <p className="mt-2 text-xs text-muted">{COPY.reveal.hang}</p>
-                    </>
-                  )}
-                </div>
-              ) : room.isHost ? (
-                <button
-                  type="button"
-                  className="btn btn-primary reveal-next-btn w-full"
-                  onClick={() => ctrlRef.current.nextRound()}
-                >
-                  {room.roundIndex + 1 >= room.totalRounds ? COPY.reveal.podium : COPY.reveal.nextRound}
-                </button>
+        <div className="reveal-action">
+          {isIntermission ? (
+            <div className="reveal-next px-4 py-4 text-center">
+              <p className="landing-label">{COPY.reveal.next}</p>
+              {room.intermissionEndsAt > 0 ? (
+                <>
+                  <p className="font-display text-4xl font-semibold text-brass-bright">{intermissionLeft || 1}s</p>
+                  <p className="mt-2 text-xs text-muted">
+                    {room.viewToken ? COPY.reveal.opening : COPY.reveal.seeking}
+                  </p>
+                </>
               ) : (
-                <p className="reveal-waiting text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
+                <>
+                  <p className="mt-2 animate-pulse font-display text-xl text-brass">{COPY.reveal.seeking}</p>
+                  <p className="mt-2 text-xs text-muted">{COPY.reveal.hang}</p>
+                </>
               )}
             </div>
-          </div>
+          ) : room.isHost ? (
+            <button
+              type="button"
+              className="btn btn-primary reveal-next-btn w-full"
+              onClick={() => ctrlRef.current.nextRound()}
+            >
+              {room.roundIndex + 1 >= room.totalRounds ? COPY.reveal.podium : COPY.reveal.nextRound}
+            </button>
+          ) : (
+            <p className="reveal-waiting text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
+          )}
         </div>
       </div>
       <CinematicOverlay phase={cinPhase} />
