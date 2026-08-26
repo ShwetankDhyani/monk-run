@@ -1,13 +1,11 @@
 /**
- * Garrison hall — expedition lobby energy:
- * stone barracks, wall vista, squad rally pad.
- * Original art in monk.run palette (homage, not official IP).
+ * Survey Corps garrison hall — AOT homage lobby.
+ * Original art only (walls, steam, wing banners — not official IP assets).
  */
 import { FLOOR, ROOM, PLAYER_R } from './templeRoom.js'
 
 export { FLOOR, ROOM, PLAYER_R }
 
-/** Walls only — open floor so the squad can stand together. */
 export const LOBBY_WALLS = [
   { x: FLOOR.x, y: FLOOR.y - 18, w: FLOOR.w, h: 18 },
   { x: FLOOR.x, y: FLOOR.y + FLOOR.h, w: FLOOR.w, h: 18 },
@@ -20,8 +18,8 @@ export const LOBBY_PLAYER_R = 26
 
 export const HANGOUT = {
   id: 'garrison',
-  name: 'Garrison hall',
-  tagline: 'Rally. Talk. Breach when ready.',
+  name: 'Survey Corps HQ',
+  tagline: 'Rally. Dedicate. Breach.',
   accent: '#6b9a62',
   moveSpeed: 210,
   colliders: LOBBY_WALLS,
@@ -43,96 +41,168 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.roundRect(x, y, w, h, r)
 }
 
-/** Original wing banner — chevron geometry, not official emblem. */
+/** Original wing banner — Survey Corps homage, not official emblem. */
 function drawCorpsBanner(ctx, x, y, scale = 1) {
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(scale, scale)
-  ctx.fillStyle = 'rgba(18, 24, 20, 0.92)'
-  ctx.strokeStyle = 'rgba(107, 154, 98, 0.55)'
-  ctx.lineWidth = 2
+  // Cloak-colored field
+  ctx.fillStyle = '#1a2820'
+  ctx.strokeStyle = 'rgba(212, 165, 116, 0.55)'
+  ctx.lineWidth = 2.5
   ctx.beginPath()
-  ctx.roundRect(-28, -38, 56, 76, 6)
+  ctx.roundRect(-36, -52, 72, 104, 6)
   ctx.fill()
   ctx.stroke()
-  ctx.fillStyle = 'rgba(126, 200, 154, 0.35)'
+  // Twin wings
+  ctx.fillStyle = 'rgba(126, 200, 154, 0.55)'
   ctx.beginPath()
-  ctx.moveTo(0, -24)
-  ctx.lineTo(14, -4)
-  ctx.lineTo(0, -10)
-  ctx.lineTo(-14, -4)
+  ctx.moveTo(0, -28)
+  ctx.lineTo(-26, -6)
+  ctx.lineTo(-8, -2)
+  ctx.lineTo(-22, 18)
+  ctx.lineTo(0, 4)
+  ctx.lineTo(22, 18)
+  ctx.lineTo(8, -2)
+  ctx.lineTo(26, -6)
   ctx.closePath()
   ctx.fill()
-  ctx.strokeStyle = 'rgba(212, 165, 116, 0.45)'
+  ctx.strokeStyle = 'rgba(240, 201, 138, 0.65)'
+  ctx.lineWidth = 1.5
   ctx.stroke()
+  ctx.font = '800 8px Outfit, system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(230, 236, 232, 0.55)'
+  ctx.textAlign = 'center'
+  ctx.fillText('SCOUT', 0, 38)
   ctx.restore()
 }
 
-/** Garrison interior — wall vista, stone floor, rally pad. */
-export function drawHangoutRoom(ctx, t, ambience = {}) {
-  const voice = ambience.voiceLevel || 0
-
-  ctx.fillStyle = '#06080c'
-  ctx.fillRect(0, 0, 1280, 720)
-
-  const grad = ctx.createLinearGradient(ROOM.x, ROOM.y, ROOM.x, ROOM.y + ROOM.h)
-  grad.addColorStop(0, '#141c18')
-  grad.addColorStop(0.45, '#1a2420')
-  grad.addColorStop(1, '#101814')
-  ctx.fillStyle = grad
-  roundRect(ctx, ROOM.x - 8, ROOM.y - 8, ROOM.w + 16, ROOM.h + 16, 18)
+function drawColossalBeyond(ctx, winX, winY, winW, winH, t) {
+  const cx = winX + winW / 2
+  const baseY = winY + winH
+  // Head / shoulders silhouette beyond wall
+  ctx.fillStyle = 'rgba(6, 10, 8, 0.92)'
+  ctx.beginPath()
+  ctx.moveTo(cx - 90, baseY)
+  ctx.quadraticCurveTo(cx - 100, winY + 30, cx - 40, winY + 18)
+  ctx.quadraticCurveTo(cx, winY - 8, cx + 40, winY + 18)
+  ctx.quadraticCurveTo(cx + 100, winY + 30, cx + 90, baseY)
+  ctx.closePath()
   ctx.fill()
-
-  ctx.strokeStyle = 'rgba(107, 154, 98, 0.28)'
-  ctx.lineWidth = 3
-  roundRect(ctx, ROOM.x + 6, ROOM.y + 6, ROOM.w - 12, ROOM.h - 12, 14)
-  ctx.stroke()
-
-  // Wall vista — distant ramparts at horizon
-  const winY = ROOM.y + 22
-  const winH = 88
-  const sky = ctx.createLinearGradient(0, winY, 0, winY + winH)
-  sky.addColorStop(0, '#2a3840')
-  sky.addColorStop(0.55, '#182028')
-  sky.addColorStop(1, '#0c1218')
-  ctx.fillStyle = sky
-  roundRect(ctx, ROOM.x + 56, winY, ROOM.w - 112, winH, 8)
-  ctx.fill()
-
-  // Wall silhouettes (original geometry)
-  ctx.fillStyle = 'rgba(12, 18, 16, 0.95)'
-  const wx = ROOM.x + 72
-  const ww = ROOM.w - 144
-  ctx.fillRect(wx, winY + 38, ww * 0.22, winH - 38)
-  ctx.fillRect(wx + ww * 0.32, winY + 28, ww * 0.28, winH - 28)
-  ctx.fillRect(wx + ww * 0.68, winY + 34, ww * 0.24, winH - 34)
-
-  // Green steam wisps beyond the wall
-  for (let i = 0; i < 5; i++) {
-    const sx = wx + 40 + ((i * 97 + t * 18) % (ww - 80))
-    const sy = winY + 18 + Math.sin(t * 0.8 + i) * 4
-    const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, 22 + i * 4)
-    g.addColorStop(0, `rgba(126, 200, 154, ${0.12 + Math.sin(t + i) * 0.04})`)
+  // Eyes — faint green glow
+  const eyeY = winY + winH * 0.38
+  const pulse = 0.35 + Math.sin(t * 1.2) * 0.12
+  for (const dx of [-28, 28]) {
+    const g = ctx.createRadialGradient(cx + dx, eyeY, 1, cx + dx, eyeY, 14)
+    g.addColorStop(0, `rgba(126, 200, 154, ${pulse})`)
     g.addColorStop(1, 'rgba(126, 200, 154, 0)')
     ctx.fillStyle = g
     ctx.beginPath()
-    ctx.ellipse(sx, sy, 18 + i * 3, 10, 0, 0, Math.PI * 2)
+    ctx.arc(cx + dx, eyeY, 14, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = `rgba(180, 230, 190, ${0.55 + pulse * 0.3})`
+    ctx.beginPath()
+    ctx.arc(cx + dx, eyeY, 3.5, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+/** Survey Corps HQ — wall gate vista, corps banners, rally pad. */
+export function drawHangoutRoom(ctx, t, ambience = {}) {
+  const voice = ambience.voiceLevel || 0
+
+  ctx.fillStyle = '#050708'
+  ctx.fillRect(0, 0, 1280, 720)
+
+  // Stone hall shell
+  const grad = ctx.createLinearGradient(ROOM.x, ROOM.y, ROOM.x, ROOM.y + ROOM.h)
+  grad.addColorStop(0, '#121a16')
+  grad.addColorStop(0.4, '#1a2420')
+  grad.addColorStop(1, '#0e1612')
+  ctx.fillStyle = grad
+  roundRect(ctx, ROOM.x - 8, ROOM.y - 8, ROOM.w + 16, ROOM.h + 16, 14)
+  ctx.fill()
+
+  ctx.strokeStyle = 'rgba(139, 115, 85, 0.4)'
+  ctx.lineWidth = 4
+  roundRect(ctx, ROOM.x + 4, ROOM.y + 4, ROOM.w - 8, ROOM.h - 8, 12)
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(107, 154, 98, 0.25)'
+  ctx.lineWidth = 2
+  roundRect(ctx, ROOM.x + 10, ROOM.y + 10, ROOM.w - 20, ROOM.h - 20, 10)
+  ctx.stroke()
+
+  // Giant wall / gate vista
+  const winY = ROOM.y + 18
+  const winH = 110
+  const winX = ROOM.x + 48
+  const winW = ROOM.w - 96
+
+  const sky = ctx.createLinearGradient(0, winY, 0, winY + winH)
+  sky.addColorStop(0, '#3a2820')
+  sky.addColorStop(0.35, '#1e2830')
+  sky.addColorStop(1, '#0c1410')
+  ctx.fillStyle = sky
+  roundRect(ctx, winX, winY, winW, winH, 6)
+  ctx.fill()
+
+  drawColossalBeyond(ctx, winX, winY, winW, winH, t)
+
+  // Three wall layers in the vista
+  ctx.fillStyle = 'rgba(18, 26, 22, 0.95)'
+  ctx.fillRect(winX + 20, winY + 58, winW * 0.2, winH - 58)
+  ctx.fillRect(winX + winW * 0.28, winY + 42, winW * 0.3, winH - 42)
+  ctx.fillRect(winX + winW * 0.62, winY + 52, winW * 0.28, winH - 52)
+  // Battlements
+  ctx.fillStyle = 'rgba(28, 38, 32, 0.9)'
+  for (let i = 0; i < 14; i++) {
+    const bx = winX + 24 + i * ((winW - 48) / 14)
+    ctx.fillRect(bx, winY + 42 + (i % 3) * 6, 14, 12)
+  }
+
+  // Green titan steam
+  for (let i = 0; i < 8; i++) {
+    const sx = winX + 50 + ((i * 89 + t * 22) % (winW - 100))
+    const sy = winY + 10 + Math.sin(t * 0.9 + i) * 6
+    const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, 28 + i * 3)
+    g.addColorStop(0, `rgba(126, 200, 154, ${0.16 + Math.sin(t + i) * 0.05})`)
+    g.addColorStop(1, 'rgba(126, 200, 154, 0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.ellipse(sx, sy, 22 + i * 2, 12, 0, 0, Math.PI * 2)
     ctx.fill()
   }
 
-  ctx.strokeStyle = 'rgba(139, 115, 85, 0.35)'
-  ctx.lineWidth = 2
-  roundRect(ctx, ROOM.x + 56, winY, ROOM.w - 112, winH, 8)
+  // Gate arch overlay
+  ctx.strokeStyle = 'rgba(212, 165, 116, 0.45)'
+  ctx.lineWidth = 3
+  roundRect(ctx, winX, winY, winW, winH, 6)
   ctx.stroke()
+  ctx.font = '700 11px Outfit, system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(240, 201, 138, 0.55)'
+  ctx.textAlign = 'center'
+  ctx.fillText('BEYOND THE WALL', winX + winW / 2, winY + winH - 10)
 
   // Side banners
-  drawCorpsBanner(ctx, ROOM.x + 42, ROOM.y + ROOM.h * 0.38, 1)
-  drawCorpsBanner(ctx, ROOM.x + ROOM.w - 42, ROOM.y + ROOM.h * 0.38, 1)
+  drawCorpsBanner(ctx, ROOM.x + 48, ROOM.y + ROOM.h * 0.42, 1.15)
+  drawCorpsBanner(ctx, ROOM.x + ROOM.w - 48, ROOM.y + ROOM.h * 0.42, 1.15)
+
+  // ODM cable lines (decorative)
+  ctx.strokeStyle = 'rgba(212, 165, 116, 0.18)'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(ROOM.x + 80, ROOM.y + 140)
+  ctx.quadraticCurveTo(ROOM.x + ROOM.w / 2, ROOM.y + 100, ROOM.x + ROOM.w - 80, ROOM.y + 140)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(ROOM.x + 100, ROOM.y + ROOM.h - 40)
+  ctx.quadraticCurveTo(ROOM.x + ROOM.w / 2, ROOM.y + ROOM.h - 80, ROOM.x + ROOM.w - 100, ROOM.y + ROOM.h - 40)
+  ctx.stroke()
 
   // Stone floor
-  ctx.fillStyle = '#1e2824'
+  ctx.fillStyle = '#1c2622'
   ctx.fillRect(FLOOR.x, FLOOR.y, FLOOR.w, FLOOR.h)
-  ctx.strokeStyle = 'rgba(255,255,255,0.028)'
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'
   ctx.lineWidth = 1
   const tile = 52
   for (let x = FLOOR.x; x < FLOOR.x + FLOOR.w; x += tile) {
@@ -148,38 +218,46 @@ export function drawHangoutRoom(ctx, t, ambience = {}) {
     ctx.stroke()
   }
 
+  // Rally pad — wing motif ring
   const cx = FLOOR.x + FLOOR.w / 2
   const cy = FLOOR.y + FLOOR.h * 0.52
   ctx.beginPath()
-  ctx.ellipse(cx, cy, 150, 70, 0, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(107, 154, 98, 0.11)'
+  ctx.ellipse(cx, cy, 158, 74, 0, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(107, 154, 98, 0.12)'
   ctx.fill()
-  ctx.strokeStyle = `rgba(107, 154, 98, ${0.38 + Math.sin(t * 1.5) * 0.08 + voice * 0.15})`
-  ctx.lineWidth = 3
+  ctx.strokeStyle = `rgba(107, 154, 98, ${0.42 + Math.sin(t * 1.5) * 0.1 + voice * 0.15})`
+  ctx.lineWidth = 3.5
   ctx.stroke()
-  ctx.beginPath()
-  ctx.ellipse(cx, cy, 118, 52, 0, 0, Math.PI * 2)
-  ctx.strokeStyle = 'rgba(212, 165, 116, 0.28)'
-  ctx.lineWidth = 2
-  ctx.setLineDash([8, 10])
-  ctx.stroke()
-  ctx.setLineDash([])
 
-  ctx.font = '600 13px Outfit, system-ui, sans-serif'
-  ctx.fillStyle = 'rgba(230, 236, 232, 0.45)'
+  // Mini wings in pad center
+  ctx.fillStyle = `rgba(126, 200, 154, ${0.2 + Math.sin(t) * 0.05})`
+  ctx.beginPath()
+  ctx.moveTo(cx, cy - 22)
+  ctx.lineTo(cx - 36, cy - 2)
+  ctx.lineTo(cx - 10, cy + 2)
+  ctx.lineTo(cx - 28, cy + 22)
+  ctx.lineTo(cx, cy + 6)
+  ctx.lineTo(cx + 28, cy + 22)
+  ctx.lineTo(cx + 10, cy + 2)
+  ctx.lineTo(cx + 36, cy - 2)
+  ctx.closePath()
+  ctx.fill()
+
+  ctx.font = '700 12px Outfit, system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(240, 201, 138, 0.7)'
   ctx.textAlign = 'center'
-  ctx.fillText('RALLY HERE', cx, cy + 5)
+  ctx.fillText('DEDICATE YOUR HEARTS', cx, cy + 36)
 
   if (voice > 0.05) {
-    const g = ctx.createRadialGradient(cx, cy, 20, cx, cy, 200)
-    g.addColorStop(0, `rgba(107, 154, 98, ${voice * 0.14})`)
+    const g = ctx.createRadialGradient(cx, cy, 20, cx, cy, 210)
+    g.addColorStop(0, `rgba(107, 154, 98, ${voice * 0.16})`)
     g.addColorStop(1, 'rgba(107, 154, 98, 0)')
     ctx.fillStyle = g
     ctx.fillRect(FLOOR.x, FLOOR.y, FLOOR.w, FLOOR.h)
   }
 
   if ((ambience.pulse || 0) > 0) {
-    ctx.fillStyle = `rgba(126, 200, 154, ${ambience.pulse * 0.14})`
+    ctx.fillStyle = `rgba(126, 200, 154, ${ambience.pulse * 0.16})`
     ctx.fillRect(ROOM.x, ROOM.y, ROOM.w, ROOM.h)
   }
 }
@@ -207,7 +285,7 @@ export function drawSpeechBubble(ctx, x, y, text) {
   const h = 28
   const bx = x - w / 2
   const by = y - 92
-  ctx.fillStyle = 'rgba(14, 18, 26, 0.94)'
+  ctx.fillStyle = 'rgba(14, 18, 16, 0.94)'
   ctx.strokeStyle = 'rgba(107, 154, 98, 0.55)'
   ctx.lineWidth = 2
   ctx.beginPath()
@@ -239,7 +317,7 @@ export function drawSocialNameplate(ctx, x, y, name, opts = {}) {
   const hx = x - w / 2
   const hy = y - 62
 
-  ctx.fillStyle = 'rgba(8, 12, 18, 0.88)'
+  ctx.fillStyle = 'rgba(8, 12, 10, 0.9)'
   ctx.beginPath()
   ctx.roundRect(hx, hy, w, h, 12)
   ctx.fill()

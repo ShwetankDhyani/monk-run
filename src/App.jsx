@@ -23,7 +23,7 @@ import { HowToPlayModal } from './components/HowToPlayModal.jsx'
 import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
-import { TempleGlobe } from './components/TempleGlobe.jsx'
+import { ScoutWings } from './components/ScoutWings.jsx'
 
 import { sfx, startAmbient, stopAmbient, isAmbientMuted } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
@@ -542,13 +542,18 @@ export default function App() {
     const nameReady = name.trim().length > 0
     return (
       <div className={`landing ${gateMode ? 'landing--gate' : ''}`}>
-        <Atmosphere />
+        <Atmosphere variant="expedition" />
         <div className="landing-stage">
           <div className="landing-hero">
             <div className="landing-brand">
-              <TempleGlobe className="landing-globe" />
+              <ScoutWings />
               <h1 className="landing-title">{COPY.brand}</h1>
-              {!gateMode && <p className="landing-tag">{COPY.landing.tag}</p>}
+              {!gateMode && (
+                <>
+                  <p className="landing-homage">{COPY.landing.homage}</p>
+                  <p className="landing-tag">{COPY.landing.tag}</p>
+                </>
+              )}
             </div>
 
             {!gateMode && (
@@ -730,7 +735,7 @@ export default function App() {
         className="lobby-shell waiting-shell waiting-shell--immersive"
         style={{ '--lobby-accent': hall.accent }}
       >
-        <Atmosphere intensity="soft" />
+        <Atmosphere intensity="soft" variant="expedition" />
         <div className="waiting-stage-full">
           <MonkLobby
             selfId={room.selfId}
@@ -755,6 +760,9 @@ export default function App() {
           <header className="waiting-float-bar">
             <div className="waiting-brand">
               <p className="font-display text-lg font-medium tracking-tight text-fog md:text-xl">monk.run</p>
+              <p className="text-[9px] uppercase tracking-[0.22em] text-corps-bright/80 md:text-[10px]">
+                Survey Corps · AOT homage
+              </p>
             </div>
             <button
               type="button"
