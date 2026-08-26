@@ -11,10 +11,10 @@ export const COPY = {
     'monk.run — multiplayer globe guesser. Drop into Street View with friends, pin the map, closest wins.',
 
   landing: {
-    kicker: 'Multiplayer globe guesser',
-    tag: 'You all drop into the same Street View. Pin where you think you are on the world map. Closest wins.',
-    create: 'Create room',
-    join: 'Enter with PIN',
+    kicker: 'A live geography duel',
+    tag: 'One street-view frame. A blank globe. Drop your pin before the clock runs out.',
+    create: 'Form a squad',
+    join: 'Join with PIN',
     back: '← Back',
     nameLabel: 'Your name',
     namePlaceholder: 'Enter your name',
@@ -29,6 +29,9 @@ export const COPY = {
     privacy: 'Privacy',
     terms: 'Terms',
     board: 'All-time board',
+    sound: 'Sound',
+    hudLive: 'Round live',
+    hudBuild: 'build 4.26 · live',
   },
 
   connecting: 'Crossing…',

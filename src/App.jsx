@@ -23,7 +23,7 @@ import { HowToPlayModal } from './components/HowToPlayModal.jsx'
 import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
-import { LandingVoid } from './components/LandingVoid.jsx'
+import { LandingVoid, LandingEmblem } from './components/LandingVoid.jsx'
 
 import { sfx, startAmbient, stopAmbient, isAmbientMuted } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
@@ -198,6 +198,22 @@ export default function App() {
       stopAmbient()
     }
   }, [])
+
+  useEffect(() => {
+    if (screen !== 'landing' || gateMode || busy) return undefined
+    const onKey = (e) => {
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/i.test(e.target.tagName)) return
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        setGateMode('create')
+      } else if (e.key === 'j' || e.key === 'J') {
+        e.preventDefault()
+        setGateMode('join')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [screen, gateMode, busy])
 
   useEffect(() => {
     if (
@@ -551,32 +567,38 @@ export default function App() {
     const nameReady = name.trim().length > 0
     return (
       <div className={`landing ${gateMode ? 'landing--gate' : ''}`}>
-        <LandingVoid />
+        <LandingVoid soundLabel={COPY.landing.sound} />
         <div className="landing-stage">
           <div className="landing-hero">
-            <div className="landing-brand">
-              <h1 className="landing-title">{COPY.brand}</h1>
-              {!gateMode && (
-                <>
-                  <p className="landing-kicker">{COPY.landing.kicker}</p>
-                  <p className="landing-tag">{COPY.landing.tag}</p>
-                </>
-              )}
-            </div>
-
             {!gateMode && (
-              <div className="landing-ctas">
-                <button type="button" className="btn btn-primary landing-cta-primary" onClick={() => setGateMode('create')}>
-                  {COPY.landing.create}
-                </button>
-                <button type="button" className="btn btn-ghost landing-cta-ghost" onClick={() => setGateMode('join')}>
-                  {COPY.landing.join}
-                </button>
-              </div>
+              <>
+                <p className="landing-eyebrow">{COPY.landing.kicker}</p>
+                <LandingEmblem />
+                <h1 className="landing-wordmark">
+                  monk<span className="landing-wordmark-dot">.</span>run
+                </h1>
+                <p className="landing-tag">
+                  One street-view frame. A blank globe. <b>Drop your pin</b> before the clock runs out.
+                </p>
+                <div className="landing-ctas">
+                  <button type="button" className="landing-btn landing-btn--primary" onClick={() => setGateMode('create')}>
+                    {COPY.landing.create}
+                  </button>
+                  <button type="button" className="landing-btn landing-btn--ghost" onClick={() => setGateMode('join')}>
+                    {COPY.landing.join}
+                  </button>
+                </div>
+                <p className="landing-hint">
+                  Press <kbd>Enter</kbd> to form a squad · <kbd>J</kbd> to join
+                </p>
+              </>
             )}
 
             {gateMode && (
               <div className="landing-gate">
+                <h1 className="landing-wordmark landing-wordmark--compact">
+                  monk<span className="landing-wordmark-dot">.</span>run
+                </h1>
                 <div className="landing-gate-scroll">
                   <button
                     type="button"
@@ -607,7 +629,7 @@ export default function App() {
                           localStorage.setItem('monk-avatar', id)
                         }}
                       />
-                      <p className="landing-hint">{COPY.landing.scoutHint}</p>
+                      <p className="landing-hint-soft">{COPY.landing.scoutHint}</p>
                     </>
                   )}
 
@@ -656,7 +678,7 @@ export default function App() {
                   {gateMode === 'create' ? (
                     <button
                       type="button"
-                      className="btn btn-primary w-full"
+                      className="landing-btn landing-btn--primary w-full"
                       disabled={busy || !nameReady}
                       onClick={create}
                     >
@@ -665,7 +687,7 @@ export default function App() {
                   ) : (
                     <button
                       type="button"
-                      className="btn btn-primary w-full"
+                      className="landing-btn landing-btn--primary w-full"
                       disabled={busy || !pinReady || !nameReady}
                       onClick={join}
                     >
