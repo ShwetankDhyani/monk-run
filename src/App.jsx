@@ -23,7 +23,7 @@ import { HowToPlayModal } from './components/HowToPlayModal.jsx'
 import { SettingsModal } from './components/SettingsModal.jsx'
 import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
-import { ScoutWings } from './components/ScoutWings.jsx'
+import { LandingVoid } from './components/LandingVoid.jsx'
 
 import { sfx, startAmbient, stopAmbient, isAmbientMuted } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
@@ -551,21 +551,20 @@ export default function App() {
     const nameReady = name.trim().length > 0
     return (
       <div className={`landing ${gateMode ? 'landing--gate' : ''}`}>
-        <Atmosphere variant="expedition" />
+        <LandingVoid />
         <div className="landing-stage">
           <div className="landing-hero">
             <div className="landing-brand">
-              <ScoutWings />
               <h1 className="landing-title">{COPY.brand}</h1>
               {!gateMode && <p className="landing-tag">{COPY.landing.tag}</p>}
             </div>
 
             {!gateMode && (
               <div className="landing-ctas">
-                <button type="button" className="btn btn-primary" onClick={() => setGateMode('create')}>
+                <button type="button" className="btn btn-primary landing-cta-primary" onClick={() => setGateMode('create')}>
                   {COPY.landing.create}
                 </button>
-                <button type="button" className="btn btn-ghost" onClick={() => setGateMode('join')}>
+                <button type="button" className="btn btn-ghost landing-cta-ghost" onClick={() => setGateMode('join')}>
                   {COPY.landing.join}
                 </button>
               </div>
@@ -739,7 +738,7 @@ export default function App() {
         className="lobby-shell waiting-shell waiting-shell--immersive"
         style={{ '--lobby-accent': hall.accent }}
       >
-        <Atmosphere intensity="soft" variant="expedition" />
+        <Atmosphere intensity="soft" />
         <div className="waiting-stage-full">
           <MonkLobby
             selfId={room.selfId}

@@ -1,25 +1,25 @@
 /**
- * monk.run — player-facing copy (narrative / UX writing desk)
+ * monk.run — player-facing copy
  *
- * Voice: expedition myth + clear party UX. AOT homage in scouts/visuals;
- * product name stays monk.run.
+ * Voice: sparse temple myth + clear party UX.
+ * Product name stays monk.run.
  */
 
 export const COPY = {
   brand: 'monk.run',
   metaDescription:
-    'monk.run — gather your squad, breach the gate, scout the world together.',
+    'monk.run — gather in the temple, fall through the black hole, guess the world with your party.',
 
   landing: {
-    tag: 'Pick your scout. Breach the gate. Name the place.',
-    create: 'Form a squad',
-    join: 'Join with PIN',
+    tag: 'Gather. Fall through. Name the place.',
+    create: 'Create room',
+    join: 'Enter with PIN',
     back: '← Back',
     nameLabel: 'Your name',
     namePlaceholder: 'Enter your name',
-    scoutLabel: 'Your scout',
-    scoutHint: 'Pick a scout — shared picks wear different capes.',
-    openTemple: 'Open the garrison',
+    scoutLabel: 'Your look',
+    scoutHint: 'Shared picks wear different robes.',
+    openTemple: 'Open the temple',
     pinLabel: 'Room PIN',
     stepInside: 'Step inside',
     dismiss: 'Dismiss',
@@ -27,31 +27,31 @@ export const COPY = {
     settings: 'Settings',
     privacy: 'Privacy',
     terms: 'Terms',
-    board: 'Expedition records',
+    board: 'All-time board',
   },
 
-  connecting: 'Deploying…',
+  connecting: 'Crossing…',
 
   error: {
-    hostLeft: 'The commander has left.',
+    hostLeft: 'The host has left.',
     connectionLost: 'The link broke.',
-    fallback: 'Something went wrong. Return to base and try again.',
-    back: 'Return to base',
+    fallback: 'Something went wrong. Return to the temple and try again.',
+    back: 'Return to temple',
   },
 
   lobby: {
-    subtitle: (n, max, local) => `${n}/${max} scouts${local ? ' · local' : ''}`,
+    subtitle: (n, max, local) => `${n}/${max}${local ? ' · local' : ''}`,
     pinLabel: 'PIN',
     copied: 'Copied',
     tapCopy: 'Copy',
     joinVoice: 'Talk',
     unmute: 'Unmute',
     muteMic: 'Mute',
-    play: 'BREACH',
-    players: 'Squad',
+    play: 'START',
+    players: 'Who’s here',
     here: 'here',
     away: 'away',
-    host: 'commander',
+    host: 'host',
     chat: 'Chat',
     chatEmpty: 'No messages yet — say hi.',
     chatPlaceholder: 'Type a message…',
@@ -61,18 +61,18 @@ export const COPY = {
     voiceLive: (n) => `Live · ${n} hearing you`,
     voiceReconnecting: 'Voice reconnecting…',
     voiceBlocked: 'Mic blocked — allow access to talk.',
-    waitingHost: 'Waiting for commander…',
-    crew: 'Squad',
-    crewHint: 'Walk the hall, talk, wave — commander breaches when ready.',
+    waitingHost: 'Waiting for host…',
+    crew: 'Players',
+    crewHint: 'Wander, talk, wave — host starts when ready.',
     emptySeat: 'Open',
     you: 'you',
-    gather: 'Survey Corps HQ',
-    gatherHint: 'Rally under the wings — talk, wander, sync. Commander breaches when ready.',
-    joinVoiceCta: 'Join comms',
+    gather: 'The gathering',
+    gatherHint: 'This is where the party lives — talk, wander, catch up. The world waits for PLAY.',
+    joinVoiceCta: 'Start talking',
     conversation: 'Messages',
     mutePlayer: 'Mute',
-    mutedByHost: 'Commander muted your mic',
-    voiceHint: 'Anyone can talk. Only the commander can mute others.',
+    mutedByHost: 'Host muted your mic',
+    voiceHint: 'Anyone can talk. Only the host can mute others.',
   },
 
   howTo: {
@@ -80,43 +80,43 @@ export const COPY = {
     close: 'Close',
     steps: [
       {
-        title: 'Rally first',
-        body: 'Open a room or enter a six-digit PIN. Walk the garrison, join voice, chat, wave — sync with your squad before the breach.',
+        title: 'Gather first',
+        body: 'Open a room or enter a six-digit PIN. Walk the hall, join voice, chat, wave — hang with your party before anyone falls.',
       },
       {
-        title: 'Breach the gate',
-        body: 'The commander hits BREACH. The colossal gate opens and pulls everyone into five shared recon rounds.',
+        title: 'Fall through',
+        body: 'The host presses START. The black hole opens and pulls everyone into five shared rounds.',
       },
       {
-        title: 'Scout the terrain',
-        body: 'Read the ground: signs, trees, traffic, stone. Pin where you think you are on the world map.',
+        title: 'Read the place',
+        body: 'Look around: signs, trees, traffic, stone. Then pin where you think you are on the world map.',
       },
       {
-        title: 'Lock and report',
-        body: 'Lock your guess. When all are locked — or time ends — command reveals the truth. Closest scout wins the round.',
+        title: 'Lock and learn',
+        body: 'Lock your guess. When all are locked — or time ends — the truth appears. Closest wins the round.',
       },
     ],
-    controls: 'Garrison: WASD / arrows · Space nudge · 1–4 emotes · join voice · chat',
+    controls: 'Gathering: WASD / arrows · Space nudge · 1–4 emotes · join voice · chat',
   },
 
   settings: {
     title: 'Settings',
     close: 'Close',
     sfx: 'Sound effects',
-    ambient: 'Expedition theme',
+    ambient: 'Atmosphere',
     volume: 'Volume',
     reduceMotion: 'Reduce motion',
-    note: 'Expedition theme is original procedural music — not a licensed anime soundtrack. Voice mute lives in the lobby.',
+    note: 'Atmosphere is original procedural audio. Voice mute lives in the lobby.',
   },
 
   leaderboard: {
-    title: 'Expedition records',
-    subtitle: 'Glory & shame',
+    title: 'Hall of Fame',
+    subtitle: 'and Hall of Shame',
     close: 'Close',
-    loading: 'Reading the archives…',
+    loading: 'Reading the halls…',
     empty: 'No records yet. Finish a match to carve your name.',
     emptyList: 'No entries yet.',
-    link: 'Expedition records',
+    link: 'Hall of Fame',
     fame: 'Hall of Fame',
     shame: 'Hall of Shame',
     highestScore: 'Highest score',
@@ -135,7 +135,7 @@ export const COPY = {
     waitingHost: 'Waiting for the host to reopen the lobby…',
     leaveParty: 'Leave party',
     download: 'Save podium card',
-    shareFooter: 'rallied · breached · scouted',
+    shareFooter: 'gathered · fallen · guessed',
     shareHeader: (code) => `ROOM ${code} · MATCH RESULTS`,
   },
 
@@ -145,21 +145,20 @@ export const COPY = {
     missed: 'missed',
     totals: 'Standings',
     next: 'Next place',
-    opening: 'Command picks the next coordinates…',
-    seeking: 'Scouting a view…',
-    hang: 'Hold — recon in progress.',
+    opening: 'The next place opens…',
+    seeking: 'Seeking a view…',
+    hang: 'Hold still — the void is choosing.',
     podium: 'Podium',
     nextRound: 'Next round',
     waitingHost: 'Waiting for host to start…',
     crew: 'Players',
-    crewHint: 'Same squad. Same comms. Same breach.',
+    crewHint: 'Same room. Same mic. Same fall.',
     emptySeat: 'Open seat',
-    you: 'you',
   },
 
   loading: {
     round: (n) => `Round ${n}`,
-    title: 'Scouting coordinates…',
+    title: 'A place takes shape…',
     scoring: 'Scoring the round…',
     scoringTitle: 'Fair reckoning',
   },
@@ -189,9 +188,9 @@ export const COPY = {
   },
 
   cinematic: {
-    enterGame: 'Breaching the gate…',
-    enterReveal: 'Truth revealed',
-    enterPodium: 'After-action report',
+    enterGame: 'Falling through…',
+    enterReveal: 'The truth',
+    enterPodium: 'The ranking',
   },
 
   map: {
@@ -212,12 +211,12 @@ export const COPY = {
   errors: {
     default: 'Something went wrong — try again.',
     network: 'The connection flickered — try again.',
-    service: 'Couldn’t reach command. Try again.',
+    service: 'Couldn’t reach the temple. Try again.',
     panorama: 'That place didn’t appear. Trying again…',
     pinTaken: 'That PIN is taken — open a new room.',
     mic: 'Microphone blocked — allow access for voice.',
     peer: 'The party link dropped. Rejoin with the PIN.',
-    create: 'Couldn’t open the garrison. Try again.',
+    create: 'Couldn’t open the temple. Try again.',
     join: 'Couldn’t enter — check the PIN.',
     nameRequired: 'Enter a name to join.',
     nameTaken: 'That name is already in the room — pick another.',
@@ -231,11 +230,11 @@ export const COPY = {
 /** Deterministic lobby flavor line per room code. */
 export function lobbyFlavor(roomCode = '') {
   const lines = [
-    'Share the PIN. Fill the squad. Then breach.',
-    'Walk up, say hey, join comms.',
-    'Commander hits BREACH when the crew is ready.',
-    'Five coordinates. One squad. Start with a hello.',
-    'The garrison is for talking. The gate is for scouting.',
+    'Share the code. Fill the seats. Then fall.',
+    'Walk up, say hey, join voice.',
+    'Host hits START when the crew feels ready.',
+    'Five places. One party. Start with a hello.',
+    'The lounge is for talking. The void is for guessing.',
   ]
   let h = 0
   for (let i = 0; i < roomCode.length; i++) h = (h + roomCode.charCodeAt(i) * (i + 1)) % lines.length
