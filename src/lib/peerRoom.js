@@ -3,6 +3,7 @@ import { migrateVibeToAvatar } from '../data/avatars.js'
 import { randomBlackHolePos, pickRandomSpawn, clampToFloor } from './templeRoom.js'
 import { createGameSession, openRoundView, revealRoundScores } from './gameSession.js'
 import { playerError } from './playerErrors.js'
+import { normalizeScoringMode, SCORING_DISTANCE } from './scoring.js'
 
 export const MAX_PLAYERS = 5
 export const MAX_PLAYER_NAME_LEN = 18
@@ -116,6 +117,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       reveal: null,
       scores: {},
       kmTotals: {},
+      scoringMode: SCORING_DISTANCE,
       roundTimeMs: DEFAULT_ROUND_MS,
       message: '',
       localOnly: false,
@@ -123,6 +125,8 @@ export function createRoomController({ onState, onError, onEvent }) {
       revealingStartedAt: 0,
       roundLoadStartedAt: 0,
       phaseStuckSince: 0,
+      revealFailedAt: 0,
+      guessPendingAt: 0,
     }
   }
 
@@ -148,6 +152,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       reveal: publicReveal(state.reveal),
       scores: state.scores,
       kmTotals: state.kmTotals,
+      scoringMode: state.scoringMode || SCORING_DISTANCE,
       roundTimeMs: state.roundTimeMs,
       message: state.message,
     }
@@ -173,6 +178,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       truth: reveal.truth,
       totals: reveal.totals,
       kmTotals: reveal.kmTotals,
+      scoringMode: reveal.scoringMode || state.scoringMode || SCORING_DISTANCE,
       results: (reveal.results || []).map((r) => ({
         playerId: r.playerId,
         name: r.name,
@@ -374,15 +380,29 @@ export function createRoomController({ onState, onError, onEvent }) {
     if (msg.type === 'sync') {
       const keepCommit = state.myCommit
       const prevPhase = state.phase
+      const selfId = state.selfId
+      const prevSelfGuess = state.guesses?.[selfId]
+      const incoming = msg.state || {}
       state = {
         ...state,
-        ...msg.state,
+        ...incoming,
         isHost: false,
-        selfId: state.selfId,
+        selfId,
         localOnly: false,
         myCommit: keepCommit,
       }
-      if (msg.state.phase !== prevPhase) {
+      // Keep optimistic self-lock until host echoes it (avoids unlock flicker / lost guess).
+      if (
+        prevSelfGuess &&
+        (state.phase === 'playing' || state.phase === 'revealing') &&
+        !state.guesses?.[selfId]
+      ) {
+        state.guesses = { ...(state.guesses || {}), [selfId]: prevSelfGuess }
+        state.guessPendingAt = state.guessPendingAt || Date.now()
+      } else if (incoming.guesses?.[selfId]) {
+        state.guessPendingAt = 0
+      }
+      if (incoming.phase !== prevPhase) {
         state.phaseStuckSince = Date.now()
       }
       emit()
@@ -497,6 +517,8 @@ export function createRoomController({ onState, onError, onEvent }) {
           p.id === conn.peer ? { ...p, connected: false } : p,
         )
         pushSync()
+        // Missing seats should not block reveal when the host tab is throttled.
+        autoRevealIfReady()
       } else if (!actingHost) {
         fail('Host disconnected.')
       }
@@ -678,13 +700,22 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   /** Host starts countdown; locations are drawn server-side (never synced to clients). */
-  function beginCountdown({ rounds = DEFAULT_ROUNDS, roundTimeMs = DEFAULT_ROUND_MS } = {}) {
+  function beginCountdown({
+    rounds = DEFAULT_ROUNDS,
+    roundTimeMs = DEFAULT_ROUND_MS,
+    scoringMode = SCORING_DISTANCE,
+  } = {}) {
     if (!actingHost) return
     if (state.phase !== 'lobby') return
-    void beginCountdownAsync({ rounds, roundTimeMs })
+    void beginCountdownAsync({ rounds, roundTimeMs, scoringMode })
   }
 
-  async function beginCountdownAsync({ rounds = DEFAULT_ROUNDS, roundTimeMs = DEFAULT_ROUND_MS } = {}) {
+  async function beginCountdownAsync({
+    rounds = DEFAULT_ROUNDS,
+    roundTimeMs = DEFAULT_ROUND_MS,
+    scoringMode = SCORING_DISTANCE,
+  } = {}) {
+    const mode = normalizeScoringMode(scoringMode)
     const bh = randomBlackHolePos()
     state.blackHoleX = bh.x
     state.blackHoleY = bh.y
@@ -692,16 +723,18 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.countdownEndsAt = Date.now() + LOBBY_COUNTDOWN_MS
     state.phase = 'countdown'
     state.roundTimeMs = roundTimeMs
+    state.scoringMode = mode
     state.scores = Object.fromEntries(state.players.map((p) => [p.id, 0]))
     state.kmTotals = Object.fromEntries(state.players.map((p) => [p.id, 0]))
     state.reveal = null
     state.guesses = {}
     state.viewToken = ''
+    state.revealFailedAt = 0
     state.message = 'Black hole forming…'
     pushSync()
 
     try {
-      const session = await createGameSession(state.roomCode, rounds)
+      const session = await createGameSession(state.roomCode, rounds, mode)
       if (state.phase !== 'countdown') return
       secrets = {
         gameSessionId: session.sessionId,
@@ -711,6 +744,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         seed: 0,
       }
       state.totalRounds = session.totalRounds || rounds
+      state.scoringMode = normalizeScoringMode(session.scoringMode || mode)
       pushSync()
     } catch (err) {
       if (state.phase !== 'countdown') return
@@ -725,7 +759,8 @@ export function createRoomController({ onState, onError, onEvent }) {
 
   function cancelPendingReveal() {
     revealGen++
-    revealInFlight = false
+    // Do NOT clear revealInFlight here — the in-flight call's finally does that.
+    // Clearing it early allowed overlapping reveal attempts.
   }
 
   /** Sync transition once the next panorama token is ready. */
@@ -820,16 +855,41 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
     state.guesses = { ...state.guesses, [state.selfId]: guess }
     if (actingHost) {
+      state.guessPendingAt = 0
       pushSync()
       autoRevealIfReady()
     } else {
+      state.guessPendingAt = Date.now()
       emit()
-      send(hostConn, { type: 'guess', lat: guess.lat, lng: guess.lng, country: guess.country })
+      sendGuessToHost(guess)
     }
+  }
+
+  function sendGuessToHost(guess) {
+    if (!guess || actingHost) return
+    const payload = {
+      type: 'guess',
+      lat: guess.lat,
+      lng: guess.lng,
+      country: guess.country,
+    }
+    if (hostConn?.open) {
+      send(hostConn, payload)
+      return
+    }
+    // Conn not ready — retry briefly; guest watchdog also re-sends.
+    window.setTimeout(() => {
+      if (state.phase !== 'playing') return
+      const g = state.guesses[state.selfId]
+      if (!g) return
+      if (hostConn?.open) send(hostConn, payload)
+    }, 600)
   }
 
   function autoRevealIfReady() {
     if (!actingHost || state.phase !== 'playing') return
+    // After a score failure, wait for host retry instead of cancel-storm.
+    if (state.revealFailedAt > 0) return
     const live = state.players.filter((p) => p.connected !== false)
     if (live.length > 0 && live.every((p) => !!state.guesses[p.id])) {
       revealRound()
@@ -872,6 +932,10 @@ export function createRoomController({ onState, onError, onEvent }) {
       totalKm: r.totalKm,
     }))
     results.sort((a, b) => {
+      const mode = normalizeScoringMode(state.scoringMode)
+      if (mode === 'points' && (b.score || 0) !== (a.score || 0)) {
+        return (b.score || 0) - (a.score || 0)
+      }
       const ak = a.km == null ? Infinity : a.km
       const bk = b.km == null ? Infinity : b.km
       if (ak !== bk) return ak - bk
@@ -882,6 +946,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       results,
       totals: scored.totals,
       kmTotals: scored.kmTotals || {},
+      scoringMode: scored.scoringMode || state.scoringMode || SCORING_DISTANCE,
     }
   }
 
@@ -910,9 +975,14 @@ export function createRoomController({ onState, onError, onEvent }) {
     }
   }
 
-  function revealRound() {
+  function revealRound({ force = false } = {}) {
     if (state.phase !== 'playing' && state.phase !== 'revealing') return
-    cancelPendingReveal()
+    // Already scoring — don't cancel/restart unless forced (host End Round / retry).
+    if (state.phase === 'revealing' && revealInFlight && !force) return
+    if (force || state.phase === 'playing') {
+      cancelPendingReveal()
+      state.revealFailedAt = 0
+    }
     void revealRoundAsync()
   }
 
@@ -928,6 +998,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.roundEndsAt = 0
       state.revealingStartedAt = Date.now()
       state.phaseStuckSince = Date.now()
+      state.revealFailedAt = 0
       state.message = 'Scoring…'
       pushSync()
     }
@@ -936,9 +1007,11 @@ export function createRoomController({ onState, onError, onEvent }) {
       if (gen !== revealGen || state.roundIndex !== idx) return
       if (state.phase !== 'revealing') return
       if (!reveal) {
+        // Stay in revealing with a recoverable error — do NOT bounce to playing
+        // (that caused autoReveal cancel storms and guests stuck on the map).
         state.revealingStartedAt = 0
-        state.phase = 'playing'
-        state.message = 'Couldn’t score — try ending the round again.'
+        state.revealFailedAt = Date.now()
+        state.message = 'Couldn’t score — host can tap End round to retry.'
         pushSync()
         return
       }
@@ -947,23 +1020,41 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.viewToken = ''
       state.scores = { ...(reveal.totals || {}) }
       state.kmTotals = { ...(reveal.kmTotals || {}) }
+      state.scoringMode = normalizeScoringMode(reveal.scoringMode || state.scoringMode)
       state.phase = 'reveal'
       state.revealingStartedAt = 0
+      state.revealFailedAt = 0
       state.message = 'Results'
       pushSync()
     } catch (err) {
       if (gen !== revealGen || state.roundIndex !== idx) return
       if (state.phase !== 'revealing') return
       state.revealingStartedAt = 0
-      state.phase = 'playing'
-      state.message = playerError(err, 'Couldn’t score this round. Try ending the round again.')
+      state.revealFailedAt = Date.now()
+      state.message = playerError(err, 'Couldn’t score this round. Host can tap End round to retry.')
       pushSync()
     } finally {
-      revealInFlight = false
+      if (gen === revealGen) revealInFlight = false
     }
   }
 
   function clientStuckWatchdog() {
+    // Guest locked but never left playing — re-send guess / request recovery.
+    if (state.phase === 'playing' && state.guesses?.[state.selfId]) {
+      const lockedAt = Number(state.guesses[state.selfId].at) || state.guessPendingAt || 0
+      const waitMs = Math.max(state.roundTimeMs || DEFAULT_ROUND_MS, 20_000) + 25_000
+      if (lockedAt > 0 && Date.now() - lockedAt > 8_000 && state.guessPendingAt > 0) {
+        // Host may never have received the guess — retry send.
+        sendGuessToHost(state.guesses[state.selfId])
+      }
+      if (lockedAt > 0 && Date.now() - lockedAt > waitMs) {
+        state.message =
+          'Still waiting for results. Ask the host to tap End round, or return to the temple.'
+        emit()
+      }
+      return
+    }
+
     if (state.phase !== 'loading-round' && state.phase !== 'revealing') {
       state.phaseStuckSince = 0
       return
@@ -980,16 +1071,22 @@ export function createRoomController({ onState, onError, onEvent }) {
   }
 
   function hostStuckWatchdog() {
-    if (state.phase === 'revealing' && state.revealingStartedAt > 0) {
-      const elapsed = Date.now() - state.revealingStartedAt
-      if (elapsed > 32_000 && !revealRetryScheduled && !revealInFlight) {
-        revealRetryScheduled = true
-        void revealRoundAsync().finally(() => {
-          revealRetryScheduled = false
-        })
-      } else if (elapsed > 65_000) {
-        state.revealingStartedAt = 0
-        fail('Scoring timed out. Return to the temple and start a new match.')
+    if (state.phase === 'revealing') {
+      // Recoverable failure — wait for host End round (force) rather than looping.
+      if (state.revealFailedAt > 0) return
+      if (state.revealingStartedAt > 0) {
+        const elapsed = Date.now() - state.revealingStartedAt
+        if (elapsed > 32_000 && !revealRetryScheduled && !revealInFlight) {
+          revealRetryScheduled = true
+          void revealRoundAsync().finally(() => {
+            revealRetryScheduled = false
+          })
+        } else if (elapsed > 65_000) {
+          state.revealingStartedAt = 0
+          state.revealFailedAt = Date.now()
+          state.message = 'Scoring timed out. Tap End round to retry, or return to the temple.'
+          pushSync()
+        }
       }
       return
     }
@@ -1036,6 +1133,7 @@ export function createRoomController({ onState, onError, onEvent }) {
         revealRound()
       }
     }
+    // Host can force-retry from revealing after a soft failure via revealRound({force:true})
   }
 
   function nextRound() {
@@ -1073,6 +1171,9 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.viewToken = ''
     state.guesses = {}
     state.reveal = null
+    state.revealFailedAt = 0
+    state.guessPendingAt = 0
+    state.scoringMode = SCORING_DISTANCE
     state.scores = Object.fromEntries(
       state.players.filter((p) => p.connected !== false).map((p) => [p.id, 0]),
     )

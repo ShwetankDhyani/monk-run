@@ -225,7 +225,8 @@ export async function handleApi(req, res) {
       const body = JSON.parse(raw || '{}')
       const roomCode = String(body.roomCode || body.roomPin || '')
       const rounds = Math.max(1, Math.min(10, Math.round(Number(body.rounds) || 5)))
-      const session = await createGameSession(roomCode, rounds, MAPS_KEY)
+      const scoringMode = String(body.scoringMode || 'distance')
+      const session = await createGameSession(roomCode, rounds, MAPS_KEY, scoringMode)
       sendJson(res, 201, session)
     } catch (err) {
       console.error('[game/session]', err)

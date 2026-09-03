@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { drawMonkTopDown } from '../lib/avatarDraw.js'
-import { formatWins } from '../lib/scoring.js'
+import { formatMatchScore, normalizeScoringMode, SCORING_DISTANCE } from '../lib/scoring.js'
 
 /** Olympic order: 1st center (tallest), 2nd left, 3rd right. */
 const PODIUM_LAYOUT = [
@@ -13,9 +13,10 @@ const PODIUM_LAYOUT = [
 /**
  * Top 3 finishers — Olympic 2 · 1 · 3 layout with tiered pedestals.
  */
-export function PodiumStage({ ranked = [] }) {
+export function PodiumStage({ ranked = [], scoringMode = SCORING_DISTANCE }) {
   const canvasRef = useRef(null)
   const top3 = useMemo(() => ranked.slice(0, 3), [ranked])
+  const mode = normalizeScoringMode(scoringMode)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -48,7 +49,6 @@ export function PodiumStage({ ranked = [] }) {
         const isWinner = slot.place === 1
         const bounce = isWinner ? Math.sin(t * 0.009) * 11 + Math.abs(Math.sin(t * 0.017)) * 7 : 0
 
-        // Pedestal block
         const top = baseY - ph
         ctx.fillStyle = isWinner ? 'rgba(240, 201, 138, 0.16)' : 'rgba(212, 165, 116, 0.12)'
         ctx.strokeStyle = isWinner ? 'rgba(240, 201, 138, 0.5)' : 'rgba(212, 165, 116, 0.28)'
@@ -62,22 +62,19 @@ export function PodiumStage({ ranked = [] }) {
         ctx.fill()
         ctx.stroke()
 
-        // Position label on pedestal face
         ctx.fillStyle = isWinner ? '#f0c98a' : 'rgba(240, 201, 138, 0.82)'
         ctx.font = isWinner ? '700 18px Fraunces, Georgia, serif' : '600 14px Fraunces, Georgia, serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(slot.label, cx, top + ph * 0.42)
 
-        // Player name on pedestal
         ctx.fillStyle = '#e6ebe8'
         ctx.font = '600 12px Outfit, system-ui, sans-serif'
         ctx.fillText(p.name.slice(0, 14), cx, top + ph * 0.72)
 
-        // Round wins below pedestal
         ctx.fillStyle = '#5ec4b6'
         ctx.font = '600 12px "IBM Plex Mono", monospace'
-        ctx.fillText(formatWins(p.score), cx, baseY + 16)
+        ctx.fillText(formatMatchScore(p.score, mode), cx, baseY + 16)
 
         const look = resolvePlayerLook(p.avatar || p.vibe, p.id, top3)
         const monkScale = isWinner ? 1.22 : slot.place === 2 ? 1.1 : 1.05
@@ -93,7 +90,7 @@ export function PodiumStage({ ranked = [] }) {
       alive = false
       cancelAnimationFrame(raf)
     }
-  }, [top3])
+  }, [top3, mode])
 
   if (top3.length === 0) return null
 
@@ -103,7 +100,7 @@ export function PodiumStage({ ranked = [] }) {
       <ol className="sr-only">
         {top3.map((p, i) => (
           <li key={p.id}>
-            {i + 1}. {p.name} — {formatWins(p.score)}
+            {i + 1}. {p.name} — {formatMatchScore(p.score, mode)}
           </li>
         ))}
       </ol>

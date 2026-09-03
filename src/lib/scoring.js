@@ -1,5 +1,18 @@
 const EARTH_RADIUS_KM = 6371
 
+/** Classic GeoGuessr-style curve: 5000 at ≤25m, then 5000 × e^(−km / 2000). */
+export const SCORING_POINTS = 'points'
+/** Closest pin wins the round; match = most round wins (km tiebreak). */
+export const SCORING_DISTANCE = 'distance'
+
+export const SCORING_MODES = [SCORING_DISTANCE, SCORING_POINTS]
+
+export function normalizeScoringMode(raw) {
+  const s = String(raw || '').trim().toLowerCase()
+  if (s === SCORING_POINTS || s === 'score' || s === 'classic') return SCORING_POINTS
+  return SCORING_DISTANCE
+}
+
 export function haversineKm(a, b) {
   const toRad = (d) => (d * Math.PI) / 180
   const dLat = toRad(b.lat - a.lat)
@@ -10,6 +23,13 @@ export function haversineKm(a, b) {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+/** 5000 at ≤25m, then 5000 × e^(−km / 2000), clamped 0–5000. */
+export function scoreFromDistanceKm(km) {
+  if (!Number.isFinite(km) || km < 0) return 0
+  if (km < 0.025) return 5000
+  return Math.max(0, Math.min(5000, Math.round(5000 * Math.exp(-km / 2000))))
 }
 
 export function formatKm(km) {
@@ -25,20 +45,36 @@ export function formatWins(wins) {
   return `${n}W`
 }
 
+export function formatMatchScore(value, scoringMode = SCORING_DISTANCE) {
+  if (normalizeScoringMode(scoringMode) === SCORING_POINTS) {
+    return String(Math.max(0, Math.round(Number(value) || 0)))
+  }
+  return formatWins(value)
+}
+
 /**
- * Rank players by round wins (desc), then cumulative km (asc), then id.
- * @param {{ id: string, score?: number, totalKm?: number }[]} players
+ * Rank players for the active scoring mode.
+ * points: higher total score first
+ * distance: more round wins first, then lower cumulative km
  */
-export function rankByDistanceWins(players) {
+export function rankPlayers(players, scoringMode = SCORING_DISTANCE) {
+  const mode = normalizeScoringMode(scoringMode)
   return [...players].sort((a, b) => {
-    const aw = Math.round(Number(a.score) || 0)
-    const bw = Math.round(Number(b.score) || 0)
-    if (bw !== aw) return bw - aw
-    const ak = Number.isFinite(a.totalKm) ? a.totalKm : Infinity
-    const bk = Number.isFinite(b.totalKm) ? b.totalKm : Infinity
-    if (ak !== bk) return ak - bk
+    const as = Math.round(Number(a.score) || 0)
+    const bs = Math.round(Number(b.score) || 0)
+    if (bs !== as) return bs - as
+    if (mode === SCORING_DISTANCE) {
+      const ak = Number.isFinite(a.totalKm) ? a.totalKm : Infinity
+      const bk = Number.isFinite(b.totalKm) ? b.totalKm : Infinity
+      if (ak !== bk) return ak - bk
+    }
     return String(a.id).localeCompare(String(b.id))
   })
+}
+
+/** @deprecated use rankPlayers(SCORING_DISTANCE) */
+export function rankByDistanceWins(players) {
+  return rankPlayers(players, SCORING_DISTANCE)
 }
 
 /** 6-digit room PIN (e.g. "482913"). */

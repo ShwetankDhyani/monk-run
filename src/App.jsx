@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { migrateVibeToAvatar, resolvePlayerLook } from './data/avatars.js'
-import { formatKm, formatWins, makeRoomCode, normalizeRoomPin, rankByDistanceWins } from './lib/scoring.js'
+import {
+  formatKm,
+  formatMatchScore,
+  makeRoomCode,
+  normalizeRoomPin,
+  normalizeScoringMode,
+  rankPlayers,
+  SCORING_DISTANCE,
+  SCORING_POINTS,
+} from './lib/scoring.js'
 import {
   createRoomController,
   DEFAULT_ROUNDS,
@@ -46,18 +55,20 @@ function useCountdown(endsAt, active) {
   return left
 }
 
-function ShareCard({ players, scores, kmTotals, roomCode }) {
+function ShareCard({ players, scores, kmTotals, roomCode, scoringMode }) {
   const canvasRef = useRef(null)
+  const mode = normalizeScoringMode(scoringMode)
   const ranked = useMemo(
     () =>
-      rankByDistanceWins(
+      rankPlayers(
         players.map((p) => ({
           ...p,
           score: scores[p.id] || 0,
           totalKm: kmTotals?.[p.id],
         })),
+        mode,
       ),
-    [players, scores, kmTotals],
+    [players, scores, kmTotals, mode],
   )
 
   useEffect(() => {
@@ -92,12 +103,12 @@ function ShareCard({ players, scores, kmTotals, roomCode }) {
       ctx.fillText(`${i + 1}. ${p.name}`, 170, y + 12)
       ctx.fillStyle = '#4ecdc4'
       ctx.font = '500 36px "IBM Plex Mono", monospace'
-      ctx.fillText(formatWins(p.score), 820, y + 12)
+      ctx.fillText(formatMatchScore(p.score, mode), 820, y + 12)
     })
     ctx.fillStyle = 'rgba(201,164,92,0.85)'
     ctx.font = '400 24px "IBM Plex Sans", sans-serif'
     ctx.fillText(COPY.podium.shareFooter, 80, 1260)
-  }, [ranked, roomCode])
+  }, [ranked, roomCode, mode])
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -143,6 +154,8 @@ export default function App() {
   const [chatFocused, setChatFocused] = useState(false)
   const [hostMuteToast, setHostMuteToast] = useState('')
   const [lobbyDock, setLobbyDock] = useState('crew') // mobile: 'crew' | 'chat'
+  const [scoringPickerOpen, setScoringPickerOpen] = useState(false)
+  const [scoringModePick, setScoringModePick] = useState(SCORING_DISTANCE)
   const chatEndRef = useRef(null)
   const [voice, setVoice] = useState({
     muted: true,
@@ -204,8 +217,15 @@ export default function App() {
       /* ignore */
     }
     const id = setInterval(() => ctrl.tick(), 200)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') ctrl.tick()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onVis)
     return () => {
       clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onVis)
       voiceRef.current?.destroy()
       ctrl.destroy()
     }
@@ -313,7 +333,7 @@ export default function App() {
       }
     }
 
-    if (room.phase === 'reveal' && prev === 'playing') {
+    if (room.phase === 'reveal' && (prev === 'playing' || prev === 'revealing')) {
       setCinPhase('enter-reveal')
       const t = setTimeout(() => setCinPhase(null), 1100)
       return () => clearTimeout(t)
@@ -410,18 +430,27 @@ export default function App() {
   }, [pinSheetOpen])
 
   const selfGuessed = !!(room && room.guesses?.[room.selfId])
-  const lockedCount = room ? Object.keys(room.guesses || {}).length : 0
+  const livePlayers = useMemo(
+    () => (room?.players || []).filter((p) => p.connected !== false),
+    [room?.players],
+  )
+  const lockedCount = room
+    ? livePlayers.filter((p) => !!room.guesses?.[p.id]).length
+    : 0
+  const liveCount = livePlayers.length
+  const scoringMode = normalizeScoringMode(room?.scoringMode)
 
   const ranked = useMemo(() => {
     if (!room) return []
-    return rankByDistanceWins(
+    return rankPlayers(
       room.players.map((p) => ({
         ...p,
         score: room.scores?.[p.id] || 0,
         totalKm: room.kmTotals?.[p.id],
       })),
+      scoringMode,
     )
-  }, [room])
+  }, [room, scoringMode])
 
   const ensureVoice = async () => {
     if (!voiceRef.current) {
@@ -547,8 +576,18 @@ export default function App() {
 
   const endRound = useCallback(() => {
     if (!room?.isHost) return
-    ctrlRef.current.revealRound()
+    // Force retry even if already in revealing after a soft score failure.
+    ctrlRef.current.revealRound({ force: true })
   }, [room?.isHost])
+
+  const startMatch = useCallback((mode) => {
+    setScoringPickerOpen(false)
+    ctrlRef.current.beginCountdown({
+      rounds: DEFAULT_ROUNDS,
+      roundTimeMs: DEFAULT_ROUND_MS,
+      scoringMode: mode || scoringModePick,
+    })
+  }, [scoringModePick])
 
   useEffect(() => {
     if (selfGuessed) setPinSheetOpen(false)
@@ -603,10 +642,12 @@ export default function App() {
 
   const hostLeft = room?.message === 'Host disconnected.'
 
+  // portalHold only covers the black-hole handoff into play — never gate reveal/podium.
   const inLobby =
     room &&
-    (room.phase === 'lobby' || room.phase === 'countdown' || portalHold)
-
+    (room.phase === 'lobby' ||
+      room.phase === 'countdown' ||
+      (portalHold && (room.phase === 'playing' || room.phase === 'loading-round')))
   if (legal) {
     return <LegalPage kind={legal} onBack={() => setLegal(null)} />
   }
@@ -871,12 +912,7 @@ export default function App() {
                 <button
                   type="button"
                   className="btn btn-primary start-btn px-8 text-lg tracking-wide"
-                  onClick={() =>
-                    ctrlRef.current.beginCountdown({
-                      rounds: DEFAULT_ROUNDS,
-                      roundTimeMs: DEFAULT_ROUND_MS,
-                    })
-                  }
+                  onClick={() => setScoringPickerOpen(true)}
                 >
                   {COPY.lobby.play}
                 </button>
@@ -886,6 +922,46 @@ export default function App() {
               )}
             </div>
           </header>
+
+          {scoringPickerOpen && room.isHost && room.phase === 'lobby' && (
+            <div className="scoring-picker" role="dialog" aria-modal="true" aria-label={COPY.lobby.scoringTitle}>
+              <button
+                type="button"
+                className="scoring-picker-backdrop"
+                aria-label={COPY.lobby.cancelStart}
+                onClick={() => setScoringPickerOpen(false)}
+              />
+              <div className="scoring-picker-panel">
+                <p className="landing-label">{COPY.lobby.scoringTitle}</p>
+                <div className="scoring-picker-options">
+                  <button
+                    type="button"
+                    className={`scoring-picker-option${scoringModePick === SCORING_DISTANCE ? ' is-active' : ''}`}
+                    onClick={() => setScoringModePick(SCORING_DISTANCE)}
+                  >
+                    <span className="scoring-picker-option-title">{COPY.lobby.scoringDistance}</span>
+                    <span className="scoring-picker-option-hint">{COPY.lobby.scoringDistanceHint}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`scoring-picker-option${scoringModePick === SCORING_POINTS ? ' is-active' : ''}`}
+                    onClick={() => setScoringModePick(SCORING_POINTS)}
+                  >
+                    <span className="scoring-picker-option-title">{COPY.lobby.scoringPoints}</span>
+                    <span className="scoring-picker-option-hint">{COPY.lobby.scoringPointsHint}</span>
+                  </button>
+                </div>
+                <div className="scoring-picker-actions">
+                  <button type="button" className="btn btn-ghost" onClick={() => setScoringPickerOpen(false)}>
+                    {COPY.lobby.cancelStart}
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={() => startMatch(scoringModePick)}>
+                    {COPY.lobby.startWithMode}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="lobby-dock-tabs" role="tablist" aria-label="Lobby panels">
             <button
@@ -1066,7 +1142,7 @@ export default function App() {
           <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
           <h2 className="text-center font-display text-4xl font-semibold tracking-wide text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
 
-          <PodiumStage ranked={ranked} />
+          <PodiumStage ranked={ranked} scoringMode={scoringMode} />
 
           {rest.length > 0 && (
             <ol className="mt-4 space-y-1 border-t border-brass/15 pt-4">
@@ -1082,7 +1158,7 @@ export default function App() {
                       <span className="h-3 w-3 rounded-full" style={{ background: look.robe }} />
                       <span className="font-display">{p.name}</span>
                     </span>
-                    <span className="font-mono text-mint">{formatWins(p.score)}</span>
+                    <span className="font-mono text-mint">{formatMatchScore(p.score, scoringMode)}</span>
                   </li>
                 )
               })}
@@ -1095,6 +1171,7 @@ export default function App() {
               scores={room.scores}
               kmTotals={room.kmTotals}
               roomCode={room.roomCode}
+              scoringMode={scoringMode}
             />
           </div>
           {room.isHost ? (
@@ -1157,6 +1234,7 @@ export default function App() {
   if ((room.phase === 'reveal' || room.phase === 'intermission') && room.reveal) {
     const selfResult = room.reveal.results.find((r) => r.playerId === room.selfId)
     const isIntermission = room.phase === 'intermission'
+    const pointsMode = scoringMode === SCORING_POINTS
     return (
       <Fragment>
       <div className="reveal-screen screen-enter relative">
@@ -1174,7 +1252,11 @@ export default function App() {
                 <span className="reveal-distance-round">
                   {COPY.reveal.roundLabel(room.roundIndex + 1, room.totalRounds)}
                 </span>
-                {selfResult?.wonRound ? (
+                {pointsMode ? (
+                  <span className="reveal-distance-hero-win">
+                    +{selfResult?.score || 0}
+                  </span>
+                ) : selfResult?.wonRound ? (
                   <span className="reveal-distance-hero-win">{COPY.reveal.roundWin}</span>
                 ) : null}
               </div>
@@ -1184,14 +1266,14 @@ export default function App() {
               <header className="standings-board-head">
                 <h3 className="standings-board-title">{COPY.reveal.totals}</h3>
                 <span className="standings-board-meta">
-                  {COPY.reveal.roundLabel(room.roundIndex + 1, room.totalRounds)}
+                  {pointsMode ? COPY.reveal.modePoints : COPY.reveal.modeDistance}
                 </span>
               </header>
               <div className="standings-board-cols" aria-hidden="true">
                 <span>#</span>
                 <span>{COPY.reveal.playerCol}</span>
-                <span>{COPY.reveal.distanceCol}</span>
-                <span>{COPY.reveal.winsCol}</span>
+                <span>{pointsMode ? COPY.reveal.pointsCol : COPY.reveal.distanceCol}</span>
+                <span>{pointsMode ? COPY.reveal.totalCol : COPY.reveal.winsCol}</span>
               </div>
               <ol className="standings-board-list">
                 {ranked.map((p, i) => {
@@ -1214,11 +1296,15 @@ export default function App() {
                       <span className="standings-delta">
                         {roundResult == null
                           ? '—'
-                          : roundResult.missed
-                            ? COPY.reveal.missed
-                            : formatKm(roundResult.km)}
+                          : pointsMode
+                            ? `+${roundResult.score || 0}`
+                            : roundResult.missed
+                              ? COPY.reveal.missed
+                              : formatKm(roundResult.km)}
                       </span>
-                      <span className="standings-score">{formatWins(p.score)}</span>
+                      <span className="standings-score">
+                        {formatMatchScore(p.score, scoringMode)}
+                      </span>
                     </li>
                   )
                 })}
@@ -1284,7 +1370,12 @@ export default function App() {
     )
   }
 
-  if (room.phase === 'loading-round' || room.phase === 'revealing') {
+  if (
+    room.phase === 'loading-round' ||
+    room.phase === 'revealing' ||
+    ((room.phase === 'reveal' || room.phase === 'intermission') && !room.reveal)
+  ) {
+    const scoringStuck = room.phase === 'revealing'
     return (
       <Fragment>
       <div className="screen-enter relative flex min-h-full flex-col items-center justify-center overflow-hidden p-6">
@@ -1292,15 +1383,22 @@ export default function App() {
         <div className="relative z-10 max-w-md text-center">
           <BrandMark className="mx-auto mb-4 h-12 w-12 animate-pulse text-brass" />
           <p className="landing-label">
-            {room.phase === 'revealing'
+            {scoringStuck || (room.phase === 'reveal' && !room.reveal)
               ? COPY.loading.scoring
               : COPY.loading.round(room.roundIndex + 1)}
           </p>
           <p className="mt-2 font-display text-3xl text-brass-bright">
-            {room.phase === 'revealing' ? COPY.loading.scoringTitle : COPY.loading.title}
+            {scoringStuck || (room.phase === 'reveal' && !room.reveal)
+              ? COPY.loading.scoringTitle
+              : COPY.loading.title}
           </p>
           {room.message && room.message !== 'Scoring…' && room.message !== 'Results' && (
             <p className="mt-4 text-sm text-coral">{playerError(room.message)}</p>
+          )}
+          {room.isHost && scoringStuck && (
+            <button type="button" className="btn btn-primary mt-6 w-full" onClick={endRound}>
+              {COPY.loading.scoringRetry}
+            </button>
           )}
         </div>
       </div>
@@ -1323,7 +1421,7 @@ export default function App() {
             <div>
               <p className="font-display text-lg font-semibold tracking-[0.06em]">monk.run</p>
               <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted">
-                {COPY.play.round(room.roundIndex + 1, room.totalRounds, lockedCount, room.players.length)}
+                {COPY.play.round(room.roundIndex + 1, room.totalRounds, lockedCount, liveCount)}
               </p>
             </div>
             {room.isHost && compactPlayHud && (
@@ -1346,7 +1444,7 @@ export default function App() {
             {ranked.slice(0, 3).map((p) => (
               <div key={p.id} className="flex justify-between gap-2 font-mono text-[10px]">
                 <span className="truncate uppercase tracking-wide text-muted">{p.name}</span>
-                <span className="text-mint">{formatWins(p.score)}</span>
+                <span className="text-mint">{formatMatchScore(p.score, scoringMode)}</span>
               </div>
             ))}
             <VoiceMuteButton
@@ -1411,10 +1509,13 @@ export default function App() {
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <p className="font-display text-xl text-mint">{COPY.play.locked}</p>
             <p className="text-sm text-muted">
-              {lockedCount >= room.players.filter((p) => p.connected !== false).length
+              {lockedCount >= liveCount
                 ? COPY.play.allIn
-                : COPY.play.waiting(lockedCount, room.players.length)}
+                : COPY.play.waiting(lockedCount, liveCount)}
             </p>
+            {room.message && room.message !== 'Scoring…' && room.message !== 'Results' && (
+              <p className="text-xs text-coral">{playerError(room.message)}</p>
+            )}
             {guess && (
               <p className="font-mono text-xs text-brass">
                 {COPY.play.yourPin} · {guess.lat.toFixed(2)}, {guess.lng.toFixed(2)}
@@ -1445,10 +1546,18 @@ export default function App() {
           <div className="play-mobile-dock-locked text-center">
             <p className="font-display text-base text-mint">{COPY.play.locked}</p>
             <p className="mt-1 text-[11px] text-muted">
-              {lockedCount >= room.players.filter((p) => p.connected !== false).length
+              {lockedCount >= liveCount
                 ? COPY.play.allIn
-                : COPY.play.waiting(lockedCount, room.players.length)}
+                : COPY.play.waiting(lockedCount, liveCount)}
             </p>
+            {room.message && room.message !== 'Scoring…' && room.message !== 'Results' && (
+              <p className="mt-1 text-[11px] text-coral">{playerError(room.message)}</p>
+            )}
+            {room.isHost && lockedCount >= liveCount && (
+              <button type="button" className="btn btn-ghost mt-2 w-full !py-2 text-[11px]" onClick={endRound}>
+                {COPY.play.endRound}
+              </button>
+            )}
           </div>
         )}
       </div>

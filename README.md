@@ -11,7 +11,7 @@ Temple lobby. Voice chat. Worldwide Street View rounds. A party geography game b
 - **6-digit PIN rooms** (up to 5 players) via PeerJS
 - **Gathering hall** — a social hangout before PLAY: walk, voice, chat, wave — hang with the party
 - **Black-hole launch** into synchronized Street View rounds
-- **Server-authoritative distance wins** — closest pin wins each round; match = most round wins (HMAC-signed leaderboard commits)
+- **Host picks scoring** — Closest wins (round wins by distance) or Classic points (0–5000 curve); server-authoritative + HMAC commits
 - **Opaque Street View tokens** — prefer panorama IDs; no public truth endpoint
 - **How to play / Settings / Privacy / Terms** in-product
 - **SFX**, reduce-motion, verified all-time board
@@ -60,7 +60,7 @@ STATIC_DIR=dist NODE_ENV=production GOOGLE_MAPS_API_KEY=... node server/leaderbo
 
 ### Scoring fairness
 
-- Each round: **closest distance wins**. Match winner = most round wins (cumulative km as tiebreaker). No exponential point curve.
+- Host chooses at START: **Closest wins** (round wins by distance) or **Classic points** (0–5000 exponential curve, cumulative).
 - Reveals are **idempotent** (a raced/retried reveal cannot double-count).
 - Guesses are **first-lock** and pin coordinates are **not synced** until reveal (stops pin-peeking).
 - All-time board commits are **HMAC + one-shot** and require `MONK_SCORE_SECRET` (never falls back to the Maps key).

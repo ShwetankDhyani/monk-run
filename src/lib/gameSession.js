@@ -2,7 +2,7 @@
 
 import { fetchRetry, playerError } from './playerErrors.js'
 
-export async function createGameSession(roomCode, rounds = 5) {
+export async function createGameSession(roomCode, rounds = 5, scoringMode = 'distance') {
   let res
   try {
     res = await fetchRetry(
@@ -10,7 +10,7 @@ export async function createGameSession(roomCode, rounds = 5) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomCode, rounds }),
+        body: JSON.stringify({ roomCode, rounds, scoringMode }),
       },
       { retries: 4, delayMs: 350 },
     )
