@@ -302,6 +302,8 @@ export default function App() {
     if (room.phase === 'lobby' || room.phase === 'countdown') {
       setScreen('cabin')
       setError('')
+    } else {
+      setScoringPickerOpen(false)
     }
 
     if (room.phase === 'playing' && prev !== 'playing') {
