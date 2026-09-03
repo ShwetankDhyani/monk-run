@@ -52,11 +52,13 @@ export const COPY = {
     unmute: 'Unmute',
     muteMic: 'Mute',
     play: 'START',
-    scoringTitle: 'How should we score?',
+    scoringTitle: 'Match setup',
     scoringDistance: 'Closest wins',
     scoringDistanceHint: 'Each round: nearest pin takes the win. Match = most round wins.',
     scoringPoints: 'Classic points',
     scoringPointsHint: '0–5000 per round from distance. Highest total wins the match.',
+    roundsLabel: 'Rounds',
+    roundsHint: '1–10 places this match',
     startWithMode: 'Start match',
     cancelStart: 'Back',
     players: 'Who’s here',
@@ -96,7 +98,7 @@ export const COPY = {
       },
       {
         title: 'Fall through',
-        body: 'The host presses START. The black hole opens and pulls everyone into five shared rounds.',
+        body: 'The host presses START, picks scoring and rounds, then the black hole opens into the match.',
       },
       {
         title: 'Read the place',

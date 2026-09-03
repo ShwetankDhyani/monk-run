@@ -156,6 +156,7 @@ export default function App() {
   const [lobbyDock, setLobbyDock] = useState('crew') // mobile: 'crew' | 'chat'
   const [scoringPickerOpen, setScoringPickerOpen] = useState(false)
   const [scoringModePick, setScoringModePick] = useState(SCORING_DISTANCE)
+  const [roundsPick, setRoundsPick] = useState(DEFAULT_ROUNDS)
   const chatEndRef = useRef(null)
   const [voice, setVoice] = useState({
     muted: true,
@@ -582,14 +583,15 @@ export default function App() {
     ctrlRef.current.revealRound({ force: true })
   }, [room?.isHost])
 
-  const startMatch = useCallback((mode) => {
+  const startMatch = useCallback((mode, rounds) => {
+    const n = Math.max(1, Math.min(10, Math.round(Number(rounds) || roundsPick || DEFAULT_ROUNDS)))
     setScoringPickerOpen(false)
     ctrlRef.current.beginCountdown({
-      rounds: DEFAULT_ROUNDS,
+      rounds: n,
       roundTimeMs: DEFAULT_ROUND_MS,
       scoringMode: mode || scoringModePick,
     })
-  }, [scoringModePick])
+  }, [scoringModePick, roundsPick])
 
   useEffect(() => {
     if (selfGuessed) setPinSheetOpen(false)
@@ -935,6 +937,27 @@ export default function App() {
               />
               <div className="scoring-picker-panel">
                 <p className="landing-label">{COPY.lobby.scoringTitle}</p>
+
+                <div className="scoring-picker-rounds">
+                  <div className="scoring-picker-rounds-head">
+                    <span className="scoring-picker-option-title">{COPY.lobby.roundsLabel}</span>
+                    <span className="scoring-picker-option-hint">{COPY.lobby.roundsHint}</span>
+                  </div>
+                  <div className="scoring-picker-rounds-grid" role="group" aria-label={COPY.lobby.roundsLabel}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        className={`scoring-picker-round-chip${roundsPick === n ? ' is-active' : ''}`}
+                        aria-pressed={roundsPick === n}
+                        onClick={() => setRoundsPick(n)}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="scoring-picker-options">
                   <button
                     type="button"
@@ -957,7 +980,11 @@ export default function App() {
                   <button type="button" className="btn btn-ghost" onClick={() => setScoringPickerOpen(false)}>
                     {COPY.lobby.cancelStart}
                   </button>
-                  <button type="button" className="btn btn-primary" onClick={() => startMatch(scoringModePick)}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => startMatch(scoringModePick, roundsPick)}
+                  >
                     {COPY.lobby.startWithMode}
                   </button>
                 </div>
