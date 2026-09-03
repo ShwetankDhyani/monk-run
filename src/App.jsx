@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { migrateVibeToAvatar, resolvePlayerLook } from './data/avatars.js'
-import { formatKm, makeRoomCode, normalizeRoomPin } from './lib/scoring.js'
+import { formatKm, formatWins, makeRoomCode, normalizeRoomPin, rankByDistanceWins } from './lib/scoring.js'
 import {
   createRoomController,
   DEFAULT_ROUNDS,
@@ -46,14 +46,18 @@ function useCountdown(endsAt, active) {
   return left
 }
 
-function ShareCard({ players, scores, roomCode }) {
+function ShareCard({ players, scores, kmTotals, roomCode }) {
   const canvasRef = useRef(null)
   const ranked = useMemo(
     () =>
-      [...players]
-        .map((p) => ({ ...p, score: scores[p.id] || 0 }))
-        .sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id))),
-    [players, scores],
+      rankByDistanceWins(
+        players.map((p) => ({
+          ...p,
+          score: scores[p.id] || 0,
+          totalKm: kmTotals?.[p.id],
+        })),
+      ),
+    [players, scores, kmTotals],
   )
 
   useEffect(() => {
@@ -88,7 +92,7 @@ function ShareCard({ players, scores, roomCode }) {
       ctx.fillText(`${i + 1}. ${p.name}`, 170, y + 12)
       ctx.fillStyle = '#4ecdc4'
       ctx.font = '500 36px "IBM Plex Mono", monospace'
-      ctx.fillText(String(p.score), 820, y + 12)
+      ctx.fillText(formatWins(p.score), 820, y + 12)
     })
     ctx.fillStyle = 'rgba(201,164,92,0.85)'
     ctx.font = '400 24px "IBM Plex Sans", sans-serif'
@@ -410,9 +414,13 @@ export default function App() {
 
   const ranked = useMemo(() => {
     if (!room) return []
-    return [...room.players]
-      .map((p) => ({ ...p, score: room.scores?.[p.id] || 0 }))
-      .sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)))
+    return rankByDistanceWins(
+      room.players.map((p) => ({
+        ...p,
+        score: room.scores?.[p.id] || 0,
+        totalKm: room.kmTotals?.[p.id],
+      })),
+    )
   }, [room])
 
   const ensureVoice = async () => {
@@ -1074,7 +1082,7 @@ export default function App() {
                       <span className="h-3 w-3 rounded-full" style={{ background: look.robe }} />
                       <span className="font-display">{p.name}</span>
                     </span>
-                    <span className="font-mono text-mint">{p.score}</span>
+                    <span className="font-mono text-mint">{formatWins(p.score)}</span>
                   </li>
                 )
               })}
@@ -1082,7 +1090,12 @@ export default function App() {
           )}
 
           <div className="mt-8">
-            <ShareCard players={room.players} scores={room.scores} roomCode={room.roomCode} />
+            <ShareCard
+              players={room.players}
+              scores={room.scores}
+              kmTotals={room.kmTotals}
+              roomCode={room.roomCode}
+            />
           </div>
           {room.isHost ? (
             <button
@@ -1166,6 +1179,16 @@ export default function App() {
             </div>
           </div>
           <div className="reveal-panel reveal-panel--scores flex flex-col gap-4 p-4">
+            <div className="reveal-distance-hero" aria-live="polite">
+              <p className="reveal-distance-hero-label">{COPY.reveal.yourDistance}</p>
+              <p className="reveal-distance-hero-value">
+                {selfResult?.missed ? COPY.reveal.missed : formatKm(selfResult?.km)}
+              </p>
+              {selfResult?.wonRound ? (
+                <p className="reveal-distance-hero-win">{COPY.reveal.roundWin}</p>
+              ) : null}
+            </div>
+
             <section className="standings-board" aria-label={COPY.reveal.totals}>
               <header className="standings-board-head">
                 <h3 className="standings-board-title">{COPY.reveal.totals}</h3>
@@ -1176,8 +1199,8 @@ export default function App() {
               <div className="standings-board-cols" aria-hidden="true">
                 <span>#</span>
                 <span>{COPY.reveal.playerCol}</span>
-                <span>{COPY.reveal.roundCol}</span>
-                <span>{COPY.reveal.totalCol}</span>
+                <span>{COPY.reveal.distanceCol}</span>
+                <span>{COPY.reveal.winsCol}</span>
               </div>
               <ol className="standings-board-list">
                 {ranked.map((p, i) => {
@@ -1187,7 +1210,7 @@ export default function App() {
                   return (
                     <li
                       key={p.id}
-                      className={`standings-row${isSelf ? ' standings-row--you' : ''}${i === 0 ? ' standings-row--lead' : ''}`}
+                      className={`standings-row${isSelf ? ' standings-row--you' : ''}${i === 0 ? ' standings-row--lead' : ''}${roundResult?.wonRound ? ' standings-row--won' : ''}`}
                     >
                       <span className="standings-rank">{i + 1}</span>
                       <span className="standings-player">
@@ -1198,9 +1221,13 @@ export default function App() {
                         </span>
                       </span>
                       <span className="standings-delta">
-                        {roundResult == null ? '—' : `+${roundResult.score || 0}`}
+                        {roundResult == null
+                          ? '—'
+                          : roundResult.missed
+                            ? COPY.reveal.missed
+                            : formatKm(roundResult.km)}
                       </span>
-                      <span className="standings-score">{p.score}</span>
+                      <span className="standings-score">{formatWins(p.score)}</span>
                     </li>
                   )
                 })}
@@ -1209,22 +1236,18 @@ export default function App() {
 
             <div className="reveal-round-block">
               <p className="reveal-round-head">{COPY.reveal.roundResults}</p>
-              <p className="reveal-you-line font-display text-lg tracking-wide">
-                {COPY.reveal.you}:{' '}
-                <span className="text-mint">{selfResult?.missed ? COPY.reveal.missed : formatKm(selfResult?.km)}</span>
-                {' · '}
-                <span className="text-brass-bright">+{selfResult?.score || 0}</span>
-              </p>
               <ul className="reveal-roster">
                 {room.reveal.results.map((r) => (
                   <li
                     key={r.playerId}
-                    className={`reveal-roster-row${r.playerId === room.selfId ? ' reveal-roster-row--you' : ''}`}
+                    className={`reveal-roster-row${r.playerId === room.selfId ? ' reveal-roster-row--you' : ''}${r.wonRound ? ' reveal-roster-row--won' : ''}`}
                   >
-                    <span className="font-display tracking-wide">{r.name}</span>
+                    <span className="font-display tracking-wide">
+                      {r.name}
+                      {r.wonRound ? <span className="reveal-won-tag"> {COPY.reveal.roundWinTag}</span> : null}
+                    </span>
                     <span className="font-mono text-[12px] text-muted">
-                      {r.missed ? COPY.reveal.missed : formatKm(r.km)} ·{' '}
-                      <span className="text-mint">+{r.score}</span>
+                      {r.missed ? COPY.reveal.missed : formatKm(r.km)}
                     </span>
                   </li>
                 ))}
@@ -1331,7 +1354,7 @@ export default function App() {
             {ranked.slice(0, 3).map((p) => (
               <div key={p.id} className="flex justify-between gap-2 font-mono text-[10px]">
                 <span className="truncate uppercase tracking-wide text-muted">{p.name}</span>
-                <span className="text-mint">{p.score}</span>
+                <span className="text-mint">{formatWins(p.score)}</span>
               </div>
             ))}
             <VoiceMuteButton

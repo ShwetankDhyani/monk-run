@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { resolvePlayerLook } from '../data/avatars.js'
 import { drawMonkTopDown } from '../lib/avatarDraw.js'
+import { formatWins } from '../lib/scoring.js'
 
 /** Olympic order: 1st center (tallest), 2nd left, 3rd right. */
 const PODIUM_LAYOUT = [
@@ -73,10 +74,10 @@ export function PodiumStage({ ranked = [] }) {
         ctx.font = '600 12px Outfit, system-ui, sans-serif'
         ctx.fillText(p.name.slice(0, 14), cx, top + ph * 0.72)
 
-        // Score below pedestal
+        // Round wins below pedestal
         ctx.fillStyle = '#5ec4b6'
         ctx.font = '600 12px "IBM Plex Mono", monospace'
-        ctx.fillText(String(p.score ?? 0), cx, baseY + 16)
+        ctx.fillText(formatWins(p.score), cx, baseY + 16)
 
         const look = resolvePlayerLook(p.avatar || p.vibe, p.id, top3)
         const monkScale = isWinner ? 1.22 : slot.place === 2 ? 1.1 : 1.05
@@ -102,7 +103,7 @@ export function PodiumStage({ ranked = [] }) {
       <ol className="sr-only">
         {top3.map((p, i) => (
           <li key={p.id}>
-            {i + 1}. {p.name} — {p.score}
+            {i + 1}. {p.name} — {formatWins(p.score)}
           </li>
         ))}
       </ol>

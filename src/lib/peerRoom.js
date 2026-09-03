@@ -115,6 +115,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       guesses: {},
       reveal: null,
       scores: {},
+      kmTotals: {},
       roundTimeMs: DEFAULT_ROUND_MS,
       message: '',
       localOnly: false,
@@ -146,6 +147,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       guesses: publicGuesses(),
       reveal: publicReveal(state.reveal),
       scores: state.scores,
+      kmTotals: state.kmTotals,
       roundTimeMs: state.roundTimeMs,
       message: state.message,
     }
@@ -170,6 +172,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     return {
       truth: reveal.truth,
       totals: reveal.totals,
+      kmTotals: reveal.kmTotals,
       results: (reveal.results || []).map((r) => ({
         playerId: r.playerId,
         name: r.name,
@@ -180,8 +183,10 @@ export function createRoomController({ onState, onError, onEvent }) {
         country: r.country,
         km: r.km,
         score: r.score,
+        wonRound: !!r.wonRound,
         missed: r.missed,
         total: r.total,
+        totalKm: r.totalKm,
         // commitToken intentionally omitted — delivered privately per player
       })),
     }
@@ -294,6 +299,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       const idx = state.players.findIndex((p) => p.id === fromId)
       state.lobby[fromId] = assignSpawn(state.lobby, fromId)
       if (state.scores[fromId] == null) state.scores[fromId] = 0
+      if (state.kmTotals[fromId] == null) state.kmTotals[fromId] = 0
       pushSync()
       return
     }
@@ -535,6 +541,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.selfId = `solo-${Math.random().toString(36).slice(2, 9)}`
     state.message = 'Playing solo — PeerJS broker unreachable; voice needs a live peer connection.'
     state.scores[state.selfId] = 0
+    state.kmTotals[state.selfId] = 0
     upsertPlayer({ id: state.selfId, name, avatar: migrateVibeToAvatar(avatar || vibe), vibe, connected: true, isHost: true })
     state.lobby[state.selfId] = assignSpawn(state.lobby, state.selfId)
     emit()
@@ -555,6 +562,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.isHost = true
       state.selfId = opened.id
       state.scores[opened.id] = 0
+      state.kmTotals[opened.id] = 0
       upsertPlayer({ id: opened.id, name: trimmedName, avatar: av, vibe, connected: true, isHost: true })
       state.lobby[opened.id] = assignSpawn(state.lobby, opened.id)
         peer.on('connection', (conn) => {
@@ -685,6 +693,7 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.phase = 'countdown'
     state.roundTimeMs = roundTimeMs
     state.scores = Object.fromEntries(state.players.map((p) => [p.id, 0]))
+    state.kmTotals = Object.fromEntries(state.players.map((p) => [p.id, 0]))
     state.reveal = null
     state.guesses = {}
     state.viewToken = ''
@@ -856,12 +865,13 @@ export function createRoomController({ onState, onError, onEvent }) {
       country: r.country || '',
       km: r.km,
       score: r.score,
+      wonRound: !!r.wonRound,
       missed: !!r.missed,
       commitToken: r.commitToken,
       total: r.total,
+      totalKm: r.totalKm,
     }))
     results.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
       const ak = a.km == null ? Infinity : a.km
       const bk = b.km == null ? Infinity : b.km
       if (ak !== bk) return ak - bk
@@ -871,6 +881,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       truth: scored.truth,
       results,
       totals: scored.totals,
+      kmTotals: scored.kmTotals || {},
     }
   }
 
@@ -935,6 +946,7 @@ export function createRoomController({ onState, onError, onEvent }) {
       state.reveal = publicReveal(reveal)
       state.viewToken = ''
       state.scores = { ...(reveal.totals || {}) }
+      state.kmTotals = { ...(reveal.kmTotals || {}) }
       state.phase = 'reveal'
       state.revealingStartedAt = 0
       state.message = 'Results'
@@ -1062,6 +1074,9 @@ export function createRoomController({ onState, onError, onEvent }) {
     state.guesses = {}
     state.reveal = null
     state.scores = Object.fromEntries(
+      state.players.filter((p) => p.connected !== false).map((p) => [p.id, 0]),
+    )
+    state.kmTotals = Object.fromEntries(
       state.players.filter((p) => p.connected !== false).map((p) => [p.id, 0]),
     )
     // Drop seats that disconnected mid-match so PIN slots free up

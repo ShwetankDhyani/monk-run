@@ -12,27 +12,33 @@ export function haversineKm(a, b) {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
-/** 5000 at ≤25m, then 5000 × e^(−km / 2000), clamped 0–5000.
- *  Must stay in lockstep with server/game.mjs — server is authoritative. */
-export function scoreFromDistanceKm(km) {
-  if (!Number.isFinite(km) || km < 0) return 0
-  if (km < 0.025) return 5000
-  return Math.max(0, Math.min(5000, Math.round(5000 * Math.exp(-km / 2000))))
-}
-
-export function gradeFromScore(score) {
-  if (score >= 4800) return 'ENLIGHTENED'
-  if (score >= 4000) return 'AWAKENED'
-  if (score >= 2500) return 'SEEKING'
-  if (score >= 1000) return 'LOST'
-  return 'DISSOLVED'
-}
-
 export function formatKm(km) {
   if (km == null || !Number.isFinite(km)) return '—'
   if (km < 1) return `${Math.round(km * 1000)} m`
   if (km < 100) return `${km.toFixed(1)} km`
   return `${Math.round(km)} km`
+}
+
+/** Round-win standings label, e.g. "2W". */
+export function formatWins(wins) {
+  const n = Math.max(0, Math.round(Number(wins) || 0))
+  return `${n}W`
+}
+
+/**
+ * Rank players by round wins (desc), then cumulative km (asc), then id.
+ * @param {{ id: string, score?: number, totalKm?: number }[]} players
+ */
+export function rankByDistanceWins(players) {
+  return [...players].sort((a, b) => {
+    const aw = Math.round(Number(a.score) || 0)
+    const bw = Math.round(Number(b.score) || 0)
+    if (bw !== aw) return bw - aw
+    const ak = Number.isFinite(a.totalKm) ? a.totalKm : Infinity
+    const bk = Number.isFinite(b.totalKm) ? b.totalKm : Infinity
+    if (ak !== bk) return ak - bk
+    return String(a.id).localeCompare(String(b.id))
+  })
 }
 
 /** 6-digit room PIN (e.g. "482913"). */

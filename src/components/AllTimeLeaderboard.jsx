@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { resolvePlayerLook, migrateVibeToAvatar } from '../data/avatars.js'
 import { drawMonkTopDown } from '../lib/avatarDraw.js'
 import { fetchLeaderboard } from '../lib/leaderboard.js'
-import { formatKm } from '../lib/scoring.js'
+import { formatKm, formatWins } from '../lib/scoring.js'
 
 function HallMonk({ entry, size = 36 }) {
   const ref = useRef(null)
@@ -41,7 +41,7 @@ function HallList({ title, subtitle, entries, kind, empty }) {
               </span>
               <span className="hall-name">{e.name}</span>
               <span className={`hall-stat hall-stat--${kind}`}>
-                {kind === 'score' ? (e.score?.toLocaleString?.() ?? e.score) : formatKm(e.km)}
+                {kind === 'score' ? formatWins(e.score) : formatKm(e.km)}
               </span>
             </li>
           ))}

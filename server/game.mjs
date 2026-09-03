@@ -103,11 +103,8 @@ function haversineKm(a, b) {
   return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
-function scoreFromDistanceKm(km) {
-  if (!Number.isFinite(km) || km < 0) return 0
-  if (km < 0.025) return 5000
-  return Math.max(0, Math.min(5000, Math.round(5000 * Math.exp(-km / 2000))))
-}
+/** Missed guesses count as half Earth for cumulative-km tiebreaks. */
+const MISS_KM_PENALTY = 20015
 
 export function signLeaderboardCommit(sessionId, playerId, score) {
   return createHmac('sha256', SCORE_SECRET())
@@ -141,7 +138,10 @@ export async function createGameSession(roomCode, rounds = 5, mapsKey = '') {
     revealed: new Set(),
     /** @type {Map<number, object>} */
     roundSnapshots: new Map(),
+    /** Round wins (closest pin each round) */
     totals: /** @type {Record<string, number>} */ ({}),
+    /** Cumulative guess distance (km); misses add MISS_KM_PENALTY */
+    kmTotals: /** @type {Record<string, number>} */ ({}),
     /** Best / worst guess distance (km) per player across revealed rounds */
     kmStats: /** @type {Record<string, { closestKm: number|null, farthestKm: number|null }>} */ ({}),
     /** Player ids that already posted to the all-time board this session */
@@ -192,8 +192,9 @@ export async function getEnrichedLocationForHost(sessionId, roundIndex, hostToke
 }
 
 /**
- * Server-authoritative reveal — host submits guesses, server returns scores + truth.
+ * Server-authoritative reveal — closest distance wins the round (no point curve).
  * Idempotent per round: a second call returns the same snapshot and does not re-add totals.
+ * Match standings = round wins; cumulative km is the tiebreaker.
  * @param {string} sessionId
  * @param {string} hostToken
  * @param {number} roundIndex
@@ -210,6 +211,9 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
     return session.roundSnapshots.get(roundIndex)
   }
 
+  if (!session.kmTotals) session.kmTotals = {}
+  if (!session.kmStats) session.kmStats = {}
+
   const truthLoc = await enrichPlace(loc)
   const list = Array.isArray(guesses) ? guesses : []
   const results = list.map((g) => {
@@ -218,15 +222,6 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
     const lng = Number(g.lng)
     const missed = !Number.isFinite(lat) || !Number.isFinite(lng)
     const km = missed ? null : haversineKm({ lat, lng }, { lat: truthLoc.lat, lng: truthLoc.lng })
-    const score = missed ? 0 : scoreFromDistanceKm(km)
-    session.totals[playerId] = (session.totals[playerId] || 0) + score
-    if (Number.isFinite(km)) {
-      if (!session.kmStats) session.kmStats = {}
-      const prev = session.kmStats[playerId] || { closestKm: null, farthestKm: null }
-      if (prev.closestKm == null || km < prev.closestKm) prev.closestKm = km
-      if (prev.farthestKm == null || km > prev.farthestKm) prev.farthestKm = km
-      session.kmStats[playerId] = prev
-    }
     return {
       playerId,
       name: String(g.name || '').slice(0, 24),
@@ -235,15 +230,37 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
       lng: missed ? null : lng,
       country: String(g.country || '').slice(0, 64),
       km,
-      score,
       missed,
-      total: session.totals[playerId],
-      commitToken: signLeaderboardCommit(sessionId, playerId, session.totals[playerId]),
     }
   })
-  // Round rank: higher score, then closer km, then playerId (stable).
+
+  // Closest pin(s) win the round — pure distance, no exponential points.
+  let bestKm = Infinity
+  for (const r of results) {
+    if (Number.isFinite(r.km) && r.km < bestKm) bestKm = r.km
+  }
+
+  for (const r of results) {
+    const wonRound = Number.isFinite(r.km) && Number.isFinite(bestKm) && r.km === bestKm
+    session.totals[r.playerId] = (session.totals[r.playerId] || 0) + (wonRound ? 1 : 0)
+    const addKm = Number.isFinite(r.km) ? r.km : MISS_KM_PENALTY
+    session.kmTotals[r.playerId] = (session.kmTotals[r.playerId] || 0) + addKm
+    if (Number.isFinite(r.km)) {
+      const prev = session.kmStats[r.playerId] || { closestKm: null, farthestKm: null }
+      if (prev.closestKm == null || r.km < prev.closestKm) prev.closestKm = r.km
+      if (prev.farthestKm == null || r.km > prev.farthestKm) prev.farthestKm = r.km
+      session.kmStats[r.playerId] = prev
+    }
+    r.wonRound = wonRound
+    // score kept as 0/1 round-win flag for older clients reading the field
+    r.score = wonRound ? 1 : 0
+    r.total = session.totals[r.playerId]
+    r.totalKm = session.kmTotals[r.playerId]
+    r.commitToken = signLeaderboardCommit(sessionId, r.playerId, session.totals[r.playerId])
+  }
+
+  // Round rank: closer km first, then playerId (stable).
   results.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score
     const ak = a.km == null ? Infinity : a.km
     const bk = b.km == null ? Infinity : b.km
     if (ak !== bk) return ak - bk
@@ -261,6 +278,7 @@ export async function scoreRound(sessionId, hostToken, roundIndex, guesses) {
     },
     results,
     totals: { ...session.totals },
+    kmTotals: { ...session.kmTotals },
   }
   if (!session.roundSnapshots) session.roundSnapshots = new Map()
   session.roundSnapshots.set(roundIndex, snapshot)
@@ -287,12 +305,13 @@ export function consumeLeaderboardCommit(sessionId, playerId, score, token) {
   const km = session.kmStats?.[pid] || {}
   return {
     score: expectedScore,
+    totalKm: Number.isFinite(session.kmTotals?.[pid]) ? session.kmTotals[pid] : null,
     closestKm: Number.isFinite(km.closestKm) ? km.closestKm : null,
     farthestKm: Number.isFinite(km.farthestKm) ? km.farthestKm : null,
   }
 }
 
-export { haversineKm, scoreFromDistanceKm }
+export { haversineKm, MISS_KM_PENALTY }
 
 function streetViewEmbedSrc(panoId, latS, lngS, heading) {
   return panoId

@@ -15,7 +15,7 @@ export function LegalPage({ kind, onBack }) {
           <div className="prose-invert mt-6 space-y-4 text-sm leading-relaxed text-muted">
             <p>
               monk.run is a party geography game. We keep only what the temple needs: your display name,
-              scout choice, room PIN, and scores submitted after a verified match.
+              scout choice, room PIN, and round-win totals submitted after a verified match.
             </p>
             <p>
               Voice is peer-to-peer. Mic audio never uploads to monk.run — it only flows between players
