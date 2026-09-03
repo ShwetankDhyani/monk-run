@@ -1159,34 +1159,25 @@ export default function App() {
     const isIntermission = room.phase === 'intermission'
     return (
       <Fragment>
-      <div className="reveal-screen screen-enter relative min-h-full">
+      <div className="reveal-screen screen-enter relative">
         <Atmosphere intensity="soft" />
-        <div className="reveal-grid relative z-10 grid flex-1 gap-3 p-3 lg:grid-cols-2">
-          <div className="reveal-panel flex min-h-[280px] flex-col p-3">
-            <p className="landing-label text-jade-bright">{COPY.reveal.eyebrow}</p>
-            <h3 className="reveal-place mt-1 text-fog">
-              {room.reveal.truth.city}, {room.reveal.truth.country}
-            </h3>
-            <div className="reveal-map-frame mt-3 min-h-[240px] flex-1">
-              <GameErrorBoundary label="Map view failed">
-                <GuessMap
-                  mode="reveal"
-                  truth={room.reveal.truth}
-                  revealResults={room.reveal.results}
-                  selfId={room.selfId}
-                />
-              </GameErrorBoundary>
-            </div>
-          </div>
-          <div className="reveal-panel reveal-panel--scores flex flex-col gap-4 p-4">
+        <div className="reveal-grid relative z-10">
+          <div className="reveal-panel reveal-panel--scores">
             <div className="reveal-distance-hero" aria-live="polite">
-              <p className="reveal-distance-hero-label">{COPY.reveal.yourDistance}</p>
-              <p className="reveal-distance-hero-value">
-                {selfResult?.missed ? COPY.reveal.missed : formatKm(selfResult?.km)}
-              </p>
-              {selfResult?.wonRound ? (
-                <p className="reveal-distance-hero-win">{COPY.reveal.roundWin}</p>
-              ) : null}
+              <div className="reveal-distance-hero-main">
+                <p className="reveal-distance-hero-label">{COPY.reveal.yourDistance}</p>
+                <p className="reveal-distance-hero-value">
+                  {selfResult?.missed ? COPY.reveal.missed : formatKm(selfResult?.km)}
+                </p>
+              </div>
+              <div className="reveal-distance-hero-meta">
+                <span className="reveal-distance-round">
+                  {COPY.reveal.roundLabel(room.roundIndex + 1, room.totalRounds)}
+                </span>
+                {selfResult?.wonRound ? (
+                  <span className="reveal-distance-hero-win">{COPY.reveal.roundWin}</span>
+                ) : null}
+              </div>
             </div>
 
             <section className="standings-board" aria-label={COPY.reveal.totals}>
@@ -1233,45 +1224,45 @@ export default function App() {
                 })}
               </ol>
             </section>
+          </div>
 
-            <div className="reveal-round-block">
-              <p className="reveal-round-head">{COPY.reveal.roundResults}</p>
-              <ul className="reveal-roster">
-                {room.reveal.results.map((r) => (
-                  <li
-                    key={r.playerId}
-                    className={`reveal-roster-row${r.playerId === room.selfId ? ' reveal-roster-row--you' : ''}${r.wonRound ? ' reveal-roster-row--won' : ''}`}
-                  >
-                    <span className="font-display tracking-wide">
-                      {r.name}
-                      {r.wonRound ? <span className="reveal-won-tag"> {COPY.reveal.roundWinTag}</span> : null}
-                    </span>
-                    <span className="font-mono text-[12px] text-muted">
-                      {r.missed ? COPY.reveal.missed : formatKm(r.km)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          <div className="reveal-panel reveal-panel--map">
+            <div className="reveal-place-row">
+              <p className="landing-label text-jade-bright">{COPY.reveal.eyebrow}</p>
+              <h3 className="reveal-place text-fog">
+                {room.reveal.truth.city}, {room.reveal.truth.country}
+              </h3>
+            </div>
+            <div className="reveal-map-frame">
+              <GameErrorBoundary label="Map view failed">
+                <GuessMap
+                  mode="reveal"
+                  truth={room.reveal.truth}
+                  revealResults={room.reveal.results}
+                  selfId={room.selfId}
+                  tall
+                  active
+                />
+              </GameErrorBoundary>
             </div>
           </div>
         </div>
-      </div>
 
         <div className="reveal-action">
           {isIntermission ? (
-            <div className="reveal-next px-4 py-4 text-center">
+            <div className="reveal-next px-4 py-3 text-center">
               <p className="landing-label">{COPY.reveal.next}</p>
               {room.intermissionEndsAt > 0 ? (
                 <>
-                  <p className="font-display text-4xl font-semibold text-brass-bright">{intermissionLeft || 1}s</p>
-                  <p className="mt-2 text-xs text-muted">
+                  <p className="font-display text-3xl font-semibold text-brass-bright">{intermissionLeft || 1}s</p>
+                  <p className="mt-1 text-xs text-muted">
                     {room.viewToken ? COPY.reveal.opening : COPY.reveal.seeking}
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="mt-2 animate-pulse font-display text-xl text-brass">{COPY.reveal.seeking}</p>
-                  <p className="mt-2 text-xs text-muted">{COPY.reveal.hang}</p>
+                  <p className="mt-1 animate-pulse font-display text-xl text-brass">{COPY.reveal.seeking}</p>
+                  <p className="mt-1 text-xs text-muted">{COPY.reveal.hang}</p>
                 </>
               )}
             </div>
@@ -1287,6 +1278,7 @@ export default function App() {
             <p className="reveal-waiting text-center text-xs text-muted">{COPY.reveal.waitingHost}</p>
           )}
         </div>
+      </div>
       <CinematicOverlay phase={cinPhase} />
       </Fragment>
     )
