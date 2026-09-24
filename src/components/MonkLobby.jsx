@@ -396,11 +396,39 @@ export function MonkLobby({
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    if (!canvas) return undefined
+    const ctx = canvas.getContext('2d', { alpha: false })
     let raf = 0
+    let lastDraw = 0
+    let alive = true
+
+    const syncBackingStore = () => {
+      const narrow = typeof window !== 'undefined' && window.innerWidth < 768
+      const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, narrow ? 1.5 : 2)
+      const maxW = narrow ? 960 : WORLD.w
+      const maxH = narrow ? 540 : WORLD.h
+      const scale = Math.min(1, maxW / WORLD.w, maxH / WORLD.h)
+      const bw = Math.max(1, Math.round(WORLD.w * scale * dpr))
+      const bh = Math.max(1, Math.round(WORLD.h * scale * dpr))
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw
+        canvas.height = bh
+      }
+      ctx.setTransform(bw / WORLD.w, 0, 0, bh / WORLD.h, 0, 0)
+    }
 
     const frame = (now) => {
+      if (!alive) return
+      raf = requestAnimationFrame(frame)
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+
+      const narrow = typeof window !== 'undefined' && window.innerWidth < 768
+      const targetMs = narrow || !focused ? 1000 / 30 : 1000 / 60
+      if (now - lastDraw < targetMs - 0.5) return
+      lastDraw = now
+
+      syncBackingStore()
+
       const dt = Math.min(0.05, (now - lastTs.current) / 1000)
       lastTs.current = now
       smackCd.current = Math.max(0, smackCd.current - dt)
@@ -579,12 +607,18 @@ export function MonkLobby({
         ctx.fillStyle = `rgba(0,0,0,${suck * 0.55})`
         ctx.fillRect(0, 0, WORLD.w, WORLD.h)
       }
-
-      raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(raf)
-  }, [selfId, portalActive, countdownStartedAt, countdownEndsAt, portalHold, blackHoleX, blackHoleY])
+    const onVis = () => {
+      if (document.visibilityState === 'visible') lastTs.current = performance.now()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      alive = false
+      cancelAnimationFrame(raf)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [selfId, portalActive, countdownStartedAt, countdownEndsAt, portalHold, blackHoleX, blackHoleY, focused])
 
   const runAction = (kind) => {
     if (!actionMenu) return

@@ -3,14 +3,25 @@ import { migrateVibeToAvatar } from '../data/avatars.js'
 import { randomBlackHolePos, pickRandomSpawn, clampToFloor } from './templeRoom.js'
 import { createGameSession, openRoundView, revealRoundScores } from './gameSession.js'
 import { playerError } from './playerErrors.js'
-import { normalizeScoringMode, SCORING_DISTANCE } from './scoring.js'
+import {
+  normalizeScoringMode,
+  SCORING_DISTANCE,
+  MAX_PLAYERS,
+  MAX_PLAYER_NAME_LEN,
+  DEFAULT_ROUNDS,
+  DEFAULT_ROUND_MS,
+  LOBBY_COUNTDOWN_MS,
+  INTERMISSION_MS,
+} from './scoring.js'
 
-export const MAX_PLAYERS = 5
-export const MAX_PLAYER_NAME_LEN = 18
-export const DEFAULT_ROUNDS = 5
-export const DEFAULT_ROUND_MS = 90_000
-export const LOBBY_COUNTDOWN_MS = 3_000
-export const INTERMISSION_MS = 4_500
+export {
+  MAX_PLAYERS,
+  MAX_PLAYER_NAME_LEN,
+  DEFAULT_ROUNDS,
+  DEFAULT_ROUND_MS,
+  LOBBY_COUNTDOWN_MS,
+  INTERMISSION_MS,
+}
 
 const DEFAULT_ICE = [
   { urls: 'stun:stun.l.google.com:19302' },

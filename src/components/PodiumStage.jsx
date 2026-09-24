@@ -24,6 +24,9 @@ export function PodiumStage({ ranked = [], scoringMode = SCORING_DISTANCE }) {
     const ctx = canvas.getContext('2d')
     let raf = 0
     let alive = true
+    const started = performance.now()
+    // Animate briefly, then freeze — no need for infinite podium rAF.
+    const ANIM_MS = 2800
 
     const draw = (t) => {
       if (!alive) return
@@ -82,7 +85,9 @@ export function PodiumStage({ ranked = [], scoringMode = SCORING_DISTANCE }) {
         drawMonkTopDown(ctx, cx, monkY, look, 'down', isWinner ? t * 0.014 : 0, monkScale, monkScale)
       }
 
-      raf = requestAnimationFrame(draw)
+      if (t - started < ANIM_MS && document.visibilityState !== 'hidden') {
+        raf = requestAnimationFrame(draw)
+      }
     }
 
     raf = requestAnimationFrame(draw)

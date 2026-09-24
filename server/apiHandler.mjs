@@ -31,15 +31,26 @@ function trimHall(list, compare) {
 }
 
 
-function sendJson(res, status, body) {
+function sendJson(res, status, body, cacheControl = 'no-store') {
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Cache-Control': 'no-store',
+    'Cache-Control': cacheControl,
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Host-Token',
   })
   res.end(JSON.stringify(body))
+}
+
+/** Warm-instance cache so Blob-backed halls don't re-fetch on every modal open. */
+let hallsMem = { at: 0, data: null }
+const HALLS_MEM_TTL_MS = 45_000
+
+async function loadHallsCached() {
+  if (hallsMem.data && Date.now() - hallsMem.at < HALLS_MEM_TTL_MS) return hallsMem.data
+  const data = await loadHalls()
+  hallsMem = { at: Date.now(), data }
+  return data
 }
 
 function readBody(req, limit = 64_000) {
@@ -84,17 +95,22 @@ export async function handleApi(req, res) {
   }
 
   if (req.method === 'GET' && url === '/api/leaderboard') {
-    const halls = await loadHalls()
-    sendJson(res, 200, {
-      halls: {
-        highestScore: trimHall(halls.highestScore, (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0)),
-        lowestScore: trimHall(halls.lowestScore, (a, b) => a.score - b.score || (a.at || 0) - (b.at || 0)),
-        closestGuess: trimHall(halls.closestGuess, (a, b) => a.km - b.km || (a.at || 0) - (b.at || 0)),
-        farthestGuess: trimHall(halls.farthestGuess, (a, b) => b.km - a.km || (a.at || 0) - (b.at || 0)),
+    const halls = await loadHallsCached()
+    sendJson(
+      res,
+      200,
+      {
+        halls: {
+          highestScore: trimHall(halls.highestScore, (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0)),
+          lowestScore: trimHall(halls.lowestScore, (a, b) => a.score - b.score || (a.at || 0) - (b.at || 0)),
+          closestGuess: trimHall(halls.closestGuess, (a, b) => a.km - b.km || (a.at || 0) - (b.at || 0)),
+          farthestGuess: trimHall(halls.farthestGuess, (a, b) => b.km - a.km || (a.at || 0) - (b.at || 0)),
+        },
+        // Back-compat for older clients
+        entries: trimHall(halls.highestScore, (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0)),
       },
-      // Back-compat for older clients
-      entries: trimHall(halls.highestScore, (a, b) => b.score - a.score || (b.at || 0) - (a.at || 0)),
-    })
+      'public, s-maxage=45, stale-while-revalidate=120',
+    )
     return
   }
 
@@ -151,6 +167,7 @@ export async function handleApi(req, res) {
         }
         return current
       })
+      hallsMem = { at: Date.now(), data: halls }
       sendJson(res, 201, {
         entry: base,
         halls: {

@@ -7,6 +7,14 @@ export const SCORING_DISTANCE = 'distance'
 
 export const SCORING_MODES = [SCORING_DISTANCE, SCORING_POINTS]
 
+/** Room defaults — kept here so the landing bundle can avoid importing PeerJS. */
+export const MAX_PLAYERS = 5
+export const MAX_PLAYER_NAME_LEN = 18
+export const DEFAULT_ROUNDS = 5
+export const DEFAULT_ROUND_MS = 90_000
+export const LOBBY_COUNTDOWN_MS = 3_000
+export const INTERMISSION_MS = 4_500
+
 export function normalizeScoringMode(raw) {
   const s = String(raw || '').trim().toLowerCase()
   if (s === SCORING_POINTS || s === 'score' || s === 'classic') return SCORING_POINTS

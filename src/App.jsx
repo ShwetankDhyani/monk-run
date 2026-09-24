@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment, lazy, Suspense } from 'react'
 import { migrateVibeToAvatar, resolvePlayerLook } from './data/avatars.js'
 import {
   formatKm,
@@ -9,28 +9,16 @@ import {
   rankPlayers,
   SCORING_DISTANCE,
   SCORING_POINTS,
-} from './lib/scoring.js'
-import {
-  createRoomController,
   DEFAULT_ROUNDS,
   DEFAULT_ROUND_MS,
   MAX_PLAYERS,
-} from './lib/peerRoom.js'
-import { createVoiceChat } from './lib/voiceChat.js'
+} from './lib/scoring.js'
 import { VoiceMuteButton } from './components/VoiceMuteButton.jsx'
-import StreetView from './components/StreetView.jsx'
-import GuessMap from './components/GuessMap.jsx'
-import { MonkLobby } from './components/MonkLobby.jsx'
 import { AvatarPicker } from './components/AvatarPicker.jsx'
 import { CinematicOverlay } from './components/CinematicOverlay.jsx'
-import { AllTimeLeaderboardButton } from './components/AllTimeLeaderboard.jsx'
-import { PodiumStage } from './components/PodiumStage.jsx'
 import { submitScore } from './lib/leaderboard.js'
 import { playerError } from './lib/playerErrors.js'
 import { useMediaQuery } from './lib/useMediaQuery.js'
-import { HowToPlayModal } from './components/HowToPlayModal.jsx'
-import { SettingsModal } from './components/SettingsModal.jsx'
-import { LegalPage } from './components/LegalPage.jsx'
 import { Atmosphere, BrandMark } from './components/Atmosphere.jsx'
 import { LandingVoid, LandingEmblem } from './components/LandingVoid.jsx'
 import { GameErrorBoundary } from './components/GameErrorBoundary.jsx'
@@ -38,6 +26,35 @@ import { GameErrorBoundary } from './components/GameErrorBoundary.jsx'
 import { sfx, startAmbient, stopAmbient, isAmbientMuted } from './lib/sfx.js'
 import { COPY, lobbyFlavor } from './copy.js'
 import { HANGOUT } from './lib/lobbyWorlds.js'
+
+const StreetView = lazy(() => import('./components/StreetView.jsx'))
+const GuessMap = lazy(() => import('./components/GuessMap.jsx'))
+const MonkLobby = lazy(() =>
+  import('./components/MonkLobby.jsx').then((m) => ({ default: m.MonkLobby })),
+)
+const PodiumStage = lazy(() =>
+  import('./components/PodiumStage.jsx').then((m) => ({ default: m.PodiumStage })),
+)
+const LegalPage = lazy(() =>
+  import('./components/LegalPage.jsx').then((m) => ({ default: m.LegalPage })),
+)
+const HowToPlayModal = lazy(() =>
+  import('./components/HowToPlayModal.jsx').then((m) => ({ default: m.HowToPlayModal })),
+)
+const SettingsModal = lazy(() =>
+  import('./components/SettingsModal.jsx').then((m) => ({ default: m.SettingsModal })),
+)
+const AllTimeLeaderboardButton = lazy(() =>
+  import('./components/AllTimeLeaderboard.jsx').then((m) => ({ default: m.AllTimeLeaderboardButton })),
+)
+
+function LazyFallback({ label = 'Loading…' }) {
+  return (
+    <div className="grid min-h-[8rem] place-items-center">
+      <p className="animate-pulse font-mono text-xs tracking-widest text-sky">{label}</p>
+    </div>
+  )
+}
 
 function useCountdown(endsAt, active) {
   const [left, setLeft] = useState(0)
@@ -175,6 +192,8 @@ export default function App() {
 
   const ctrlRef = useRef(null)
   const voiceRef = useRef(null)
+  const tickIdRef = useRef(null)
+  const peerReadyRef = useRef(null)
   const voiceSnapRef = useRef({
     muted: true,
     active: false,
@@ -189,7 +208,33 @@ export default function App() {
   const lobbyLeft = useCountdown(room?.countdownEndsAt, room?.phase === 'countdown')
   const intermissionLeft = useCountdown(room?.intermissionEndsAt, room?.phase === 'intermission')
 
-  useEffect(() => {
+  const bindController = useCallback((ctrl) => {
+    ctrlRef.current = ctrl
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        (localStorage.getItem('monk-debug') === '1' ||
+          new URLSearchParams(window.location.search).get('monkDebug') === '1')
+      ) {
+        window.__MONK_CTRL__ = ctrl
+      }
+    } catch {
+      /* ignore */
+    }
+    if (tickIdRef.current) clearInterval(tickIdRef.current)
+    tickIdRef.current = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      ctrl.tick()
+    }, 200)
+  }, [])
+
+  const ensureController = useCallback(async () => {
+    if (ctrlRef.current) return ctrlRef.current
+    if (!peerReadyRef.current) {
+      peerReadyRef.current = import('./lib/peerRoom.js')
+    }
+    const { createRoomController } = await peerReadyRef.current
+    if (ctrlRef.current) return ctrlRef.current
     const ctrl = createRoomController({
       onState: (s) => setRoom(s),
       onError: (msg) => setError(playerError(msg)),
@@ -205,32 +250,75 @@ export default function App() {
         }
       },
     })
-    ctrlRef.current = ctrl
+    bindController(ctrl)
+    return ctrl
+  }, [bindController])
+
+  const teardownSession = useCallback(() => {
+    if (tickIdRef.current) {
+      clearInterval(tickIdRef.current)
+      tickIdRef.current = null
+    }
+    voiceRef.current?.destroy()
+    voiceRef.current = null
     try {
-      if (
-        typeof window !== 'undefined' &&
-        (localStorage.getItem('monk-debug') === '1' ||
-          new URLSearchParams(window.location.search).get('monkDebug') === '1')
-      ) {
-        window.__MONK_CTRL__ = ctrl
-      }
+      ctrlRef.current?.destroy?.()
     } catch {
       /* ignore */
     }
-    const id = setInterval(() => ctrl.tick(), 200)
+    ctrlRef.current = null
+    setRoom(null)
+    setGateMode(null)
+    setScreen('landing')
+    setVoice({
+      muted: true,
+      active: false,
+      peers: [],
+      error: null,
+      link: 'idle',
+      level: 0,
+    })
+    try {
+      window.location.hash = ''
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === 'visible') ctrl.tick()
+      if (document.visibilityState === 'visible') ctrlRef.current?.tick?.()
     }
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('focus', onVis)
     return () => {
-      clearInterval(id)
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('focus', onVis)
+      if (tickIdRef.current) clearInterval(tickIdRef.current)
       voiceRef.current?.destroy()
-      ctrl.destroy()
+      try {
+        ctrlRef.current?.destroy?.()
+      } catch {
+        /* ignore */
+      }
     }
   }, [])
+
+  useEffect(() => {
+    if (!gateMode) return undefined
+    // Warm PeerJS chunk while the user fills name / PIN.
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback(() => {
+          peerReadyRef.current = import('./lib/peerRoom.js')
+        })
+      : window.setTimeout(() => {
+          peerReadyRef.current = import('./lib/peerRoom.js')
+        }, 120)
+    return () => {
+      if (window.cancelIdleCallback && typeof idle === 'number') window.cancelIdleCallback(idle)
+      else clearTimeout(idle)
+    }
+  }, [gateMode])
 
   useEffect(() => {
     if (!isAmbientMuted()) startAmbient()
@@ -457,6 +545,7 @@ export default function App() {
 
   const ensureVoice = async () => {
     if (!voiceRef.current) {
+      const { createVoiceChat } = await import('./lib/voiceChat.js')
       voiceRef.current = createVoiceChat({
         getPeer: () => ctrlRef.current?.getPeer?.(),
         getRemotePeerIds: () => ctrlRef.current?.getPeerIds?.() || [],
@@ -519,7 +608,8 @@ export default function App() {
     localStorage.setItem('monk-name', trimmed)
     localStorage.setItem('monk-avatar', avatar)
     try {
-      await ctrlRef.current.createRoom({
+      const ctrl = await ensureController()
+      await ctrl.createRoom({
         name: trimmed,
         avatar,
         vibe,
@@ -545,7 +635,8 @@ export default function App() {
     localStorage.setItem('monk-name', trimmed)
     localStorage.setItem('monk-avatar', avatar)
     try {
-      await ctrlRef.current.joinRoom({
+      const ctrl = await ensureController()
+      await ctrl.joinRoom({
         name: trimmed,
         avatar,
         vibe,
@@ -653,7 +744,11 @@ export default function App() {
       room.phase === 'countdown' ||
       (portalHold && (room.phase === 'playing' || room.phase === 'loading-round')))
   if (legal) {
-    return <LegalPage kind={legal} onBack={() => setLegal(null)} />
+    return (
+      <Suspense fallback={<LazyFallback label="OPENING…" />}>
+        <LegalPage kind={legal} onBack={() => setLegal(null)} />
+      </Suspense>
+    )
   }
 
   if (screen === 'landing' && !busy && (!room || room.phase === 'boot')) {
@@ -803,8 +898,12 @@ export default function App() {
           </div>
         </div>
 
-        <HowToPlayModal open={showHowTo} onClose={() => setShowHowTo(false)} />
-        <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+        {(showHowTo || showSettings) && (
+          <Suspense fallback={null}>
+            {showHowTo ? <HowToPlayModal open={showHowTo} onClose={() => setShowHowTo(false)} /> : null}
+            {showSettings ? <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} /> : null}
+          </Suspense>
+        )}
       </div>
     )
   }
@@ -835,11 +934,7 @@ export default function App() {
             className="btn btn-primary mt-8 w-full"
             onClick={() => {
               setError('')
-              setGateMode(null)
-              ctrlRef.current.destroy()
-              setRoom(null)
-              setScreen('landing')
-              window.location.hash = ''
+              teardownSession()
             }}
           >
             {COPY.error.back}
@@ -861,6 +956,7 @@ export default function App() {
       >
         <Atmosphere intensity="soft" />
         <div className="waiting-stage-full">
+          <Suspense fallback={<LazyFallback label="OPENING TEMPLE…" />}>
           <MonkLobby
             selfId={room.selfId}
             players={room.players}
@@ -880,6 +976,7 @@ export default function App() {
             chat={room.chat || []}
             chrome={false}
           />
+          </Suspense>
 
           <header className="waiting-float-bar">
             <div className="waiting-brand">
@@ -1171,7 +1268,9 @@ export default function App() {
           <BrandMark className="mx-auto mb-3 h-10 w-10 text-brass" />
           <h2 className="text-center font-display text-4xl font-semibold tracking-wide text-brass-bright md:text-5xl">{COPY.podium.title}</h2>
 
-          <PodiumStage ranked={ranked} scoringMode={scoringMode} />
+          <Suspense fallback={<LazyFallback label="RAISING PODIUM…" />}>
+            <PodiumStage ranked={ranked} scoringMode={scoringMode} />
+          </Suspense>
 
           {rest.length > 0 && (
             <ol className="mt-4 space-y-1 border-t border-brass/15 pt-4">
@@ -1222,37 +1321,17 @@ export default function App() {
             type="button"
             className="btn btn-ghost mt-3 w-full"
             onClick={() => {
-              voiceRef.current?.destroy()
-              voiceRef.current = null
-              ctrlRef.current.destroy()
-              setRoom(null)
-              setGateMode(null)
-              setScreen('landing')
-              window.location.hash = ''
-              const ctrl = createRoomController({
-                onState: (s) => setRoom(s),
-                onError: (msg) => setError(playerError(msg)),
-                onEvent: (evt) => {
-                  if (evt?.type === 'force-mute') {
-                    const v = voiceRef.current
-                    if (!v) return
-                    const mute = () => v.setMuted?.(true)
-                    if (v.hasMic?.()) mute()
-                    else v.enableMic?.().then(mute).catch(() => {})
-                    setHostMuteToast(COPY.lobby.mutedByHost)
-                    window.setTimeout(() => setHostMuteToast(''), 3200)
-                  }
-                },
-              })
-              ctrlRef.current = ctrl
               setError('')
+              teardownSession()
             }}
           >
             {COPY.podium.leaveParty}
           </button>
         </div>
         <footer className="podium-footer relative z-10 mx-auto w-full max-w-3xl px-2 pt-6 md:px-4">
-          <AllTimeLeaderboardButton refreshKey={leaderboardKey} footer className="w-full" />
+          <Suspense fallback={null}>
+            <AllTimeLeaderboardButton refreshKey={leaderboardKey} footer className="w-full" />
+          </Suspense>
         </footer>
       </div>
       <CinematicOverlay phase={cinPhase} />
@@ -1350,14 +1429,16 @@ export default function App() {
             </div>
             <div className="reveal-map-frame">
               <GameErrorBoundary label="Map view failed">
-                <GuessMap
-                  mode="reveal"
-                  truth={room.reveal.truth}
-                  revealResults={room.reveal.results}
-                  selfId={room.selfId}
-                  tall
-                  active
-                />
+                <Suspense fallback={<LazyFallback label="LOADING MAP…" />}>
+                  <GuessMap
+                    mode="reveal"
+                    truth={room.reveal.truth}
+                    revealResults={room.reveal.results}
+                    selfId={room.selfId}
+                    tall
+                    active
+                  />
+                </Suspense>
               </GameErrorBoundary>
             </div>
           </div>
@@ -1442,7 +1523,11 @@ export default function App() {
     <div className="play-shell screen-enter">
       <div className="play-view">
         <GameErrorBoundary label="Panorama failed">
-          {room.viewToken && <StreetView viewToken={room.viewToken} />}
+          {room.viewToken && (
+            <Suspense fallback={<LazyFallback label="LOADING ROUND VIEW…" />}>
+              <StreetView viewToken={room.viewToken} />
+            </Suspense>
+          )}
         </GameErrorBoundary>
 
         <header className="play-hud">
@@ -1514,16 +1599,18 @@ export default function App() {
               </div>
             </div>
             <div className="play-map-body min-h-0 flex-1 overflow-hidden">
-              <GuessMap
-                mode="guess"
-                guess={guess}
-                onGuess={setGuess}
-                country={country}
-                onCountry={setCountry}
-                locked={selfGuessed}
-                tall
-                active={isDesktopMap}
-              />
+              <Suspense fallback={<LazyFallback label="LOADING MAP…" />}>
+                <GuessMap
+                  mode="guess"
+                  guess={guess}
+                  onGuess={setGuess}
+                  country={country}
+                  onCountry={setCountry}
+                  locked={selfGuessed}
+                  tall
+                  active={isDesktopMap}
+                />
+              </Suspense>
             </div>
             <button
               type="button"
@@ -1614,17 +1701,19 @@ export default function App() {
               </button>
             </div>
             <div className="play-pin-sheet-body min-h-0 flex-1 overflow-hidden">
-              <GuessMap
-                mode="guess"
-                guess={guess}
-                onGuess={setGuess}
-                country={country}
-                onCountry={setCountry}
-                locked={selfGuessed}
-                tall
-                sheet
-                active={pinSheetOpen}
-              />
+              <Suspense fallback={<LazyFallback label="LOADING MAP…" />}>
+                <GuessMap
+                  mode="guess"
+                  guess={guess}
+                  onGuess={setGuess}
+                  country={country}
+                  onCountry={setCountry}
+                  locked={selfGuessed}
+                  tall
+                  sheet
+                  active={pinSheetOpen}
+                />
+              </Suspense>
             </div>
             <button
               type="button"
